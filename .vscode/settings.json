@@ -1,6 +1,0 @@
-{
-  "cmake.useCMakePresets": "always",
-  "cmake.defaultConfigurePreset": "dev",
-  "cmake.configureOnOpen": true,
-  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
-}

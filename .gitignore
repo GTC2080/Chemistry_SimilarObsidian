@@ -41,6 +41,11 @@
 
 # Editor / OS noise
 .vs/
+.vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local planning and placeholder tooling that do not need to ship in the public repo
+docs/superpowers/
+tools/dev_cli/
