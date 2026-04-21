@@ -42,6 +42,64 @@ std::string two_digit_index(const int value) {
   return std::to_string(value);
 }
 
+struct AttachmentAnomalySnapshot {
+  int missing_attachment_count = 0;
+  int orphaned_attachment_count = 0;
+  std::string summary = "clean";
+};
+
+std::string summarize_attachment_anomalies(
+    const int missing_attachment_count,
+    const int orphaned_attachment_count) {
+  if (missing_attachment_count != 0 && orphaned_attachment_count != 0) {
+    return "missing_live_and_orphaned_attachments";
+  }
+  if (missing_attachment_count != 0) {
+    return "missing_live_attachments";
+  }
+  if (orphaned_attachment_count != 0) {
+    return "orphaned_attachments";
+  }
+  return "clean";
+}
+
+std::filesystem::path make_temp_export_path(std::string_view filename) {
+  return make_temp_vault("chem_kernel_export_") / std::string(filename);
+}
+
+AttachmentAnomalySnapshot read_attachment_anomaly_snapshot(
+    const std::filesystem::path& db_path) {
+  sqlite3* db = open_sqlite_readonly(db_path);
+  AttachmentAnomalySnapshot snapshot{};
+  snapshot.missing_attachment_count = query_single_int(
+      db,
+      "SELECT COUNT(*) "
+      "FROM ("
+      "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
+      "  FROM note_attachment_refs "
+      "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
+      "  JOIN attachments ON attachments.rel_path = note_attachment_refs.attachment_rel_path "
+      "  WHERE notes.is_deleted = 0 AND attachments.is_missing = 1"
+      ");");
+  snapshot.orphaned_attachment_count = query_single_int(
+      db,
+      "SELECT COUNT(*) "
+      "FROM attachments "
+      "LEFT JOIN ("
+      "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
+      "  FROM note_attachment_refs "
+      "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
+      "  WHERE notes.is_deleted = 0"
+      ") AS live_refs "
+      "  ON live_refs.attachment_rel_path = attachments.rel_path "
+      "WHERE live_refs.attachment_rel_path IS NULL;");
+  sqlite3_close(db);
+  snapshot.summary = summarize_attachment_anomalies(
+      snapshot.missing_attachment_count,
+      snapshot.orphaned_attachment_count);
+  return snapshot;
+}
+
 void require_attachment_lookup_state(
     kernel_handle* handle,
     const char* attachment_rel_path,
@@ -2317,6 +2375,197 @@ void test_attachment_api_observes_attachment_rename_reconciliation() {
   kernel_free_search_page(&page);
 
   expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
+void test_attachment_full_rescan_reconciles_mixed_changes_through_formal_public_surface() {
+  const auto vault = make_temp_vault();
+  std::filesystem::create_directories(vault / "assets");
+  std::filesystem::create_directories(vault / "docs");
+  write_file_bytes(vault / "assets" / "live.png", "live-attachment");
+  write_file_bytes(vault / "assets" / "remove.bin", "remove-attachment");
+  write_file_bytes(vault / "assets" / "stale.png", "stale-attachment");
+
+  kernel_handle* handle = nullptr;
+  require_true(
+      kernel_open_vault(vault.string().c_str(), &handle).code == KERNEL_OK,
+      "attachment full-rescan test should open vault");
+
+  kernel_note_metadata metadata{};
+  kernel_write_disposition disposition{};
+  const std::string before =
+      "# Attachment Full Rescan Before\n"
+      "![Live](assets/live.png)\n"
+      "[Remove](assets/remove.bin)\n"
+      "![Stale](assets/stale.png)\n";
+  require_true(
+      kernel_write_note(
+          handle,
+          "attachment-full-rescan.md",
+          before.data(),
+          before.size(),
+          nullptr,
+          &metadata,
+          &disposition)
+              .code == KERNEL_OK,
+      "attachment full-rescan test should seed the initial note");
+  require_true(
+      kernel_close(handle).code == KERNEL_OK,
+      "attachment full-rescan test should close the seeded vault");
+
+  std::filesystem::remove(vault / "assets" / "stale.png");
+  write_file_bytes(vault / "docs" / "fresh.pdf", "fresh-pdf");
+  const std::string after =
+      "# Attachment Full Rescan After\n"
+      "![Live](assets/live.png)\n"
+      "![Stale](assets/stale.png)\n"
+      "[Fresh](docs/fresh.pdf)\n";
+  write_file_bytes(vault / "attachment-full-rescan.md", after);
+
+  auto db = kernel::storage::Database{};
+  require_true(
+      !kernel::storage::open_or_create(storage_db_for_vault(vault), db),
+      "attachment full-rescan test should open storage db");
+  require_true(
+      !kernel::storage::ensure_schema_v1(db),
+      "attachment full-rescan test should ensure schema");
+  const std::vector<kernel::watcher::CoalescedAction> actions = {
+      {kernel::watcher::CoalescedActionKind::FullRescan, ""}};
+  require_true(
+      !kernel::watcher::apply_actions(db, vault, actions),
+      "attachment full-rescan apply should succeed");
+  kernel::storage::close(db);
+
+  handle = nullptr;
+  require_true(
+      kernel_open_vault(vault.string().c_str(), &handle).code == KERNEL_OK,
+      "attachment full-rescan test should reopen vault after offline full rescan");
+  require_index_ready(handle, "attachment full-rescan test should settle to READY");
+
+  kernel_attachment_list refs{};
+  require_true(
+      kernel_query_note_attachment_refs(
+          handle,
+          "attachment-full-rescan.md",
+          static_cast<size_t>(-1),
+          &refs)
+              .code == KERNEL_OK,
+      "attachment full-rescan should expose refreshed note attachment refs");
+  require_true(
+      refs.count == 3,
+      "attachment full-rescan should replace the live note attachment ref set in the formal public surface");
+  require_true(
+      std::string(refs.attachments[0].rel_path) == "assets/live.png" &&
+          refs.attachments[0].presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT &&
+          refs.attachments[0].kind == KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      "attachment full-rescan should preserve the still-live present attachment ref");
+  require_true(
+      std::string(refs.attachments[1].rel_path) == "assets/stale.png" &&
+          refs.attachments[1].presence == KERNEL_ATTACHMENT_PRESENCE_MISSING &&
+          refs.attachments[1].kind == KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      "attachment full-rescan should keep deleted-but-still-referenced attachments visible as missing");
+  require_true(
+      std::string(refs.attachments[2].rel_path) == "docs/fresh.pdf" &&
+          refs.attachments[2].presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT &&
+          refs.attachments[2].kind == KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      "attachment full-rescan should add newly referenced attachments to the formal note refs surface");
+  kernel_free_attachment_list(&refs);
+
+  kernel_attachment_list attachments{};
+  require_true(
+      kernel_query_attachments(handle, static_cast<size_t>(-1), &attachments).code == KERNEL_OK,
+      "attachment full-rescan should expose the refreshed live catalog");
+  require_true(
+      attachments.count == 3,
+      "attachment full-rescan should expose only the refreshed live catalog through the formal list surface");
+  require_true(
+      std::string(attachments.attachments[0].rel_path) == "assets/live.png" &&
+          attachments.attachments[0].presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      "attachment full-rescan catalog should keep present live paths");
+  require_true(
+      std::string(attachments.attachments[1].rel_path) == "assets/stale.png" &&
+          attachments.attachments[1].presence == KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      "attachment full-rescan catalog should keep missing live paths");
+  require_true(
+      std::string(attachments.attachments[2].rel_path) == "docs/fresh.pdf" &&
+          attachments.attachments[2].presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      "attachment full-rescan catalog should add new live paths");
+  kernel_free_attachment_list(&attachments);
+
+  require_attachment_lookup_state(
+      handle,
+      "assets/live.png",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "attachment full-rescan should preserve present attachment lookup state");
+  require_attachment_lookup_state(
+      handle,
+      "assets/stale.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "attachment full-rescan should reconcile deleted attachment lookup state to missing");
+  require_attachment_lookup_state(
+      handle,
+      "docs/fresh.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      true,
+      "attachment full-rescan should expose newly referenced attachment lookup state");
+  require_attachment_lookup_not_found(
+      handle,
+      "assets/remove.bin",
+      "attachment full-rescan should drop removed refs from the formal live catalog");
+  require_attachment_referrers_not_found(
+      handle,
+      "assets/remove.bin",
+      "attachment full-rescan should drop removed refs from the formal referrers surface");
+
+  kernel_search_query request{};
+  request.limit = 8;
+  request.kind = KERNEL_SEARCH_KIND_ATTACHMENT;
+  request.sort_mode = KERNEL_SEARCH_SORT_REL_PATH_ASC;
+
+  kernel_search_page page{};
+  request.query = "fresh";
+  require_true(
+      kernel_query_search(handle, &request, &page).code == KERNEL_OK,
+      "attachment full-rescan search should query fresh attachment paths");
+  require_true(
+      page.count == 1 && page.total_hits == 1 &&
+          std::string(page.hits[0].rel_path) == "docs/fresh.pdf" &&
+          page.hits[0].result_flags == KERNEL_SEARCH_RESULT_FLAG_NONE,
+      "attachment full-rescan search should expose newly referenced live attachment paths");
+  kernel_free_search_page(&page);
+
+  request.query = "stale";
+  require_true(
+      kernel_query_search(handle, &request, &page).code == KERNEL_OK,
+      "attachment full-rescan search should query missing live attachment paths");
+  require_true(
+      page.count == 1 && page.total_hits == 1 &&
+          std::string(page.hits[0].rel_path) == "assets/stale.png" &&
+          page.hits[0].result_flags == KERNEL_SEARCH_RESULT_FLAG_ATTACHMENT_MISSING,
+      "attachment full-rescan search should keep deleted-but-live attachment paths marked as missing");
+  kernel_free_search_page(&page);
+
+  request.query = "remove";
+  require_true(
+      kernel_query_search(handle, &request, &page).code == KERNEL_OK,
+      "attachment full-rescan search should query removed attachment paths");
+  require_true(
+      page.count == 0 && page.total_hits == 0,
+      "attachment full-rescan search should exclude paths that are no longer in the live catalog");
+  kernel_free_search_page(&page);
+
+  require_true(
+      kernel_close(handle).code == KERNEL_OK,
+      "attachment full-rescan test should close the reopened vault");
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
@@ -6182,7 +6431,7 @@ void test_get_rebuild_status_reports_background_failure_result() {
 void test_export_diagnostics_writes_json_snapshot() {
   const auto vault = make_temp_vault();
   const auto db_path = storage_db_for_vault(vault);
-  const auto export_path = vault / "diagnostics.json";
+  const auto export_path = make_temp_export_path("diagnostics.json");
   std::filesystem::create_directories(vault / "assets");
   write_file_bytes(vault / "assets" / "diag-present.png", "diag-present-bytes");
   kernel_handle* handle = nullptr;
@@ -6224,22 +6473,13 @@ void test_export_diagnostics_writes_json_snapshot() {
 
   expect_ok(kernel_export_diagnostics(handle, export_path.string().c_str()));
 
-  sqlite3* db = open_sqlite_readonly(db_path);
-  const int expected_orphaned_attachment_count = query_single_int(
-      db,
-      "SELECT COUNT(*) "
-      "FROM attachments "
-      "LEFT JOIN ("
-      "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
-      "  FROM note_attachment_refs "
-      "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
-      "  WHERE notes.is_deleted = 0"
-      ") AS live_refs "
-      "  ON live_refs.attachment_rel_path = attachments.rel_path "
-      "WHERE live_refs.attachment_rel_path IS NULL;");
-  sqlite3_close(db);
+  const AttachmentAnomalySnapshot anomaly_snapshot =
+      read_attachment_anomaly_snapshot(db_path);
   require_true(
-      expected_orphaned_attachment_count >= 1,
+      anomaly_snapshot.missing_attachment_count == 1,
+      "diagnostics snapshot should seed exactly one missing live attachment");
+  require_true(
+      anomaly_snapshot.orphaned_attachment_count >= 1,
       "diagnostics orphan coverage should seed at least one orphaned attachment row");
 
   const std::string exported = read_file_text(export_path);
@@ -6263,11 +6503,24 @@ void test_export_diagnostics_writes_json_snapshot() {
   require_true(exported.find("\"indexed_note_count\":2") != std::string::npos, "diagnostics should include indexed note count");
   require_true(exported.find("\"attachment_count\":2") != std::string::npos, "diagnostics should include attachment count");
   require_true(exported.find("\"attachment_live_count\":2") != std::string::npos, "diagnostics should include live attachment count");
-  require_true(exported.find("\"missing_attachment_count\":1") != std::string::npos, "diagnostics should include missing attachment count");
   require_true(
-      exported.find("\"orphaned_attachment_count\":" + std::to_string(expected_orphaned_attachment_count)) !=
+      exported.find("\"missing_attachment_count\":" + std::to_string(anomaly_snapshot.missing_attachment_count)) !=
+          std::string::npos,
+      "diagnostics should include missing attachment count that matches SQLite truth");
+  require_true(
+      exported.find("\"orphaned_attachment_count\":" + std::to_string(anomaly_snapshot.orphaned_attachment_count)) !=
           std::string::npos,
       "diagnostics should include orphaned attachment count that matches SQLite truth");
+  require_true(
+      exported.find("\"attachment_anomaly_summary\":\"" + anomaly_snapshot.summary + "\"") !=
+          std::string::npos,
+      "diagnostics should summarize attachment anomalies from SQLite truth");
+  require_true(
+      exported.find("\"last_attachment_recount_reason\":\"\"") != std::string::npos,
+      "healthy diagnostics should leave last_attachment_recount_reason empty before any rebuild or watcher full rescan");
+  require_true(
+      exported.find("\"last_attachment_recount_at_ns\":0") != std::string::npos,
+      "healthy diagnostics should leave last_attachment_recount_at_ns zero before any rebuild or watcher full rescan");
   require_true(
       exported.find("\"attachment_public_surface_revision\":\"track2_batch1_public_surface_v1\"") != std::string::npos,
       "diagnostics should expose the current attachment public surface revision");
@@ -6351,6 +6604,7 @@ void test_export_diagnostics_writes_json_snapshot() {
   require_true(exported.find("\"recovery_journal_path\":") != std::string::npos, "diagnostics should include recovery journal path");
 
   expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(export_path.parent_path());
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
@@ -6734,14 +6988,35 @@ void test_rebuild_recovers_ready_state_and_clears_fault_fields() {
 
 void test_export_diagnostics_reports_last_rebuild_result_and_timestamp() {
   const auto vault = make_temp_vault();
-  const auto export_path = vault / "diagnostics-last-rebuild.json";
+  const auto db_path = storage_db_for_vault(vault);
+  const auto export_path = make_temp_export_path("diagnostics-last-rebuild.json");
+  std::filesystem::create_directories(vault / "assets");
+  write_file_bytes(vault / "assets" / "rebuild-diag.png", "rebuild-diag-bytes");
+  const std::string content =
+      "# Rebuild Diagnostics Attachment\n"
+      "![Figure](assets/rebuild-diag.png)\n";
+  write_file_bytes(vault / "rebuild-diagnostics-attachment.md", content);
   kernel_handle* handle = nullptr;
-  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+  require_true(
+      kernel_open_vault(vault.string().c_str(), &handle).code == KERNEL_OK,
+      "last rebuild diagnostics test should open vault");
   require_index_ready(handle, "last rebuild diagnostics test should start from a ready state");
 
-  expect_ok(kernel_rebuild_index(handle));
+  require_true(
+      kernel_rebuild_index(handle).code == KERNEL_OK,
+      "last rebuild diagnostics test should complete a successful rebuild");
 
-  expect_ok(kernel_export_diagnostics(handle, export_path.string().c_str()));
+  require_true(
+      kernel_export_diagnostics(handle, export_path.string().c_str()).code == KERNEL_OK,
+      "last rebuild diagnostics test should export diagnostics");
+  const AttachmentAnomalySnapshot anomaly_snapshot =
+      read_attachment_anomaly_snapshot(db_path);
+  require_true(
+      anomaly_snapshot.missing_attachment_count == 0,
+      "successful rebuild diagnostics should leave no missing live attachments");
+  require_true(
+      anomaly_snapshot.orphaned_attachment_count == 0,
+      "successful rebuild diagnostics should leave no orphaned attachment rows");
   const std::string exported = read_file_text(export_path);
   require_true(
       exported.find("\"last_rebuild_result\":\"succeeded\"") != std::string::npos,
@@ -6767,8 +7042,127 @@ void test_export_diagnostics_reports_last_rebuild_result_and_timestamp() {
   require_true(
       exported.find("\"rebuild_current_started_at_ns\":0") != std::string::npos,
       "diagnostics should clear rebuild_current_started_at_ns once no rebuild is in flight");
+  require_true(
+      exported.find("\"missing_attachment_count\":" + std::to_string(anomaly_snapshot.missing_attachment_count)) !=
+          std::string::npos,
+      "successful rebuild diagnostics should export missing attachment count that matches SQLite truth");
+  require_true(
+      exported.find("\"orphaned_attachment_count\":" + std::to_string(anomaly_snapshot.orphaned_attachment_count)) !=
+          std::string::npos,
+      "successful rebuild diagnostics should export orphaned attachment count that matches SQLite truth");
+  require_true(
+      exported.find("\"attachment_anomaly_summary\":\"" + anomaly_snapshot.summary + "\"") !=
+          std::string::npos,
+      "successful rebuild diagnostics should summarize attachment anomalies from the exported counts");
+  require_true(
+      exported.find("\"last_attachment_recount_reason\":\"rebuild\"") != std::string::npos,
+      "successful rebuild diagnostics should report attachment recount reason as rebuild");
+  require_true(
+      exported.find("\"last_attachment_recount_at_ns\":0") == std::string::npos,
+      "successful rebuild diagnostics should export a non-zero attachment recount timestamp");
 
-  expect_ok(kernel_close(handle));
+  require_true(
+      kernel_close(handle).code == KERNEL_OK,
+      "last rebuild diagnostics test should close vault");
+  std::filesystem::remove_all(export_path.parent_path());
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
+void test_export_diagnostics_reports_last_attachment_recount_after_watcher_full_rescan() {
+  const auto vault = make_temp_vault();
+  const auto db_path = storage_db_for_vault(vault);
+  const auto export_path = make_temp_export_path("diagnostics-watcher-full-rescan.json");
+  std::filesystem::create_directories(vault / "assets");
+  std::filesystem::create_directories(vault / "docs");
+  write_file_bytes(vault / "assets" / "overflow-live.png", "overflow-live-bytes");
+  write_file_bytes(vault / "assets" / "overflow-stale.png", "overflow-stale-bytes");
+  const std::string before =
+      "# Watcher Full Rescan Attachment\n"
+      "![Live](assets/overflow-live.png)\n"
+      "![Stale](assets/overflow-stale.png)\n";
+  write_file_bytes(vault / "watcher-full-rescan-attachment.md", before);
+
+  kernel_handle* handle = nullptr;
+  require_true(
+      kernel_open_vault(vault.string().c_str(), &handle).code == KERNEL_OK,
+      "watcher full-rescan diagnostics test should open vault");
+  require_index_ready(handle, "watcher full-rescan diagnostics test should start from a ready state");
+
+  std::filesystem::remove(vault / "assets" / "overflow-stale.png");
+  write_file_bytes(vault / "docs" / "overflow-fresh.pdf", "overflow-fresh-bytes");
+  const std::string after =
+      "# Watcher Full Rescan Attachment\n"
+      "![Live](assets/overflow-live.png)\n"
+      "![Stale](assets/overflow-stale.png)\n"
+      "[Fresh](docs/overflow-fresh.pdf)\n";
+  write_file_bytes(vault / "watcher-full-rescan-attachment.md", after);
+
+  kernel::watcher::inject_next_poll_overflow(handle->watcher_session);
+  require_eventually(
+      [&]() {
+        kernel_attachment_list refs{};
+        const kernel_status refs_status = kernel_query_note_attachment_refs(
+            handle,
+            "watcher-full-rescan-attachment.md",
+            static_cast<size_t>(-1),
+            &refs);
+        if (refs_status.code != KERNEL_OK) {
+          return false;
+        }
+
+        const bool refs_match =
+            refs.count == 3 &&
+            std::string(refs.attachments[0].rel_path) == "assets/overflow-live.png" &&
+            refs.attachments[0].presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT &&
+            std::string(refs.attachments[1].rel_path) == "assets/overflow-stale.png" &&
+            refs.attachments[1].presence == KERNEL_ATTACHMENT_PRESENCE_MISSING &&
+            std::string(refs.attachments[2].rel_path) == "docs/overflow-fresh.pdf" &&
+            refs.attachments[2].presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT;
+        kernel_free_attachment_list(&refs);
+
+        std::lock_guard runtime_lock(handle->runtime_mutex);
+        return refs_match &&
+               handle->runtime.last_attachment_recount.reason == "watcher_full_rescan" &&
+               handle->runtime.last_attachment_recount.at_ns != 0;
+      },
+      "watcher full-rescan diagnostics test should observe attachment recount after overflow-driven rescan");
+
+  require_true(
+      kernel_export_diagnostics(handle, export_path.string().c_str()).code == KERNEL_OK,
+      "watcher full-rescan diagnostics test should export diagnostics");
+  const AttachmentAnomalySnapshot anomaly_snapshot =
+      read_attachment_anomaly_snapshot(db_path);
+  require_true(
+      anomaly_snapshot.missing_attachment_count == 1,
+      "watcher full-rescan diagnostics should keep exactly one missing live attachment in the seeded scenario");
+  require_true(
+      anomaly_snapshot.orphaned_attachment_count == 0,
+      "watcher full-rescan diagnostics should avoid orphaned attachment rows when exporting outside the watched vault");
+  const std::string exported = read_file_text(export_path);
+  require_true(
+      exported.find("\"last_attachment_recount_reason\":\"watcher_full_rescan\"") != std::string::npos,
+      "watcher full-rescan diagnostics should report watcher_full_rescan as the last attachment recount reason");
+  require_true(
+      exported.find("\"last_attachment_recount_at_ns\":0") == std::string::npos,
+      "watcher full-rescan diagnostics should export a non-zero attachment recount timestamp");
+  require_true(
+      exported.find("\"attachment_anomaly_summary\":\"" + anomaly_snapshot.summary + "\"") !=
+          std::string::npos,
+      "watcher full-rescan diagnostics should summarize attachment anomalies from SQLite truth");
+  require_true(
+      exported.find("\"missing_attachment_count\":" + std::to_string(anomaly_snapshot.missing_attachment_count)) !=
+          std::string::npos,
+      "watcher full-rescan diagnostics should still export refreshed missing attachment count");
+  require_true(
+      exported.find("\"orphaned_attachment_count\":" + std::to_string(anomaly_snapshot.orphaned_attachment_count)) !=
+          std::string::npos,
+      "watcher full-rescan diagnostics should report the orphaned attachment count from SQLite truth");
+
+  require_true(
+      kernel_close(handle).code == KERNEL_OK,
+      "watcher full-rescan diagnostics test should close vault");
+  std::filesystem::remove_all(export_path.parent_path());
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
@@ -7253,6 +7647,7 @@ int main() {
     test_attachment_public_surface_excludes_orphaned_paths_and_matches_search();
     test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state();
     test_attachment_api_observes_attachment_rename_reconciliation();
+    test_attachment_full_rescan_reconciles_mixed_changes_through_formal_public_surface();
   test_startup_recovery_replaces_stale_parser_derived_rows();
   test_startup_recovery_replaces_stale_attachment_refs_and_metadata();
   test_startup_recovery_plus_reopen_catch_up_removes_deleted_note_drift();
@@ -7344,6 +7739,7 @@ int main() {
     test_rebuild_failure_sets_unavailable_and_exports_fault();
     test_rebuild_recovers_ready_state_and_clears_fault_fields();
     test_export_diagnostics_reports_last_rebuild_result_and_timestamp();
+    test_export_diagnostics_reports_last_attachment_recount_after_watcher_full_rescan();
     test_export_diagnostics_reports_last_rebuild_duration_after_delayed_failure();
     test_export_diagnostics_preserves_last_rebuild_result_code_while_next_task_runs();
     test_export_diagnostics_retains_fault_history_after_recovery();

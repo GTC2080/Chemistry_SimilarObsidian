@@ -70,6 +70,16 @@ std::vector<kernel::watcher::CoalescedAction> filter_suppressed_actions(
   return filtered;
 }
 
+bool contains_full_rescan_action(
+    const std::vector<kernel::watcher::CoalescedAction>& actions) {
+  return std::any_of(
+      actions.begin(),
+      actions.end(),
+      [](const auto& action) {
+        return action.kind == kernel::watcher::CoalescedActionKind::FullRescan;
+      });
+}
+
 }  // namespace
 
 void sleep_with_stop(const std::stop_token stop_token, const std::chrono::milliseconds duration) {
@@ -180,6 +190,7 @@ void watcher_loop(std::stop_token stop_token, kernel_handle* handle) {
     if (actions.empty()) {
       continue;
     }
+    const bool attachment_recounted = contains_full_rescan_action(actions);
     for (const auto& action : actions) {
       if (!action.continuity_fallback_reason.empty()) {
         record_continuity_fallback(handle, action.continuity_fallback_reason);
@@ -222,6 +233,9 @@ void watcher_loop(std::stop_token stop_token, kernel_handle* handle) {
     {
       std::lock_guard runtime_lock(handle->runtime_mutex);
       handle->runtime.indexed_note_count = indexed_note_count;
+    }
+    if (attachment_recounted) {
+      record_attachment_recount(handle, "watcher_full_rescan");
     }
   }
 }

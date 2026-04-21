@@ -114,3 +114,26 @@ Support-bundle diagnostics must export:
 - `attachment_kind_mapping_revision`
 - `attachment_live_count`
 - `missing_attachment_count`
+- `orphaned_attachment_count`
+- `attachment_anomaly_summary`
+- `last_attachment_recount_reason`
+- `last_attachment_recount_at_ns`
+
+Frozen diagnostics semantics:
+
+- `orphaned_attachment_count`
+  - count of attachment metadata rows that currently have zero live note refs
+- `attachment_anomaly_summary`
+  - stable summary derived only from `missing_attachment_count` and `orphaned_attachment_count`
+  - frozen values:
+    - `clean`
+    - `missing_live_attachments`
+    - `orphaned_attachments`
+    - `missing_live_and_orphaned_attachments`
+- `last_attachment_recount_reason`
+  - empty before any rebuild or watcher-driven full rescan records an attachment recount
+  - `rebuild` after rebuild-driven attachment recount
+  - `watcher_full_rescan` after overflow/full-rescan attachment recount
+- `last_attachment_recount_at_ns`
+  - `0` before any recorded attachment recount
+  - non-zero nanosecond timestamp after rebuild or watcher full rescan records the latest recount

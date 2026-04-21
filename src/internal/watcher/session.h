@@ -27,6 +27,7 @@ struct WatchSession {
   bool watch_armed = false;
   std::atomic<int> injected_poll_error_value = 0;
   std::atomic<int> injected_poll_error_remaining = 0;
+  std::atomic<int> injected_poll_overflow_remaining = 0;
 };
 
 std::error_code open_watch_session(
@@ -39,5 +40,6 @@ std::error_code poll_watch_session_once(
     std::vector<CoalescedAction>& out_actions);
 void inject_next_poll_error(WatchSession& session, std::errc error);
 void inject_next_poll_errors(WatchSession& session, std::errc error, int remaining_failures);
+void inject_next_poll_overflow(WatchSession& session);
 
 }  // namespace kernel::watcher

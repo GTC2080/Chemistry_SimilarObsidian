@@ -269,6 +269,26 @@ void test_watch_session_poll_once_reports_create_as_refresh() {
   std::filesystem::remove_all(root);
 }
 
+void test_watch_session_poll_once_reports_injected_overflow_as_full_rescan() {
+  const auto root = make_temp_watch_root();
+  kernel::watcher::WatchSession session;
+  require_true(!kernel::watcher::open_watch_session(root, session), "watch session should open");
+
+  kernel::watcher::inject_next_poll_overflow(session);
+
+  std::vector<CoalescedAction> actions;
+  const std::error_code ec = kernel::watcher::poll_watch_session_once(session, 1000, actions);
+  require_true(!ec, "injected overflow poll should succeed");
+  require_true(actions.size() == 1, "injected overflow poll should yield one action");
+  require_true(
+      actions[0].kind == CoalescedActionKind::FullRescan,
+      "injected overflow poll should surface a full-rescan action");
+  require_true(actions[0].rel_path.empty(), "injected overflow full-rescan should not carry a path");
+
+  kernel::watcher::close_watch_session(session);
+  std::filesystem::remove_all(root);
+}
+
 void test_watch_session_poll_once_reports_modify_as_refresh() {
   const auto root = make_temp_watch_root();
   write_file_bytes(root / "modified.md", "before");
@@ -651,6 +671,7 @@ int main() {
     test_make_overflow_event();
     test_watch_session_open_and_close();
     test_watch_session_poll_once_reports_create_as_refresh();
+    test_watch_session_poll_once_reports_injected_overflow_as_full_rescan();
     test_watch_session_poll_once_reports_modify_as_refresh();
     test_watch_session_poll_once_reports_delete_as_delete();
     test_poll_and_refresh_once_indexes_external_create();

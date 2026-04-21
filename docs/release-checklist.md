@@ -58,6 +58,8 @@ Diagnostics smoke is considered satisfied when `kernel_api_tests.exe` passes the
 
 - healthy snapshot export
 - attachment contract export
+- attachment anomaly summary export
+- attachment recount export
 - search contract export
 - search pagination export
 - search filter export

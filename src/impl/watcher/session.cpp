@@ -115,6 +115,14 @@ std::error_code poll_watch_session_once(
     }
   }
 
+  const int remaining_injected_overflows =
+      session.injected_poll_overflow_remaining.load(std::memory_order_relaxed);
+  if (remaining_injected_overflows > 0) {
+    session.injected_poll_overflow_remaining.fetch_sub(1, std::memory_order_relaxed);
+    out_actions = coalesce_events({make_overflow_event()});
+    return {};
+  }
+
   const DWORD wait_result = WaitForSingleObject(session.event_handle, timeout_ms);
   if (wait_result == WAIT_TIMEOUT) {
     return {};
@@ -153,6 +161,10 @@ void inject_next_poll_errors(
   session.injected_poll_error_remaining.store(
       remaining_failures > 0 ? remaining_failures : 0,
       std::memory_order_relaxed);
+}
+
+void inject_next_poll_overflow(WatchSession& session) {
+  session.injected_poll_overflow_remaining.store(1, std::memory_order_relaxed);
 }
 
 }  // namespace kernel::watcher

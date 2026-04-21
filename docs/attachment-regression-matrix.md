@@ -55,6 +55,8 @@ This matrix covers the formal Batch 1 attachment public surface:
   - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
 - attachment-only rename keeps the old live ref path visible as `missing` and excludes the unreferenced renamed path from the formal public surface
   - `test_attachment_api_observes_attachment_rename_reconciliation`
+- watcher overflow / full rescan reconciles mixed attachment ref replacement, missing-state repair, and new live attachment creation through the formal public surface
+  - `test_attachment_full_rescan_reconciles_mixed_changes_through_formal_public_surface`
 - rebuild restores the formal live attachment ref set after stale attachment-ref drift
   - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
 - startup recovery restores recovered missing attachment refs through the formal public surface
@@ -106,6 +108,8 @@ This matrix covers the formal Batch 1 attachment public surface:
   - `test_attachment_public_surface_excludes_orphaned_paths_and_matches_search`
 - attachment path search keeps the old live ref path after attachment-only rename and excludes the unreferenced renamed path
   - `test_attachment_api_observes_attachment_rename_reconciliation`
+- attachment path search stays aligned with the refreshed live catalog after watcher overflow / full rescan
+  - `test_attachment_full_rescan_reconciles_mixed_changes_through_formal_public_surface`
 
 ### Benchmark Gate
 
@@ -130,3 +134,11 @@ This matrix covers the formal Batch 1 attachment public surface:
   - `test_export_diagnostics_writes_json_snapshot`
 - support bundle exports orphaned attachment count
   - `test_export_diagnostics_writes_json_snapshot`
+- support bundle exports a stable attachment anomaly summary derived from missing and orphaned counts
+  - `test_export_diagnostics_writes_json_snapshot`
+- support bundle exports an empty attachment recount snapshot before any rebuild or watcher full rescan
+  - `test_export_diagnostics_writes_json_snapshot`
+- support bundle exports the latest attachment recount snapshot after rebuild
+  - `test_export_diagnostics_reports_last_rebuild_result_and_timestamp`
+- support bundle exports the latest attachment recount snapshot after watcher overflow drives a full rescan
+  - `test_export_diagnostics_reports_last_attachment_recount_after_watcher_full_rescan`

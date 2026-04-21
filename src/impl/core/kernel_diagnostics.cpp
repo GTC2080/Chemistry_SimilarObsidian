@@ -55,6 +55,23 @@ std::string build_recent_events_json(
   return output.str();
 }
 
+std::string_view attachment_anomaly_summary(
+    const std::uint64_t missing_attachment_count,
+    const std::uint64_t orphaned_attachment_count) {
+  const bool has_missing = missing_attachment_count != 0;
+  const bool has_orphaned = orphaned_attachment_count != 0;
+  if (has_missing && has_orphaned) {
+    return "missing_live_and_orphaned_attachments";
+  }
+  if (has_missing) {
+    return "missing_live_attachments";
+  }
+  if (has_orphaned) {
+    return "orphaned_attachments";
+  }
+  return "clean";
+}
+
 std::string build_diagnostics_json(
     const kernel_session_state session_state,
     const kernel_index_state index_state,
@@ -79,6 +96,8 @@ std::string build_diagnostics_json(
     const std::uint64_t attachment_count,
     const std::uint64_t missing_attachment_count,
     const std::uint64_t orphaned_attachment_count,
+    std::string_view last_attachment_recount_reason,
+    const std::uint64_t last_attachment_recount_at_ns,
     std::string_view last_continuity_fallback_reason,
     const std::uint64_t last_continuity_fallback_at_ns,
     const std::uint64_t pending_recovery_ops,
@@ -116,6 +135,15 @@ std::string build_diagnostics_json(
          << "  \"attachment_live_count\":" << attachment_count << ",\n"
          << "  \"missing_attachment_count\":" << missing_attachment_count << ",\n"
          << "  \"orphaned_attachment_count\":" << orphaned_attachment_count << ",\n"
+         << "  \"attachment_anomaly_summary\":\""
+         << kernel::core::json_escape(
+                attachment_anomaly_summary(
+                    missing_attachment_count,
+                    orphaned_attachment_count))
+         << "\",\n"
+         << "  \"last_attachment_recount_reason\":\""
+         << kernel::core::json_escape(last_attachment_recount_reason) << "\",\n"
+         << "  \"last_attachment_recount_at_ns\":" << last_attachment_recount_at_ns << ",\n"
          << "  \"attachment_public_surface_revision\":\""
          << kernel::core::json_escape(kernel::core::attachment_api::kAttachmentPublicSurfaceRevision)
          << "\",\n"
@@ -200,6 +228,8 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
   std::string last_rebuild_result;
   std::uint64_t last_rebuild_at_ns = 0;
   std::uint64_t last_rebuild_duration_ms = 0;
+  std::string last_attachment_recount_reason;
+  std::uint64_t last_attachment_recount_at_ns = 0;
   std::string last_continuity_fallback_reason;
   std::uint64_t last_continuity_fallback_at_ns = 0;
   std::string logger_backend = "null_logger";
@@ -228,6 +258,8 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
     last_rebuild_result = handle->runtime.last_rebuild.result;
     last_rebuild_at_ns = handle->runtime.last_rebuild.at_ns;
     last_rebuild_duration_ms = handle->runtime.last_rebuild.duration_ms;
+    last_attachment_recount_reason = handle->runtime.last_attachment_recount.reason;
+    last_attachment_recount_at_ns = handle->runtime.last_attachment_recount.at_ns;
     last_continuity_fallback_reason = handle->runtime.last_continuity_fallback.reason;
     last_continuity_fallback_at_ns = handle->runtime.last_continuity_fallback.at_ns;
     indexed_note_count = handle->runtime.indexed_note_count;
@@ -314,6 +346,8 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
       attachment_count,
       missing_attachment_count,
       orphaned_attachment_count,
+      last_attachment_recount_reason,
+      last_attachment_recount_at_ns,
       last_continuity_fallback_reason,
       last_continuity_fallback_at_ns,
       pending_recovery_ops,
