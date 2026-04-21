@@ -6512,6 +6512,15 @@ void test_export_diagnostics_writes_json_snapshot() {
           std::string::npos,
       "diagnostics should include orphaned attachment count that matches SQLite truth");
   require_true(
+      exported.find("\"missing_attachment_paths\":[\"assets/diag-missing.png\"]") != std::string::npos,
+      "diagnostics should export a stable missing attachment path summary");
+  require_true(
+      exported.find("\"orphaned_attachment_paths\":[\"assets/diag-orphan.bin\"]") != std::string::npos,
+      "diagnostics should export a stable orphaned attachment path summary");
+  require_true(
+      exported.find("\"attachment_anomaly_path_summary_limit\":16") != std::string::npos,
+      "diagnostics should export the frozen attachment anomaly path summary limit");
+  require_true(
       exported.find("\"attachment_anomaly_summary\":\"" + anomaly_snapshot.summary + "\"") !=
           std::string::npos,
       "diagnostics should summarize attachment anomalies from SQLite truth");
@@ -7051,6 +7060,12 @@ void test_export_diagnostics_reports_last_rebuild_result_and_timestamp() {
           std::string::npos,
       "successful rebuild diagnostics should export orphaned attachment count that matches SQLite truth");
   require_true(
+      exported.find("\"missing_attachment_paths\":[]") != std::string::npos,
+      "successful rebuild diagnostics should export an empty missing attachment path summary");
+  require_true(
+      exported.find("\"orphaned_attachment_paths\":[]") != std::string::npos,
+      "successful rebuild diagnostics should export an empty orphaned attachment path summary");
+  require_true(
       exported.find("\"attachment_anomaly_summary\":\"" + anomaly_snapshot.summary + "\"") !=
           std::string::npos,
       "successful rebuild diagnostics should summarize attachment anomalies from the exported counts");
@@ -7158,6 +7173,13 @@ void test_export_diagnostics_reports_last_attachment_recount_after_watcher_full_
       exported.find("\"orphaned_attachment_count\":" + std::to_string(anomaly_snapshot.orphaned_attachment_count)) !=
           std::string::npos,
       "watcher full-rescan diagnostics should report the orphaned attachment count from SQLite truth");
+  require_true(
+      exported.find("\"missing_attachment_paths\":[\"assets/overflow-stale.png\"]") !=
+          std::string::npos,
+      "watcher full-rescan diagnostics should export the refreshed missing attachment path summary");
+  require_true(
+      exported.find("\"orphaned_attachment_paths\":[]") != std::string::npos,
+      "watcher full-rescan diagnostics should export an empty orphaned attachment path summary");
 
   require_true(
       kernel_close(handle).code == KERNEL_OK,

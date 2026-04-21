@@ -97,6 +97,14 @@ std::error_code read_attachment_metadata(
 std::error_code count_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_missing_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_orphaned_attachments(Database& db, std::uint64_t& out_count);
+std::error_code list_missing_attachment_paths(
+    Database& db,
+    std::size_t limit,
+    std::vector<std::string>& out_paths);
+std::error_code list_orphaned_attachment_paths(
+    Database& db,
+    std::size_t limit,
+    std::vector<std::string>& out_paths);
 std::error_code count_active_notes(Database& db, std::uint64_t& out_count);
 std::error_code list_notes_by_tag(
     Database& db,

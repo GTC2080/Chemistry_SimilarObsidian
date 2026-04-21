@@ -116,6 +116,9 @@ Support-bundle diagnostics must export:
 - `missing_attachment_count`
 - `orphaned_attachment_count`
 - `attachment_anomaly_summary`
+- `missing_attachment_paths`
+- `orphaned_attachment_paths`
+- `attachment_anomaly_path_summary_limit`
 - `last_attachment_recount_reason`
 - `last_attachment_recount_at_ns`
 
@@ -130,6 +133,18 @@ Frozen diagnostics semantics:
     - `missing_live_attachments`
     - `orphaned_attachments`
     - `missing_live_and_orphaned_attachments`
+- `missing_attachment_paths`
+  - bounded summary of missing live attachment paths
+  - sorted `rel_path ASC`
+  - each path is normalized vault-relative UTF-8 text
+- `orphaned_attachment_paths`
+  - bounded summary of orphaned attachment metadata paths
+  - sorted `rel_path ASC`
+  - each path is normalized vault-relative UTF-8 text
+- `attachment_anomaly_path_summary_limit`
+  - frozen support-bundle path-summary cap
+  - current value: `16`
+  - path summary arrays are samples bounded by this cap; counts remain authoritative
 - `last_attachment_recount_reason`
   - empty before any rebuild or watcher-driven full rescan records an attachment recount
   - `rebuild` after rebuild-driven attachment recount

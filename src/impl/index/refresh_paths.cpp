@@ -8,6 +8,7 @@
 #include "platform/platform.h"
 #include "vault/revision.h"
 
+#include <algorithm>
 #include <cctype>
 
 namespace kernel::index {
@@ -18,6 +19,35 @@ bool is_markdown_rel_path(const std::filesystem::path& path) {
     ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
   }
   return extension == ".md";
+}
+
+bool is_internal_note_temp_rel_path(const std::filesystem::path& path) {
+  std::string filename = path.filename().generic_string();
+  for (char& ch : filename) {
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  }
+
+  constexpr std::string_view kMarker = ".md.tmp.";
+  const std::size_t marker_pos = filename.rfind(kMarker);
+  if (marker_pos == std::string::npos) {
+    return false;
+  }
+
+  const std::string suffix = filename.substr(marker_pos + kMarker.size());
+  const std::size_t separator_pos = suffix.find('.');
+  if (separator_pos == std::string::npos || separator_pos == 0 ||
+      separator_pos + 1 >= suffix.size()) {
+    return false;
+  }
+
+  const auto digits_only = [](std::string_view value) {
+    return std::all_of(value.begin(), value.end(), [](const char ch) {
+      return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+    });
+  };
+
+  return digits_only(std::string_view(suffix).substr(0, separator_pos)) &&
+         digits_only(std::string_view(suffix).substr(separator_pos + 1));
 }
 
 std::error_code sync_attachment_refs_for_note(
@@ -65,6 +95,9 @@ std::error_code refresh_markdown_path(
   }
 
   if (!is_markdown) {
+    if (is_internal_note_temp_rel_path(rel_path_fs)) {
+      return {};
+    }
     if (!stat.exists) {
       return kernel::storage::mark_attachment_missing(db, rel_path);
     }

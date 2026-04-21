@@ -18,6 +18,8 @@
 
 namespace {
 
+constexpr std::size_t kAttachmentAnomalyPathSummaryLimit = 16;
+
 std::string build_fault_history_json(
     const std::vector<KernelFaultRecord>& fault_history) {
   std::ostringstream output;
@@ -31,6 +33,19 @@ std::string build_fault_history_json(
            << "\"code\":" << fault_history[index].code << ","
            << "\"at_ns\":" << fault_history[index].at_ns
            << "}";
+  }
+  output << "]";
+  return output.str();
+}
+
+std::string build_string_array_json(const std::vector<std::string>& values) {
+  std::ostringstream output;
+  output << "[";
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    if (index != 0) {
+      output << ",";
+    }
+    output << "\"" << kernel::core::json_escape(values[index]) << "\"";
   }
   output << "]";
   return output.str();
@@ -96,6 +111,8 @@ std::string build_diagnostics_json(
     const std::uint64_t attachment_count,
     const std::uint64_t missing_attachment_count,
     const std::uint64_t orphaned_attachment_count,
+    const std::vector<std::string>& missing_attachment_paths,
+    const std::vector<std::string>& orphaned_attachment_paths,
     std::string_view last_attachment_recount_reason,
     const std::uint64_t last_attachment_recount_at_ns,
     std::string_view last_continuity_fallback_reason,
@@ -135,6 +152,12 @@ std::string build_diagnostics_json(
          << "  \"attachment_live_count\":" << attachment_count << ",\n"
          << "  \"missing_attachment_count\":" << missing_attachment_count << ",\n"
          << "  \"orphaned_attachment_count\":" << orphaned_attachment_count << ",\n"
+         << "  \"missing_attachment_paths\":"
+         << build_string_array_json(missing_attachment_paths) << ",\n"
+         << "  \"orphaned_attachment_paths\":"
+         << build_string_array_json(orphaned_attachment_paths) << ",\n"
+         << "  \"attachment_anomaly_path_summary_limit\":"
+         << kAttachmentAnomalyPathSummaryLimit << ",\n"
          << "  \"attachment_anomaly_summary\":\""
          << kernel::core::json_escape(
                 attachment_anomaly_summary(
@@ -272,6 +295,8 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
   std::uint64_t attachment_count = 0;
   std::uint64_t missing_attachment_count = 0;
   std::uint64_t orphaned_attachment_count = 0;
+  std::vector<std::string> missing_attachment_paths;
+  std::vector<std::string> orphaned_attachment_paths;
   const std::error_code pending_ec =
       kernel::recovery::count_unfinished_save_operations(
           handle->paths.recovery_journal_path,
@@ -319,6 +344,24 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
       if (orphaned_attachment_count_ec) {
         return kernel::core::make_status(kernel::core::map_error(orphaned_attachment_count_ec));
       }
+
+      const std::error_code missing_attachment_paths_ec =
+          kernel::storage::list_missing_attachment_paths(
+              handle->storage,
+              kAttachmentAnomalyPathSummaryLimit,
+              missing_attachment_paths);
+      if (missing_attachment_paths_ec) {
+        return kernel::core::make_status(kernel::core::map_error(missing_attachment_paths_ec));
+      }
+
+      const std::error_code orphaned_attachment_paths_ec =
+          kernel::storage::list_orphaned_attachment_paths(
+              handle->storage,
+              kAttachmentAnomalyPathSummaryLimit,
+              orphaned_attachment_paths);
+      if (orphaned_attachment_paths_ec) {
+        return kernel::core::make_status(kernel::core::map_error(orphaned_attachment_paths_ec));
+      }
     }
   }
 
@@ -346,6 +389,8 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
       attachment_count,
       missing_attachment_count,
       orphaned_attachment_count,
+      missing_attachment_paths,
+      orphaned_attachment_paths,
       last_attachment_recount_reason,
       last_attachment_recount_at_ns,
       last_continuity_fallback_reason,

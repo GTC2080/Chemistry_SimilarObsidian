@@ -19,6 +19,17 @@ namespace {
 
 constexpr auto kWatcherSuppressionTtl = std::chrono::milliseconds(500);
 
+void suppress_watcher_path(
+    kernel_handle* handle,
+    std::string_view normalized_rel_path,
+    std::string_view content_revision) {
+  std::lock_guard lock(handle->storage_mutex);
+  handle->runtime.suppressed_watcher_paths[std::string(normalized_rel_path)] =
+      WatcherSuppressionEntry{
+          std::chrono::steady_clock::now() + kWatcherSuppressionTtl,
+          std::string(content_revision)};
+}
+
 }  // namespace
 
 extern "C" kernel_status kernel_read_note(
@@ -107,12 +118,7 @@ extern "C" kernel_status kernel_write_note(
     return kernel::core::make_status(KERNEL_OK);
   }
 
-  {
-    std::lock_guard lock(handle->storage_mutex);
-    handle->runtime.suppressed_watcher_paths[normalized_rel_path] = WatcherSuppressionEntry{
-        std::chrono::steady_clock::now() + kWatcherSuppressionTtl,
-        new_revision};
-  }
+  suppress_watcher_path(handle, normalized_rel_path, new_revision);
 
   std::filesystem::path temp_path;
   const std::error_code temp_ec = kernel::platform::write_temp_file(target_path, new_bytes, temp_path);
@@ -151,7 +157,6 @@ extern "C" kernel_status kernel_write_note(
     handle->runtime.suppressed_watcher_paths[normalized_rel_path] = WatcherSuppressionEntry{
         std::chrono::steady_clock::now() + kWatcherSuppressionTtl,
         new_revision};
-
     const auto parse_result = kernel::parser::parse_markdown(written_file.bytes);
     const std::error_code note_ec = kernel::storage::upsert_note_metadata(
         handle->storage,

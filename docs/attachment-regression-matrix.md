@@ -134,6 +134,10 @@ This matrix covers the formal Batch 1 attachment public surface:
   - `test_export_diagnostics_writes_json_snapshot`
 - support bundle exports orphaned attachment count
   - `test_export_diagnostics_writes_json_snapshot`
+- support bundle exports bounded missing attachment path summaries
+  - `test_export_diagnostics_writes_json_snapshot`
+- support bundle exports bounded orphaned attachment path summaries
+  - `test_export_diagnostics_writes_json_snapshot`
 - support bundle exports a stable attachment anomaly summary derived from missing and orphaned counts
   - `test_export_diagnostics_writes_json_snapshot`
 - support bundle exports an empty attachment recount snapshot before any rebuild or watcher full rescan
