@@ -19,6 +19,7 @@
 namespace {
 
 constexpr std::size_t kAttachmentAnomalyPathSummaryLimit = 16;
+constexpr auto kAttachmentDiagnosticsLockBudget = std::chrono::milliseconds(100);
 
 struct AttachmentDiagnosticsSnapshot {
   std::uint64_t attachment_count = 0;
@@ -109,7 +110,7 @@ kernel_status try_collect_attachment_diagnostics_snapshot(
 
   std::unique_lock<std::mutex> storage_lock(handle->storage_mutex, std::defer_lock);
   const auto attachment_count_deadline =
-      std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
+      std::chrono::steady_clock::now() + kAttachmentDiagnosticsLockBudget;
   while (!storage_lock.try_lock()) {
     if (std::chrono::steady_clock::now() >= attachment_count_deadline) {
       return kernel::core::make_status(KERNEL_OK);

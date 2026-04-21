@@ -22,6 +22,9 @@ add_library(
   impl/recovery/journal_scan.cpp
   impl/recovery/journal_startup_recovery.cpp
   impl/search/search.cpp
+  impl/search/search_detail.cpp
+  impl/search/search_note_queries.cpp
+  impl/search/search_attachment_queries.cpp
   impl/storage/storage_sqlite_helpers.cpp
   impl/storage/storage_connection.cpp
   impl/storage/storage_schema.cpp
