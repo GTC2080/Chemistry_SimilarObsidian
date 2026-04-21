@@ -5,10 +5,14 @@ add_executable(
   src/api/kernel_api_tests.cpp
   src/api/kernel_api_tests_attachment_diagnostics.cpp
   src/api/kernel_api_tests_attachment_lifecycle.cpp
+  src/api/kernel_api_tests_attachment_lifecycle_recovery.cpp
+  src/api/kernel_api_tests_attachment_lifecycle_surface.cpp
+  src/api/kernel_api_tests_attachment_lifecycle_watcher.cpp
   src/api/kernel_api_tests_attachment_public_surface.cpp
   src/api/kernel_api_tests_rebuild_runtime.cpp
   src/api/kernel_api_tests_runtime_diagnostics.cpp
   src/api/kernel_api_tests_runtime_recovery.cpp
+  src/api/kernel_api_tests_runtime_recovery_interruptions.cpp
   src/api/kernel_api_tests_search_expanded.cpp
   src/api/kernel_api_tests_search_legacy.cpp
   src/api/kernel_api_tests_search_public_surface.cpp
