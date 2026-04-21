@@ -16,7 +16,9 @@ add_executable(
   src/api/kernel_api_tests_runtime_diagnostics_core.cpp
   src/api/kernel_api_tests_runtime_diagnostics_watcher.cpp
   src/api/kernel_api_tests_runtime_recovery.cpp
+  src/api/kernel_api_tests_runtime_recovery_disk_truth.cpp
   src/api/kernel_api_tests_runtime_recovery_interruptions.cpp
+  src/api/kernel_api_tests_runtime_recovery_startup.cpp
   src/api/kernel_api_tests_search_expanded.cpp
   src/api/kernel_api_tests_search_legacy.cpp
   src/api/kernel_api_tests_search_public_surface.cpp
