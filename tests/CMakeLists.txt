@@ -13,6 +13,8 @@ add_executable(
   src/api/kernel_api_tests_attachment_lifecycle_recovery.cpp
   src/api/kernel_api_tests_attachment_lifecycle_surface.cpp
   src/api/kernel_api_tests_attachment_lifecycle_watcher.cpp
+  src/api/kernel_api_tests_attachment_lifecycle_watcher_backoff.cpp
+  src/api/kernel_api_tests_attachment_lifecycle_watcher_rescan.cpp
   src/api/kernel_api_tests_attachment_public_surface.cpp
   src/api/kernel_api_tests_attachment_public_surface_catalog.cpp
   src/api/kernel_api_tests_attachment_public_surface_refs.cpp
@@ -32,8 +34,12 @@ add_executable(
   src/api/kernel_api_tests_search_expanded_ranking.cpp
   src/api/kernel_api_tests_search_expanded_snippet_pagination.cpp
   src/api/kernel_api_tests_search_legacy.cpp
+  src/api/kernel_api_tests_search_legacy_graph.cpp
+  src/api/kernel_api_tests_search_legacy_note.cpp
   src/api/kernel_api_tests_search_public_surface.cpp
   src/api/kernel_api_tests_watcher_smoke.cpp
+  src/api/kernel_api_tests_watcher_smoke_basic.cpp
+  src/api/kernel_api_tests_watcher_smoke_close_edges.cpp
   src/api/kernel_api_test_support.cpp
   src/support/test_support.cpp
 )
