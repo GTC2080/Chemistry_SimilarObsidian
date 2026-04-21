@@ -6,11 +6,16 @@ add_executable(
   src/api/kernel_api_tests_attachment_legacy_contract.cpp
   src/api/kernel_api_tests_core_contract.cpp
   src/api/kernel_api_tests_attachment_diagnostics.cpp
+  src/api/kernel_api_attachment_diagnostics_helpers.cpp
+  src/api/kernel_api_tests_attachment_diagnostics_recount.cpp
+  src/api/kernel_api_tests_attachment_diagnostics_snapshot.cpp
   src/api/kernel_api_tests_attachment_lifecycle.cpp
   src/api/kernel_api_tests_attachment_lifecycle_recovery.cpp
   src/api/kernel_api_tests_attachment_lifecycle_surface.cpp
   src/api/kernel_api_tests_attachment_lifecycle_watcher.cpp
   src/api/kernel_api_tests_attachment_public_surface.cpp
+  src/api/kernel_api_tests_attachment_public_surface_catalog.cpp
+  src/api/kernel_api_tests_attachment_public_surface_refs.cpp
   src/api/kernel_api_tests_rebuild_runtime.cpp
   src/api/kernel_api_tests_rebuild_runtime_background.cpp
   src/api/kernel_api_tests_rebuild_runtime_core.cpp
