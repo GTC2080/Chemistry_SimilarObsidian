@@ -11,6 +11,8 @@ add_executable(
   src/api/kernel_api_tests_attachment_diagnostics_snapshot.cpp
   src/api/kernel_api_tests_attachment_lifecycle.cpp
   src/api/kernel_api_tests_attachment_lifecycle_recovery.cpp
+  src/api/kernel_api_tests_attachment_lifecycle_recovery_reopen.cpp
+  src/api/kernel_api_tests_attachment_lifecycle_recovery_startup.cpp
   src/api/kernel_api_tests_attachment_lifecycle_surface.cpp
   src/api/kernel_api_tests_attachment_lifecycle_watcher.cpp
   src/api/kernel_api_tests_attachment_lifecycle_watcher_backoff.cpp
