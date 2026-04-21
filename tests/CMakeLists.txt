@@ -22,8 +22,14 @@ add_executable(
   src/api/kernel_api_tests_rebuild_runtime_background.cpp
   src/api/kernel_api_tests_rebuild_runtime_core.cpp
   src/api/kernel_api_tests_rebuild_runtime_status.cpp
+  src/api/kernel_api_tests_core_contract_state.cpp
+  src/api/kernel_api_tests_core_contract_write.cpp
+  src/api/kernel_api_tests_core_contract_parser.cpp
   src/api/kernel_api_tests_runtime_diagnostics.cpp
   src/api/kernel_api_tests_runtime_diagnostics_core.cpp
+  src/api/kernel_api_tests_runtime_diagnostics_events_recovery.cpp
+  src/api/kernel_api_tests_runtime_diagnostics_state.cpp
+  src/api/kernel_api_tests_runtime_diagnostics_rebuild.cpp
   src/api/kernel_api_tests_runtime_diagnostics_watcher.cpp
   src/api/kernel_api_tests_runtime_recovery.cpp
   src/api/kernel_api_tests_runtime_recovery_disk_truth.cpp
