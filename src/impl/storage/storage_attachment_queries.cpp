@@ -1,5 +1,5 @@
-// Reason: This file owns attachment-oriented read queries, live-catalog reads,
-// and attachment support-bundle counts.
+// Reason: This file owns attachment-oriented catalog and metadata read queries
+// so diagnostics-only attachment summaries can live in a separate unit.
 
 #include "storage/storage_internal.h"
 
@@ -22,60 +22,6 @@ constexpr char kLiveAttachmentCatalogSelect[] =
     "FROM note_attachment_refs AS refs "
     "JOIN notes ON notes.note_id = refs.note_id AND notes.is_deleted = 0 "
     "LEFT JOIN attachments ON attachments.rel_path = refs.attachment_rel_path ";
-
-constexpr char kLiveAttachmentCountSql[] =
-    "SELECT COUNT(*) "
-    "FROM ("
-    "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
-    "  FROM note_attachment_refs "
-    "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
-    "  WHERE notes.is_deleted = 0"
-    ");";
-
-constexpr char kMissingLiveAttachmentCountSql[] =
-    "SELECT COUNT(*) "
-    "FROM ("
-    "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
-    "  FROM note_attachment_refs "
-    "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
-    "  JOIN attachments ON attachments.rel_path = note_attachment_refs.attachment_rel_path "
-    "  WHERE notes.is_deleted = 0 AND attachments.is_missing = 1"
-    ");";
-
-constexpr char kOrphanedAttachmentCountSql[] =
-    "SELECT COUNT(*) "
-    "FROM attachments "
-    "LEFT JOIN ("
-    "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
-    "  FROM note_attachment_refs "
-    "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
-    "  WHERE notes.is_deleted = 0"
-    ") AS live_refs "
-    "  ON live_refs.attachment_rel_path = attachments.rel_path "
-    "WHERE live_refs.attachment_rel_path IS NULL;";
-
-constexpr char kMissingLiveAttachmentPathSummarySql[] =
-    "SELECT DISTINCT note_attachment_refs.attachment_rel_path "
-    "FROM note_attachment_refs "
-    "JOIN notes ON notes.note_id = note_attachment_refs.note_id "
-    "JOIN attachments ON attachments.rel_path = note_attachment_refs.attachment_rel_path "
-    "WHERE notes.is_deleted = 0 AND attachments.is_missing = 1 "
-    "ORDER BY note_attachment_refs.attachment_rel_path ASC "
-    "LIMIT ?1;";
-
-constexpr char kOrphanedAttachmentPathSummarySql[] =
-    "SELECT attachments.rel_path "
-    "FROM attachments "
-    "LEFT JOIN ("
-    "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
-    "  FROM note_attachment_refs "
-    "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
-    "  WHERE notes.is_deleted = 0"
-    ") AS live_refs "
-    "  ON live_refs.attachment_rel_path = attachments.rel_path "
-    "WHERE live_refs.attachment_rel_path IS NULL "
-    "ORDER BY attachments.rel_path ASC "
-    "LIMIT ?1;";
 
 std::error_code lookup_active_note_id_by_rel_path(
     sqlite3* db,
@@ -120,26 +66,6 @@ AttachmentReferrerRecord read_attachment_referrer_record(sqlite3_stmt* stmt) {
   detail::assign_text_column(stmt, 0, record.note_rel_path);
   detail::assign_text_column(stmt, 1, record.note_title);
   return record;
-}
-
-std::error_code list_attachment_path_summary(
-    sqlite3* db,
-    const char* sql,
-    const std::size_t limit,
-    std::vector<std::string>& out_paths) {
-  out_paths.clear();
-  sqlite3_stmt* stmt = nullptr;
-  std::error_code ec = detail::prepare(db, sql, &stmt);
-  if (ec) {
-    return ec;
-  }
-
-  sqlite3_bind_int64(stmt, 1, normalize_limit(limit));
-  return detail::append_statement_rows(stmt, [&](sqlite3_stmt* row) {
-    std::string path;
-    detail::assign_text_column(row, 0, path);
-    out_paths.push_back(std::move(path));
-  });
 }
 
 }  // namespace
@@ -379,60 +305,6 @@ std::error_code read_attachment_metadata(
   out_metadata.mtime_ns = static_cast<std::uint64_t>(sqlite3_column_int64(stmt, 1));
   out_metadata.is_missing = sqlite3_column_int(stmt, 2) != 0;
   return detail::finalize_with_result(stmt, step_rc);
-}
-
-std::error_code count_attachments(Database& db, std::uint64_t& out_count) {
-  if (db.connection == nullptr) {
-    return std::make_error_code(std::errc::bad_file_descriptor);
-  }
-
-  return detail::scalar_count_query(db.connection, kLiveAttachmentCountSql, out_count);
-}
-
-std::error_code count_missing_attachments(Database& db, std::uint64_t& out_count) {
-  if (db.connection == nullptr) {
-    return std::make_error_code(std::errc::bad_file_descriptor);
-  }
-
-  return detail::scalar_count_query(db.connection, kMissingLiveAttachmentCountSql, out_count);
-}
-
-std::error_code count_orphaned_attachments(Database& db, std::uint64_t& out_count) {
-  if (db.connection == nullptr) {
-    return std::make_error_code(std::errc::bad_file_descriptor);
-  }
-
-  return detail::scalar_count_query(db.connection, kOrphanedAttachmentCountSql, out_count);
-}
-
-std::error_code list_missing_attachment_paths(
-    Database& db,
-    const std::size_t limit,
-    std::vector<std::string>& out_paths) {
-  if (db.connection == nullptr) {
-    return std::make_error_code(std::errc::bad_file_descriptor);
-  }
-
-  return list_attachment_path_summary(
-      db.connection,
-      kMissingLiveAttachmentPathSummarySql,
-      limit,
-      out_paths);
-}
-
-std::error_code list_orphaned_attachment_paths(
-    Database& db,
-    const std::size_t limit,
-    std::vector<std::string>& out_paths) {
-  if (db.connection == nullptr) {
-    return std::make_error_code(std::errc::bad_file_descriptor);
-  }
-
-  return list_attachment_path_summary(
-      db.connection,
-      kOrphanedAttachmentPathSummarySql,
-      limit,
-      out_paths);
 }
 
 }  // namespace kernel::storage

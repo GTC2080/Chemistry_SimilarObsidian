@@ -29,6 +29,7 @@ add_library(
   impl/storage/storage_note_delete_rename.cpp
   impl/storage/storage_attachment_state.cpp
   impl/storage/storage_attachment_queries.cpp
+  impl/storage/storage_attachment_diagnostics_queries.cpp
   impl/storage/storage_note_queries.cpp
   impl/watcher/integration.cpp
   impl/watcher/session.cpp
