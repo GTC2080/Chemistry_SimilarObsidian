@@ -7,6 +7,7 @@ add_executable(
   src/api/kernel_api_tests_attachment_lifecycle.cpp
   src/api/kernel_api_tests_attachment_public_surface.cpp
   src/api/kernel_api_tests_runtime_recovery.cpp
+  src/api/kernel_api_tests_search_public_surface.cpp
   src/api/kernel_api_test_support.cpp
   src/support/test_support.cpp
 )
@@ -28,3 +29,4 @@ add_executable(watcher_tests src/watcher/watcher_tests.cpp src/support/test_supp
 target_link_libraries(watcher_tests PRIVATE chem_kernel)
 target_include_directories(watcher_tests PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/internal ${PROJECT_SOURCE_DIR}/tests/include)
 add_test(NAME watcher_tests COMMAND watcher_tests)
+
