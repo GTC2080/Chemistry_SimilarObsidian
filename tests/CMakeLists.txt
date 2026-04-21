@@ -13,6 +13,8 @@ add_executable(
   src/api/kernel_api_tests_attachment_public_surface.cpp
   src/api/kernel_api_tests_rebuild_runtime.cpp
   src/api/kernel_api_tests_runtime_diagnostics.cpp
+  src/api/kernel_api_tests_runtime_diagnostics_core.cpp
+  src/api/kernel_api_tests_runtime_diagnostics_watcher.cpp
   src/api/kernel_api_tests_runtime_recovery.cpp
   src/api/kernel_api_tests_runtime_recovery_interruptions.cpp
   src/api/kernel_api_tests_search_expanded.cpp
