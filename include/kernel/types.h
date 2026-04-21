@@ -1,0 +1,212 @@
+/* Reason: This file freezes the minimal C ABI data types shared between the kernel and any host. */
+
+#pragma once
+
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define KERNEL_REVISION_MAX 80
+
+typedef struct kernel_handle kernel_handle;
+
+typedef enum kernel_error_code {
+  KERNEL_OK = 0,
+  KERNEL_ERROR_INVALID_ARGUMENT = 1,
+  KERNEL_ERROR_NOT_FOUND = 2,
+  KERNEL_ERROR_CONFLICT = 3,
+  KERNEL_ERROR_IO = 4,
+  KERNEL_ERROR_INTERNAL = 5,
+  KERNEL_ERROR_TIMEOUT = 6
+} kernel_error_code;
+
+typedef enum kernel_session_state {
+  KERNEL_SESSION_CLOSED = 0,
+  KERNEL_SESSION_OPEN = 1,
+  KERNEL_SESSION_FAULTED = 2
+} kernel_session_state;
+
+typedef enum kernel_index_state {
+  KERNEL_INDEX_UNAVAILABLE = 0,
+  KERNEL_INDEX_CATCHING_UP = 1,
+  KERNEL_INDEX_READY = 2,
+  KERNEL_INDEX_REBUILDING = 3
+} kernel_index_state;
+
+typedef enum kernel_write_disposition {
+  KERNEL_WRITE_WRITTEN = 0,
+  KERNEL_WRITE_NO_OP = 1
+} kernel_write_disposition;
+
+typedef struct kernel_status {
+  kernel_error_code code;
+} kernel_status;
+
+typedef struct kernel_state_snapshot {
+  kernel_session_state session_state;
+  kernel_index_state index_state;
+  uint64_t indexed_note_count;
+  uint64_t pending_recovery_ops;
+} kernel_state_snapshot;
+
+typedef struct kernel_rebuild_status_snapshot {
+  uint8_t in_flight;
+  uint8_t has_last_result;
+  uint64_t current_generation;
+  uint64_t last_completed_generation;
+  uint64_t current_started_at_ns;
+  kernel_error_code last_result_code;
+  uint64_t last_result_at_ns;
+} kernel_rebuild_status_snapshot;
+
+typedef struct kernel_owned_buffer {
+  char* data;
+  size_t size;
+} kernel_owned_buffer;
+
+typedef struct kernel_note_metadata {
+  uint64_t file_size;
+  uint64_t mtime_ns;
+  char content_revision[KERNEL_REVISION_MAX];
+} kernel_note_metadata;
+
+typedef enum kernel_search_match_flags {
+  KERNEL_SEARCH_MATCH_NONE = 0,
+  KERNEL_SEARCH_MATCH_TITLE = 1,
+  KERNEL_SEARCH_MATCH_BODY = 2,
+  KERNEL_SEARCH_MATCH_PATH = 4
+} kernel_search_match_flags;
+
+typedef enum kernel_search_kind {
+  KERNEL_SEARCH_KIND_NOTE = 0,
+  KERNEL_SEARCH_KIND_ATTACHMENT = 1,
+  KERNEL_SEARCH_KIND_ALL = 2
+} kernel_search_kind;
+
+typedef enum kernel_search_sort_mode {
+  KERNEL_SEARCH_SORT_REL_PATH_ASC = 0,
+  KERNEL_SEARCH_SORT_RANK_V1 = 1
+} kernel_search_sort_mode;
+
+typedef enum kernel_search_result_kind {
+  KERNEL_SEARCH_RESULT_NOTE = 0,
+  KERNEL_SEARCH_RESULT_ATTACHMENT = 1
+} kernel_search_result_kind;
+
+typedef enum kernel_search_snippet_status {
+  KERNEL_SEARCH_SNIPPET_NONE = 0,
+  KERNEL_SEARCH_SNIPPET_BODY_EXTRACTED = 1,
+  KERNEL_SEARCH_SNIPPET_TITLE_ONLY = 2,
+  KERNEL_SEARCH_SNIPPET_UNAVAILABLE = 3
+} kernel_search_snippet_status;
+
+typedef enum kernel_search_result_flags {
+  KERNEL_SEARCH_RESULT_FLAG_NONE = 0,
+  KERNEL_SEARCH_RESULT_FLAG_ATTACHMENT_MISSING = 1
+} kernel_search_result_flags;
+
+typedef struct kernel_search_hit {
+  char* rel_path;
+  char* title;
+  uint32_t match_flags;
+} kernel_search_hit;
+
+typedef struct kernel_search_results {
+  kernel_search_hit* hits;
+  size_t count;
+} kernel_search_results;
+
+typedef struct kernel_search_query {
+  const char* query;
+  size_t limit;
+  size_t offset;
+  kernel_search_kind kind;
+  const char* tag_filter;
+  const char* path_prefix;
+  uint8_t include_deleted;
+  kernel_search_sort_mode sort_mode;
+} kernel_search_query;
+
+typedef struct kernel_search_page_hit {
+  char* rel_path;
+  char* title;
+  char* snippet;
+  uint32_t match_flags;
+  kernel_search_snippet_status snippet_status;
+  kernel_search_result_kind result_kind;
+  uint32_t result_flags;
+  double score;
+} kernel_search_page_hit;
+
+typedef struct kernel_search_page {
+  kernel_search_page_hit* hits;
+  size_t count;
+  uint64_t total_hits;
+  uint8_t has_more;
+} kernel_search_page;
+
+typedef struct kernel_attachment_ref {
+  char* rel_path;
+} kernel_attachment_ref;
+
+typedef struct kernel_attachment_refs {
+  kernel_attachment_ref* refs;
+  size_t count;
+} kernel_attachment_refs;
+
+typedef struct kernel_attachment_metadata {
+  uint64_t file_size;
+  uint64_t mtime_ns;
+  uint8_t is_missing;
+} kernel_attachment_metadata;
+
+typedef enum kernel_attachment_presence {
+  KERNEL_ATTACHMENT_PRESENCE_PRESENT = 0,
+  KERNEL_ATTACHMENT_PRESENCE_MISSING = 1
+} kernel_attachment_presence;
+
+typedef enum kernel_attachment_kind {
+  KERNEL_ATTACHMENT_KIND_UNKNOWN = 0,
+  KERNEL_ATTACHMENT_KIND_GENERIC_FILE = 1,
+  KERNEL_ATTACHMENT_KIND_IMAGE_LIKE = 2,
+  KERNEL_ATTACHMENT_KIND_PDF_LIKE = 3,
+  KERNEL_ATTACHMENT_KIND_CHEM_LIKE = 4
+} kernel_attachment_kind;
+
+typedef enum kernel_attachment_flags {
+  KERNEL_ATTACHMENT_FLAG_NONE = 0
+} kernel_attachment_flags;
+
+typedef struct kernel_attachment_record {
+  char* rel_path;
+  char* basename;
+  char* extension;
+  uint64_t file_size;
+  uint64_t mtime_ns;
+  uint64_t ref_count;
+  kernel_attachment_kind kind;
+  uint32_t flags;
+  kernel_attachment_presence presence;
+} kernel_attachment_record;
+
+typedef struct kernel_attachment_list {
+  kernel_attachment_record* attachments;
+  size_t count;
+} kernel_attachment_list;
+
+typedef struct kernel_attachment_referrer {
+  char* note_rel_path;
+  char* note_title;
+} kernel_attachment_referrer;
+
+typedef struct kernel_attachment_referrers {
+  kernel_attachment_referrer* referrers;
+  size_t count;
+} kernel_attachment_referrers;
+
+#ifdef __cplusplus
+}
+#endif

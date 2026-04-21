@@ -1,0 +1,46 @@
+# Reason: This file keeps generated build outputs, IDE artifacts, and temporary files out of version control.
+
+# Out-of-source build directories used in this repo
+/out/
+/build/
+
+# CMake generated files
+/CMakeUserPresets.json
+/CMakeCache.txt
+/cmake_install.cmake
+/compile_commands.json
+/CTestTestfile.cmake
+/Testing/
+**/CMakeFiles/
+
+# Visual Studio / MSBuild generated files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.vcxproj.*.user
+*.props
+*.targets
+*.tlog
+*.idb
+*.ilk
+
+# Compiler and linker outputs
+*.obj
+*.o
+*.pch
+*.pdb
+*.lib
+*.exp
+*.dll
+*.exe
+
+# Test and benchmark runtime leftovers
+*.log
+*.tmp
+
+# Editor / OS noise
+.vs/
+.idea/
+.DS_Store
+Thumbs.db

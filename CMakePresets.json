@@ -1,0 +1,49 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Developer Configure",
+      "description": "Configure the project into out/build with Visual Studio 2022.",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/out/build",
+      "cacheVariables": {
+        "KERNEL_BUILD_TESTS": "ON",
+        "KERNEL_BUILD_BENCHMARKS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-debug",
+      "displayName": "Build Debug",
+      "description": "Build all targets in Debug from out/build.",
+      "configurePreset": "dev",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-release",
+      "displayName": "Build Release",
+      "description": "Build all targets in Release from out/build.",
+      "configurePreset": "dev",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-debug",
+      "displayName": "Test Debug",
+      "description": "Run the Debug test suite from out/build.",
+      "configurePreset": "dev",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

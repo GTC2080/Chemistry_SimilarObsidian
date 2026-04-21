@@ -1,0 +1,479 @@
+// Reason: This file records repeatable host-facing query timing loops for search, tag, and backlink surfaces.
+
+#include "kernel/c_api.h"
+#include "benchmarks/benchmark_thresholds.h"
+
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+
+namespace {
+
+bool expect_ok(const kernel_status status, const char* operation) {
+  if (status.code == KERNEL_OK) {
+    return true;
+  }
+  std::cerr << operation << " failed with code " << status.code << "\n";
+  return false;
+}
+
+bool seed_note(
+    kernel_handle* handle,
+    const char* rel_path,
+    const std::string& text,
+    kernel_note_metadata& metadata,
+    kernel_write_disposition& disposition) {
+  return expect_ok(
+      kernel_write_note(
+          handle,
+          rel_path,
+          text.data(),
+          text.size(),
+          nullptr,
+          &metadata,
+          &disposition),
+      rel_path);
+}
+
+bool seed_binary_file(const std::filesystem::path& path, const std::string& bytes) {
+  std::filesystem::create_directories(path.parent_path());
+  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+  if (!stream) {
+    std::cerr << "failed to create file: " << path << "\n";
+    return false;
+  }
+  stream.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  return stream.good();
+}
+
+kernel_search_query make_default_query(const char* query, const std::size_t limit) {
+  kernel_search_query request{};
+  request.query = query;
+  request.limit = limit;
+  request.offset = 0;
+  request.kind = KERNEL_SEARCH_KIND_NOTE;
+  request.tag_filter = nullptr;
+  request.path_prefix = nullptr;
+  request.include_deleted = 0;
+  request.sort_mode = KERNEL_SEARCH_SORT_REL_PATH_ASC;
+  return request;
+}
+
+}  // namespace
+
+int main() {
+  const auto vault = std::filesystem::temp_directory_path() / "chem_kernel_query_bench";
+  std::filesystem::remove_all(vault);
+  std::filesystem::create_directories(vault);
+
+  kernel_handle* handle = nullptr;
+  if (!expect_ok(kernel_open_vault(vault.string().c_str(), &handle), "open")) {
+    return 1;
+  }
+
+  kernel_note_metadata metadata{};
+  kernel_write_disposition disposition{};
+  if (!seed_note(handle, "target.md", "# Shared Target\nbody\n", metadata, disposition)) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "search-target.md",
+          "# QueryTitleToken\nbody contains QueryBodyToken\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "title-only-target.md",
+          "# QueryTitleOnlyToken\nbody text without the unique title token\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "a-rank-body.md",
+          "# Generic Rank Title\nBenchmarkRankToken appears only in the body\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "z-rank-title.md",
+          "# BenchmarkRankToken\nbody text without the unique rank token\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "a-rank-untagged.md",
+          "# Rank Boost Untagged\nrankboost benchmark body token\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "z-rank-tagged.md",
+          "# Rank Boost Tagged\n#rankboost\nrankboost benchmark body token\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+
+  constexpr int note_count = 64;
+  for (int i = 0; i < note_count; ++i) {
+    const std::string rel_path = "source-" + std::to_string(i) + ".md";
+    const std::string body =
+        "# Source " + std::to_string(i) + "\n#benchtag\n[[Shared Target]]\nPageBodyToken\n";
+    if (!seed_note(handle, rel_path.c_str(), body, metadata, disposition)) {
+      return 1;
+    }
+  }
+
+  constexpr int filter_note_count = 16;
+  for (int i = 0; i < filter_note_count; ++i) {
+    const std::string suffix = (i < 10 ? "0" : "") + std::to_string(i);
+    const std::string attachment_rel_path = "filter/filtermixedtoken-" + suffix + ".png";
+    if (!seed_binary_file(vault / attachment_rel_path, "filter-bytes-" + suffix)) {
+      return 1;
+    }
+
+    const std::string rel_path = "filter/filter-note-" + suffix + ".md";
+    const std::string title =
+        i == filter_note_count - 1
+            ? "# FilterMixedToken\n"
+            : "# Filter " + suffix + "\n";
+    const std::string body =
+        title +
+        "#filtertag\n"
+        "FilterMixedToken body " + suffix + "\n"
+        "![Figure](" + attachment_rel_path + ")\n";
+    if (!seed_note(handle, rel_path.c_str(), body, metadata, disposition)) {
+      return 1;
+    }
+  }
+
+  constexpr int iterations = 200;
+
+  const auto tag_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_results results{};
+    if (!expect_ok(kernel_query_tag_notes(handle, "benchtag", static_cast<size_t>(-1), &results), "tag query")) {
+      return 1;
+    }
+    if (results.count != note_count) {
+      std::cerr << "tag query returned unexpected hit count\n";
+      return 1;
+    }
+    kernel_free_search_results(&results);
+  }
+  const auto tag_end = std::chrono::steady_clock::now();
+
+  const auto title_search_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_results results{};
+    if (!expect_ok(kernel_search_notes_limited(handle, "QueryTitleToken", 1, &results), "title search")) {
+      return 1;
+    }
+    if (results.count != 1) {
+      std::cerr << "title search returned unexpected hit count\n";
+      return 1;
+    }
+    kernel_free_search_results(&results);
+  }
+  const auto title_search_end = std::chrono::steady_clock::now();
+
+  const auto body_search_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_results results{};
+    if (!expect_ok(kernel_search_notes_limited(handle, "QueryBodyToken", 1, &results), "body search")) {
+      return 1;
+    }
+    if (results.count != 1) {
+      std::cerr << "body search returned unexpected hit count\n";
+      return 1;
+    }
+    kernel_free_search_results(&results);
+  }
+  const auto body_search_end = std::chrono::steady_clock::now();
+
+  const auto body_snippet_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("QueryBodyToken", 1);
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "body snippet search")) {
+      return 1;
+    }
+    if (page.count != 1 || page.total_hits != 1 ||
+        page.hits[0].snippet_status != KERNEL_SEARCH_SNIPPET_BODY_EXTRACTED) {
+      std::cerr << "body snippet search returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto body_snippet_end = std::chrono::steady_clock::now();
+
+  const auto title_only_search_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("QueryTitleOnlyToken", 1);
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "title-only expanded search")) {
+      return 1;
+    }
+    if (page.count != 1 || page.total_hits != 1 ||
+        page.hits[0].snippet_status != KERNEL_SEARCH_SNIPPET_TITLE_ONLY) {
+      std::cerr << "title-only expanded search returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto title_only_search_end = std::chrono::steady_clock::now();
+
+  const auto shallow_page_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("PageBodyToken", 10);
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "shallow page search")) {
+      return 1;
+    }
+    if (page.count != 10 || page.total_hits != note_count || page.has_more == 0) {
+      std::cerr << "shallow page search returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto shallow_page_end = std::chrono::steady_clock::now();
+
+  const auto deep_offset_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("PageBodyToken", 8);
+    request.offset = 48;
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "deep offset search")) {
+      return 1;
+    }
+    if (page.count != 8 || page.total_hits != note_count || page.has_more == 0) {
+      std::cerr << "deep offset search returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto deep_offset_end = std::chrono::steady_clock::now();
+
+  const auto filtered_note_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("FilterMixedToken", 8);
+    request.tag_filter = "filtertag";
+    request.path_prefix = "filter/";
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "filtered note query")) {
+      return 1;
+    }
+    if (page.count != 8 || page.total_hits != filter_note_count || page.has_more == 0) {
+      std::cerr << "filtered note query returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto filtered_note_end = std::chrono::steady_clock::now();
+
+  const auto attachment_path_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("filtermixedtoken", 8);
+    request.kind = KERNEL_SEARCH_KIND_ATTACHMENT;
+    request.path_prefix = "filter/";
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "attachment path query")) {
+      return 1;
+    }
+    if (page.count != 8 || page.total_hits != filter_note_count || page.has_more == 0) {
+      std::cerr << "attachment path query returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto attachment_path_end = std::chrono::steady_clock::now();
+
+  const auto all_kind_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("FilterMixedToken", 12);
+    request.kind = KERNEL_SEARCH_KIND_ALL;
+    request.tag_filter = "filtertag";
+    request.path_prefix = "filter/";
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "all-kind query")) {
+      return 1;
+    }
+    if (page.count != 12 || page.total_hits != filter_note_count * 2 || page.has_more == 0) {
+      std::cerr << "all-kind query returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto all_kind_end = std::chrono::steady_clock::now();
+
+  const auto ranked_title_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("BenchmarkRankToken", 2);
+    request.sort_mode = KERNEL_SEARCH_SORT_RANK_V1;
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "ranked title query")) {
+      return 1;
+    }
+    if (page.count != 2 || page.total_hits != 2 ||
+        std::string(page.hits[0].rel_path) != "z-rank-title.md") {
+      std::cerr << "ranked title query returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto ranked_title_end = std::chrono::steady_clock::now();
+
+  const auto ranked_tag_boost_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("rankboost", 2);
+    request.sort_mode = KERNEL_SEARCH_SORT_RANK_V1;
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "ranked tag boost query")) {
+      return 1;
+    }
+    if (page.count != 2 || page.total_hits != 2 ||
+        std::string(page.hits[0].rel_path) != "z-rank-tagged.md") {
+      std::cerr << "ranked tag boost query returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto ranked_tag_boost_end = std::chrono::steady_clock::now();
+
+  const auto ranked_all_kind_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_query request = make_default_query("FilterMixedToken", 2);
+    request.kind = KERNEL_SEARCH_KIND_ALL;
+    request.tag_filter = "filtertag";
+    request.path_prefix = "filter/";
+    request.offset = filter_note_count - 1;
+    request.sort_mode = KERNEL_SEARCH_SORT_RANK_V1;
+    kernel_search_page page{};
+    if (!expect_ok(kernel_query_search(handle, &request, &page), "ranked all-kind query")) {
+      return 1;
+    }
+    if (page.count != 2 || page.total_hits != filter_note_count * 2 ||
+        std::string(page.hits[0].rel_path) != "filter/filter-note-14.md" ||
+        std::string(page.hits[1].rel_path) != "filter/filtermixedtoken-00.png") {
+      std::cerr << "ranked all-kind query returned unexpected page state\n";
+      return 1;
+    }
+    kernel_free_search_page(&page);
+  }
+  const auto ranked_all_kind_end = std::chrono::steady_clock::now();
+
+  const auto backlink_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_search_results results{};
+    if (!expect_ok(kernel_query_backlinks(handle, "target.md", static_cast<size_t>(-1), &results), "backlinks query")) {
+      return 1;
+    }
+    if (results.count != note_count) {
+      std::cerr << "backlinks query returned unexpected hit count\n";
+      return 1;
+    }
+    kernel_free_search_results(&results);
+  }
+  const auto backlink_end = std::chrono::steady_clock::now();
+
+  const auto tag_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(tag_end - tag_start).count();
+  const auto title_search_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(title_search_end - title_search_start).count();
+  const auto body_search_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(body_search_end - body_search_start).count();
+  const auto body_snippet_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(body_snippet_end - body_snippet_start).count();
+  const auto title_only_search_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(title_only_search_end - title_only_search_start).count();
+  const auto shallow_page_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(shallow_page_end - shallow_page_start).count();
+  const auto deep_offset_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(deep_offset_end - deep_offset_start).count();
+  const auto filtered_note_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(filtered_note_end - filtered_note_start).count();
+  const auto attachment_path_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(attachment_path_end - attachment_path_start).count();
+  const auto all_kind_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(all_kind_end - all_kind_start).count();
+  const auto ranked_title_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(ranked_title_end - ranked_title_start).count();
+  const auto ranked_tag_boost_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(ranked_tag_boost_end - ranked_tag_boost_start).count();
+  const auto ranked_all_kind_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(ranked_all_kind_end - ranked_all_kind_start).count();
+  const auto backlink_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(backlink_end - backlink_start).count();
+
+  const bool tag_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kTagQueryGate, tag_elapsed_ms);
+  const bool title_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kTitleQueryGate, title_search_elapsed_ms);
+  const bool body_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kBodyQueryGate, body_search_elapsed_ms);
+  const bool body_snippet_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kBodySnippetQueryGate, body_snippet_elapsed_ms);
+  const bool title_only_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kTitleOnlyQueryGate, title_only_search_elapsed_ms);
+  const bool shallow_page_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kShallowPageQueryGate, shallow_page_elapsed_ms);
+  const bool deep_offset_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kDeepOffsetQueryGate, deep_offset_elapsed_ms);
+  const bool filtered_note_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kFilteredNoteQueryGate, filtered_note_elapsed_ms);
+  const bool attachment_path_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kAttachmentPathQueryGate, attachment_path_elapsed_ms);
+  const bool all_kind_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kAllKindQueryGate, all_kind_elapsed_ms);
+  const bool ranked_title_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kRankedTitleQueryGate, ranked_title_elapsed_ms);
+  const bool ranked_tag_boost_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kRankedTagBoostQueryGate, ranked_tag_boost_elapsed_ms);
+  const bool ranked_all_kind_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kRankedAllKindQueryGate, ranked_all_kind_elapsed_ms);
+  const bool backlink_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kBacklinkQueryGate, backlink_elapsed_ms);
+
+  std::cout << " query_benchmark note_count=" << note_count
+            << " filter_note_count=" << filter_note_count
+            << " iterations=" << iterations
+            << " gate_passed=" << (tag_within_gate && title_within_gate && body_within_gate &&
+                                        body_snippet_within_gate && title_only_within_gate &&
+                                        shallow_page_within_gate && deep_offset_within_gate &&
+                                        filtered_note_within_gate && attachment_path_within_gate &&
+                                        all_kind_within_gate &&
+                                        ranked_title_within_gate &&
+                                        ranked_tag_boost_within_gate &&
+                                        ranked_all_kind_within_gate &&
+                                        backlink_within_gate
+                                        ? "true"
+                                        : "false")
+            << "\n";
+
+  kernel_close(handle);
+  std::filesystem::remove_all(vault);
+  return tag_within_gate && title_within_gate && body_within_gate &&
+                 body_snippet_within_gate && title_only_within_gate &&
+                 shallow_page_within_gate && deep_offset_within_gate &&
+                 filtered_note_within_gate && attachment_path_within_gate &&
+                 all_kind_within_gate &&
+                 ranked_title_within_gate &&
+                 ranked_tag_boost_within_gate &&
+                 ranked_all_kind_within_gate &&
+                 backlink_within_gate
+             ? 0
+             : 1;
+}
