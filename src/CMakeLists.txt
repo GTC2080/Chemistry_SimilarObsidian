@@ -26,6 +26,7 @@ add_library(
   impl/index/refresh_paths.cpp
   impl/index/refresh_rescan.cpp
   impl/parser/parser.cpp
+  impl/pdf/pdf_anchor.cpp
   impl/pdf/pdf_metadata.cpp
   impl/recovery/journal_format.cpp
   impl/recovery/journal_scan.cpp
@@ -41,6 +42,8 @@ add_library(
   impl/storage/storage_note_delete_rename.cpp
   impl/storage/storage_attachment_state.cpp
   impl/storage/storage_attachment_queries.cpp
+  impl/storage/storage_pdf_anchor_state.cpp
+  impl/storage/storage_pdf_anchor_queries.cpp
   impl/storage/storage_pdf_state.cpp
   impl/storage/storage_pdf_queries.cpp
   impl/storage/storage_attachment_diagnostics_queries.cpp

@@ -5,6 +5,7 @@
 
 #include "core/kernel_attachment_api_shared.h"
 #include "core/kernel_shared.h"
+#include "pdf/pdf_anchor.h"
 #include "pdf/pdf_metadata.h"
 #include "search/search.h"
 
@@ -164,6 +165,8 @@ std::string build_diagnostics_json(
          << kernel::core::json_escape(kernel::pdf::kPdfExtractMode) << "\",\n"
          << "  \"pdf_lookup_key_mode\":\""
          << kernel::core::json_escape(kernel::pdf::kPdfLookupKeyMode) << "\",\n"
+         << "  \"pdf_anchor_mode\":\""
+         << kernel::core::json_escape(kernel::pdf::kPdfAnchorMode) << "\",\n"
          << "  \"pdf_live_count\":" << pdf_snapshot.live_pdf_count << ",\n"
          << "  \"pdf_metadata_ready_count\":" << pdf_snapshot.ready_pdf_count << ",\n"
          << "  \"pdf_metadata_partial_count\":" << pdf_snapshot.partial_pdf_count << ",\n"

@@ -83,6 +83,10 @@ void test_pdf_diagnostics_snapshot_exports_contract_and_state_counts() {
           std::string::npos,
       "pdf diagnostics should expose the frozen PDF lookup key mode");
   require_true(
+      exported.find("\"pdf_anchor_mode\":\"track3_batch2_page_excerpt_v1\"") !=
+          std::string::npos,
+      "pdf diagnostics should expose the current PDF anchor mode");
+  require_true(
       exported.find("\"pdf_live_count\":4") != std::string::npos,
       "pdf diagnostics should count only live referenced PDF attachments");
   require_true(

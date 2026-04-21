@@ -6,6 +6,7 @@
 
 #include "parser/parser.h"
 #include "platform/platform.h"
+#include "pdf/pdf_anchor.h"
 #include "pdf/pdf_metadata.h"
 #include "vault/revision.h"
 
@@ -33,12 +34,25 @@ std::error_code refresh_attachment_metadata(
     return ec;
   }
 
-  return kernel::storage::upsert_pdf_metadata(
+  const std::string attachment_content_revision =
+      kernel::vault::compute_content_revision(file.bytes);
+  ec = kernel::storage::upsert_pdf_metadata(
       db,
       kernel::pdf::extract_pdf_metadata(
           attachment_rel_path,
           file.bytes,
-          kernel::vault::compute_content_revision(file.bytes)));
+          attachment_content_revision));
+  if (ec) {
+    return ec;
+  }
+
+  return kernel::storage::replace_pdf_anchor_records(
+      db,
+      attachment_rel_path,
+      kernel::pdf::extract_pdf_anchor_records(
+          attachment_rel_path,
+          file.bytes,
+          attachment_content_revision));
 }
 
 }  // namespace

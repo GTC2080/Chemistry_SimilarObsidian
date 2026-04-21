@@ -74,6 +74,16 @@ struct PdfMetadataRecord {
   PdfTextLayerState text_layer_state = PdfTextLayerState::Unavailable;
 };
 
+struct PdfAnchorRecord {
+  std::string rel_path;
+  std::string pdf_anchor_basis_revision;
+  std::string anchor_serialized;
+  std::string excerpt_text;
+  std::string excerpt_fingerprint;
+  std::uint64_t page = 0;
+  bool is_missing = false;
+};
+
 std::error_code open_or_create(const std::filesystem::path& db_path, Database& out_db);
 void close(Database& db);
 std::error_code ensure_schema_v1(Database& db);
@@ -100,6 +110,10 @@ std::error_code upsert_attachment_metadata(
     const kernel::platform::FileStat& stat);
 std::error_code mark_attachment_missing(Database& db, std::string_view rel_path);
 std::error_code upsert_pdf_metadata(Database& db, const PdfMetadataRecord& record);
+std::error_code replace_pdf_anchor_records(
+    Database& db,
+    std::string_view rel_path,
+    const std::vector<PdfAnchorRecord>& records);
 std::error_code list_attachment_paths(Database& db, std::vector<std::string>& out_paths);
 std::error_code list_note_attachment_refs(
     Database& db,
@@ -131,6 +145,15 @@ std::error_code read_live_pdf_metadata_record(
     Database& db,
     std::string_view rel_path,
     PdfMetadataRecord& out_record);
+std::error_code list_live_pdf_anchor_records(
+    Database& db,
+    std::string_view rel_path,
+    std::vector<PdfAnchorRecord>& out_records);
+std::error_code read_live_pdf_anchor_record(
+    Database& db,
+    std::string_view rel_path,
+    std::uint64_t page,
+    PdfAnchorRecord& out_record);
 std::error_code count_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_missing_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_orphaned_attachments(Database& db, std::uint64_t& out_count);

@@ -37,8 +37,10 @@ The repository must retain regression coverage for:
 
 - anchor serialization roundtrips without drift
 - identical disk truth rebuilds the same anchor
+- `pdf_anchor_mode` is exported in diagnostics once Batch 2 lands
 - `pdf_anchor_basis_revision` changes when anchor-relevant text basis changes
 - `pdf_anchor_basis_revision` changes when `pdf_anchor_mode_revision` changes
+- `pdf_anchor_basis_revision` may ignore unrelated document-level metadata bytes as long as the anchor-relevant page-content basis is unchanged
 - `pdf_anchor_basis_revision` does not change only because unrelated metadata such as `doc_title` or `has_outline` changed
 - page-level anchor validation distinguishes resolved, stale, unverifiable, and unavailable states
 - rebuild and recovery reconstitute anchors to the same canonical serialized form for the same disk truth

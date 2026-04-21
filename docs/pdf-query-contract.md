@@ -83,6 +83,9 @@ Frozen semantics:
 
 - `pdf_anchor_basis_revision` is narrower than `pdf_metadata_revision`
 - anchor validity depends only on inputs needed to rebuild and verify anchors
+- the `attachment_content_revision` term in the anchor-basis function is the
+  content-truth revision of the anchor-relevant PDF page slice used to rebuild
+  the page anchor, not unrelated document-level metadata bytes
 - metadata-only changes that do not affect anchor-relevant text basis must not stale an otherwise valid anchor
 - changing `doc_title` or `has_outline` alone must not force anchor invalidation
 
@@ -151,6 +154,13 @@ Batch 1 diagnostics contract exposes:
 Batch 2 extends diagnostics with:
 
 - `pdf_anchor_mode`
+
+Batch 2 anchor validation distinguishes:
+
+- `resolved`
+- `stale`
+- `unverifiable`
+- `unavailable`
 
 ## Deferred Track 3 Surface
 

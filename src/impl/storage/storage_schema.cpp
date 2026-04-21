@@ -62,6 +62,15 @@ std::error_code ensure_schema_v1(Database& db) {
       "  doc_title_state INTEGER NOT NULL,"
       "  text_layer_state INTEGER NOT NULL"
       ");"
+      "CREATE TABLE IF NOT EXISTS pdf_anchors("
+      "  rel_path TEXT NOT NULL,"
+      "  page INTEGER NOT NULL,"
+      "  pdf_anchor_basis_revision TEXT NOT NULL,"
+      "  anchor_serialized TEXT NOT NULL,"
+      "  excerpt_text TEXT NOT NULL,"
+      "  excerpt_fingerprint TEXT NOT NULL,"
+      "  PRIMARY KEY(rel_path, page)"
+      ");"
       "CREATE TABLE IF NOT EXISTS note_attachment_refs("
       "  note_id INTEGER NOT NULL,"
       "  attachment_rel_path TEXT NOT NULL,"
@@ -72,7 +81,8 @@ std::error_code ensure_schema_v1(Database& db) {
       "CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);"
       "CREATE INDEX IF NOT EXISTS idx_note_links_target ON note_links(target);"
       "CREATE INDEX IF NOT EXISTS idx_attachments_is_missing_rel_path ON attachments(is_missing, rel_path);"
-      "CREATE INDEX IF NOT EXISTS idx_pdf_metadata_state_rel_path ON pdf_metadata(metadata_state, rel_path);");
+      "CREATE INDEX IF NOT EXISTS idx_pdf_metadata_state_rel_path ON pdf_metadata(metadata_state, rel_path);"
+      "CREATE INDEX IF NOT EXISTS idx_pdf_anchors_rel_path_page ON pdf_anchors(rel_path, page);");
   if (ec) {
     return ec;
   }
@@ -80,7 +90,7 @@ std::error_code ensure_schema_v1(Database& db) {
   sqlite3_stmt* stmt = nullptr;
   ec = detail::prepare(
       db.connection,
-      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '5');",
+      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '6');",
       &stmt);
   if (ec) {
     return ec;
@@ -90,7 +100,7 @@ std::error_code ensure_schema_v1(Database& db) {
     return ec;
   }
 
-  return detail::exec(db.connection, "PRAGMA user_version=5;");
+  return detail::exec(db.connection, "PRAGMA user_version=6;");
 }
 
 }  // namespace kernel::storage
