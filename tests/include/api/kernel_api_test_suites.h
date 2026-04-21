@@ -1,5 +1,7 @@
 #pragma once
 
+void run_kernel_api_core_contract_tests();
+void run_kernel_api_watcher_smoke_tests();
 void run_attachment_diagnostics_tests();
 void run_attachment_public_surface_tests();
 void run_attachment_lifecycle_tests();
