@@ -59,8 +59,16 @@ This matrix covers the formal Batch 1 attachment public surface:
   - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
 - startup recovery replaces stale attachment refs and exposes recovered present metadata through the formal public surface
   - `test_startup_recovery_replaces_stale_attachment_refs_and_metadata`
+- startup recovery preserves recovered missing attachment refs and missing metadata through the formal public surface
+  - `test_startup_recovery_marks_missing_attachments_for_recovered_note_refs`
 - reopen catch-up preserves the live attachment ref while reconciling a closed-window delete to `missing`
   - `test_reopen_catch_up_repairs_attachment_missing_state_after_closed_window_delete`
+- reopen catch-up reconciles a watcher-backoff attachment create back to `present` through the formal public surface
+  - `test_close_during_watcher_fault_backoff_leaves_attachment_create_for_reopen_catch_up`
+- reopen catch-up reconciles a watcher-backoff attachment delete back to `missing` through the formal public surface
+  - `test_close_during_watcher_fault_backoff_leaves_attachment_delete_for_reopen_catch_up`
+- reopen catch-up refreshes watcher-backoff attachment modify metadata through the formal public surface
+  - `test_close_during_watcher_fault_backoff_leaves_attachment_modify_for_reopen_catch_up`
 - rebuild preserves the live attachment ref while reconciling a deleted file to `missing`
   - `test_rebuild_reconciles_attachment_missing_state`
 

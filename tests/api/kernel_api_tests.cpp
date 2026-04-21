@@ -2764,6 +2764,24 @@ void test_close_during_watcher_fault_backoff_leaves_attachment_create_for_reopen
       "reopen catch-up should preserve note attachment refs while reconciling attachment create");
   sqlite3_close(db);
 
+  require_single_note_attachment_ref_state(
+      handle,
+      "backoff-attachment-create.md",
+      "assets/backoff-created.png",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "reopen catch-up should expose closed-window attachment create through the formal public surface");
+  require_attachment_lookup_state(
+      handle,
+      "assets/backoff-created.png",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "reopen catch-up should expose created attachment metadata through the formal public surface");
+
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
@@ -2843,6 +2861,24 @@ void test_close_during_watcher_fault_backoff_leaves_attachment_delete_for_reopen
       "reopen catch-up should preserve note attachment refs while reconciling attachment delete");
   sqlite3_close(db);
 
+  require_single_note_attachment_ref_state(
+      handle,
+      "backoff-attachment-delete.md",
+      "assets/backoff-delete.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "reopen catch-up should expose closed-window attachment delete through the formal public surface");
+  require_attachment_lookup_state(
+      handle,
+      "assets/backoff-delete.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "reopen catch-up should expose deleted attachment metadata through the formal public surface");
+
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
@@ -2919,6 +2955,36 @@ void test_close_during_watcher_fault_backoff_leaves_attachment_modify_for_reopen
       "reopen catch-up should preserve note attachment refs while reconciling attachment modify");
   sqlite3_close(db);
 
+  require_single_note_attachment_ref_state(
+      handle,
+      "backoff-attachment-modify.md",
+      "assets/backoff-modify.bin",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_GENERIC_FILE,
+      true,
+      "reopen catch-up should expose closed-window attachment modify through the formal public surface");
+  {
+    kernel_attachment_record attachment{};
+    expect_ok(kernel_get_attachment(handle, "assets/backoff-modify.bin", &attachment));
+    require_true(
+        attachment.presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+        "reopen catch-up should keep modified attachment present in the formal public surface");
+    require_true(
+        attachment.kind == KERNEL_ATTACHMENT_KIND_GENERIC_FILE,
+        "reopen catch-up should preserve modified attachment kind in the formal public surface");
+    require_true(
+        attachment.ref_count == 1,
+        "reopen catch-up should preserve modified attachment ref_count in the formal public surface");
+    require_true(
+        attachment.file_size > static_cast<std::uint64_t>(original_size),
+        "reopen catch-up should refresh modified attachment file_size in the formal public surface");
+    require_true(
+        attachment.mtime_ns > 0,
+        "reopen catch-up should refresh modified attachment mtime in the formal public surface");
+    kernel_free_attachment_record(&attachment);
+  }
+
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
@@ -2987,6 +3053,24 @@ void test_startup_recovery_marks_missing_attachments_for_recovered_note_refs() {
           "WHERE rel_path='assets/missing-after-recovery.png' AND is_missing=1;") == 1,
       "startup recovery should mark the recovered missing attachment path as missing");
   sqlite3_close(db);
+
+  require_single_note_attachment_ref_state(
+      handle,
+      "recover-missing-attachment.md",
+      "assets/missing-after-recovery.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      false,
+      "startup recovery should expose recovered missing attachment refs through the formal public surface");
+  require_attachment_lookup_state(
+      handle,
+      "assets/missing-after-recovery.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      false,
+      "startup recovery should expose recovered missing attachment metadata through the formal public surface");
 
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
