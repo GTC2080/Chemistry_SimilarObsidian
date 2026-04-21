@@ -74,12 +74,34 @@ target_link_libraries(parser_tests PRIVATE chem_kernel)
 target_include_directories(parser_tests PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/internal ${PROJECT_SOURCE_DIR}/tests/include)
 add_test(NAME parser_tests COMMAND parser_tests)
 
-add_executable(search_tests src/search/search_tests.cpp src/support/test_support.cpp)
+add_executable(
+  search_tests
+  src/search/search_tests.cpp
+  src/search/search_test_support.cpp
+  src/search/search_tests_note_core.cpp
+  src/search/search_tests_note_core_persistence.cpp
+  src/search/search_tests_note_core_query.cpp
+  src/search/search_tests_snippet_pagination.cpp
+  src/search/search_tests_snippet.cpp
+  src/search/search_tests_page_contract.cpp
+  src/search/search_tests_ranking.cpp
+  src/search/search_tests_incremental_refresh.cpp
+  src/support/test_support.cpp
+)
 target_link_libraries(search_tests PRIVATE chem_kernel)
 target_include_directories(search_tests PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/internal ${PROJECT_SOURCE_DIR}/tests/include)
 add_test(NAME search_tests COMMAND search_tests)
 
-add_executable(watcher_tests src/watcher/watcher_tests.cpp src/support/test_support.cpp)
+add_executable(
+  watcher_tests
+  src/watcher/watcher_tests.cpp
+  src/watcher/watcher_test_support.cpp
+  src/watcher/watcher_tests_event_coalescing.cpp
+  src/watcher/watcher_tests_session.cpp
+  src/watcher/watcher_tests_refresh_integration.cpp
+  src/watcher/watcher_tests_continuity.cpp
+  src/support/test_support.cpp
+)
 target_link_libraries(watcher_tests PRIVATE chem_kernel)
 target_include_directories(watcher_tests PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/internal ${PROJECT_SOURCE_DIR}/tests/include)
 add_test(NAME watcher_tests COMMAND watcher_tests)
