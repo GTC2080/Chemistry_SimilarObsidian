@@ -1,4 +1,4 @@
-// Reason: This file records repeatable host-facing query timing loops for search, tag, and backlink surfaces.
+// Reason: This file records repeatable host-facing query timing loops for search, attachment, tag, and backlink surfaces.
 
 #include "kernel/c_api.h"
 #include "benchmarks/benchmark_thresholds.h"
@@ -161,6 +161,8 @@ int main() {
   }
 
   constexpr int iterations = 200;
+  constexpr const char* kBenchAttachmentRelPath = "filter/filtermixedtoken-00.png";
+  constexpr const char* kBenchAttachmentNoteRelPath = "filter/filter-note-00.md";
 
   const auto tag_start = std::chrono::steady_clock::now();
   for (int i = 0; i < iterations; ++i) {
@@ -301,6 +303,74 @@ int main() {
   }
   const auto attachment_path_end = std::chrono::steady_clock::now();
 
+  const auto attachment_catalog_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_attachment_list attachments{};
+    if (!expect_ok(kernel_query_attachments(handle, 8, &attachments), "attachment catalog query")) {
+      return 1;
+    }
+    if (attachments.count != 8 ||
+        std::string(attachments.attachments[0].rel_path) != kBenchAttachmentRelPath ||
+        attachments.attachments[0].presence != KERNEL_ATTACHMENT_PRESENCE_PRESENT ||
+        attachments.attachments[0].ref_count != 1) {
+      std::cerr << "attachment catalog query returned unexpected attachment state\n";
+      return 1;
+    }
+    kernel_free_attachment_list(&attachments);
+  }
+  const auto attachment_catalog_end = std::chrono::steady_clock::now();
+
+  const auto attachment_lookup_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_attachment_record attachment{};
+    if (!expect_ok(kernel_get_attachment(handle, kBenchAttachmentRelPath, &attachment), "attachment lookup query")) {
+      return 1;
+    }
+    if (std::string(attachment.rel_path) != kBenchAttachmentRelPath ||
+        std::string(attachment.basename) != "filtermixedtoken-00.png" ||
+        attachment.presence != KERNEL_ATTACHMENT_PRESENCE_PRESENT ||
+        attachment.kind != KERNEL_ATTACHMENT_KIND_IMAGE_LIKE ||
+        attachment.ref_count != 1) {
+      std::cerr << "attachment lookup query returned unexpected attachment state\n";
+      return 1;
+    }
+    kernel_free_attachment_record(&attachment);
+  }
+  const auto attachment_lookup_end = std::chrono::steady_clock::now();
+
+  const auto note_attachment_refs_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_attachment_list refs{};
+    if (!expect_ok(
+            kernel_query_note_attachment_refs(handle, kBenchAttachmentNoteRelPath, 4, &refs),
+            "note attachment refs query")) {
+      return 1;
+    }
+    if (refs.count != 1 || std::string(refs.attachments[0].rel_path) != kBenchAttachmentRelPath) {
+      std::cerr << "note attachment refs query returned unexpected attachment state\n";
+      return 1;
+    }
+    kernel_free_attachment_list(&refs);
+  }
+  const auto note_attachment_refs_end = std::chrono::steady_clock::now();
+
+  const auto attachment_referrers_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_attachment_referrers referrers{};
+    if (!expect_ok(
+            kernel_query_attachment_referrers(handle, kBenchAttachmentRelPath, 4, &referrers),
+            "attachment referrers query")) {
+      return 1;
+    }
+    if (referrers.count != 1 ||
+        std::string(referrers.referrers[0].note_rel_path) != kBenchAttachmentNoteRelPath) {
+      std::cerr << "attachment referrers query returned unexpected referrer state\n";
+      return 1;
+    }
+    kernel_free_attachment_referrers(&referrers);
+  }
+  const auto attachment_referrers_end = std::chrono::steady_clock::now();
+
   const auto all_kind_start = std::chrono::steady_clock::now();
   for (int i = 0; i < iterations; ++i) {
     kernel_search_query request = make_default_query("FilterMixedToken", 12);
@@ -407,6 +477,16 @@ int main() {
       std::chrono::duration_cast<std::chrono::milliseconds>(filtered_note_end - filtered_note_start).count();
   const auto attachment_path_elapsed_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(attachment_path_end - attachment_path_start).count();
+  const auto attachment_catalog_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(attachment_catalog_end - attachment_catalog_start).count();
+  const auto attachment_lookup_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(attachment_lookup_end - attachment_lookup_start).count();
+  const auto note_attachment_refs_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(note_attachment_refs_end - note_attachment_refs_start)
+          .count();
+  const auto attachment_referrers_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(attachment_referrers_end - attachment_referrers_start)
+          .count();
   const auto all_kind_elapsed_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(all_kind_end - all_kind_start).count();
   const auto ranked_title_elapsed_ms =
@@ -436,6 +516,16 @@ int main() {
       kernel::benchmarks::report_gate(kernel::benchmarks::kFilteredNoteQueryGate, filtered_note_elapsed_ms);
   const bool attachment_path_within_gate =
       kernel::benchmarks::report_gate(kernel::benchmarks::kAttachmentPathQueryGate, attachment_path_elapsed_ms);
+  const bool attachment_catalog_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kAttachmentCatalogQueryGate, attachment_catalog_elapsed_ms);
+  const bool attachment_lookup_within_gate =
+      kernel::benchmarks::report_gate(kernel::benchmarks::kAttachmentLookupQueryGate, attachment_lookup_elapsed_ms);
+  const bool note_attachment_refs_within_gate = kernel::benchmarks::report_gate(
+      kernel::benchmarks::kNoteAttachmentRefsQueryGate,
+      note_attachment_refs_elapsed_ms);
+  const bool attachment_referrers_within_gate = kernel::benchmarks::report_gate(
+      kernel::benchmarks::kAttachmentReferrersQueryGate,
+      attachment_referrers_elapsed_ms);
   const bool all_kind_within_gate =
       kernel::benchmarks::report_gate(kernel::benchmarks::kAllKindQueryGate, all_kind_elapsed_ms);
   const bool ranked_title_within_gate =
@@ -454,6 +544,10 @@ int main() {
                                         body_snippet_within_gate && title_only_within_gate &&
                                         shallow_page_within_gate && deep_offset_within_gate &&
                                         filtered_note_within_gate && attachment_path_within_gate &&
+                                        attachment_catalog_within_gate &&
+                                        attachment_lookup_within_gate &&
+                                        note_attachment_refs_within_gate &&
+                                        attachment_referrers_within_gate &&
                                         all_kind_within_gate &&
                                         ranked_title_within_gate &&
                                         ranked_tag_boost_within_gate &&
@@ -469,6 +563,10 @@ int main() {
                  body_snippet_within_gate && title_only_within_gate &&
                  shallow_page_within_gate && deep_offset_within_gate &&
                  filtered_note_within_gate && attachment_path_within_gate &&
+                 attachment_catalog_within_gate &&
+                 attachment_lookup_within_gate &&
+                 note_attachment_refs_within_gate &&
+                 attachment_referrers_within_gate &&
                  all_kind_within_gate &&
                  ranked_title_within_gate &&
                  ranked_tag_boost_within_gate &&

@@ -63,6 +63,17 @@ This matrix covers the formal Batch 1 attachment public surface:
 - attachment path search agrees with the public live catalog
   - `test_attachment_public_surface_excludes_orphaned_paths_and_matches_search`
 
+### Benchmark Gate
+
+- query benchmark exercises the attachment live catalog list surface
+  - `kernel_query_benchmark.exe`
+- query benchmark exercises single attachment lookup
+  - `kernel_query_benchmark.exe`
+- query benchmark exercises note -> attachment refs
+  - `kernel_query_benchmark.exe`
+- query benchmark exercises attachment -> referrers
+  - `kernel_query_benchmark.exe`
+
 ### Diagnostics Export
 
 - support bundle exports the attachment public surface revision

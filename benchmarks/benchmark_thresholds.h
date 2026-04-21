@@ -80,6 +80,22 @@ inline constexpr BenchmarkGate kAttachmentPathQueryGate{
     "attachment_path_query",
     57,
     160};
+inline constexpr BenchmarkGate kAttachmentCatalogQueryGate{
+    "attachment_catalog_query",
+    32,
+    140};
+inline constexpr BenchmarkGate kAttachmentLookupQueryGate{
+    "attachment_lookup_query",
+    18,
+    120};
+inline constexpr BenchmarkGate kNoteAttachmentRefsQueryGate{
+    "note_attachment_refs_query",
+    32,
+    140};
+inline constexpr BenchmarkGate kAttachmentReferrersQueryGate{
+    "attachment_referrers_query",
+    17,
+    160};
 inline constexpr BenchmarkGate kAllKindQueryGate{
     "all_kind_query",
     167,

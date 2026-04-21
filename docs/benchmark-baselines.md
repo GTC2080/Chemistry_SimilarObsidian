@@ -43,6 +43,7 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
   - `note_count=64`
   - `filter_note_count=16`
   - `iterations=200`
+  - includes attachment catalog, single attachment lookup, note attachment refs, and attachment referrers smoke loops
 
 ## Current Gates
 
@@ -78,6 +79,14 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
   - `filtered_note_query_threshold_ms=180`
   - `attachment_path_query_baseline_ms=57`
   - `attachment_path_query_threshold_ms=160`
+  - `attachment_catalog_query_baseline_ms=32`
+  - `attachment_catalog_query_threshold_ms=140`
+  - `attachment_lookup_query_baseline_ms=18`
+  - `attachment_lookup_query_threshold_ms=120`
+  - `note_attachment_refs_query_baseline_ms=32`
+  - `note_attachment_refs_query_threshold_ms=140`
+  - `attachment_referrers_query_baseline_ms=17`
+  - `attachment_referrers_query_threshold_ms=160`
   - `all_kind_query_baseline_ms=167`
   - `all_kind_query_threshold_ms=240`
   - `ranked_title_query_baseline_ms=51`
@@ -92,28 +101,32 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
 ## Fresh Verification Snapshot
 
 - startup
-  - `clean_observed_ms=1856`
-  - `recovery_observed_ms=2034`
+  - `clean_observed_ms=2161`
+  - `recovery_observed_ms=1969`
 - io
-  - `io_roundtrip_observed_ms=249`
-  - `external_create_observed_ms=325`
+  - `io_roundtrip_observed_ms=240`
+  - `external_create_observed_ms=219`
 - rebuild
-  - `rebuild_observed_ms=11910`
+  - `rebuild_observed_ms=11857`
 - query
-  - `tag_query_observed_ms=160`
-  - `title_query_observed_ms=97`
-  - `body_query_observed_ms=123`
-  - `body_snippet_query_observed_ms=86`
-  - `title_only_query_observed_ms=63`
-  - `shallow_page_query_observed_ms=161`
-  - `deep_offset_query_observed_ms=173`
-  - `filtered_note_query_observed_ms=152`
-  - `attachment_path_query_observed_ms=87`
-  - `all_kind_query_observed_ms=192`
-  - `ranked_title_query_observed_ms=72`
-  - `ranked_tag_boost_query_observed_ms=57`
-  - `ranked_all_kind_query_observed_ms=253`
-  - `backlink_query_observed_ms=95`
+  - `tag_query_observed_ms=133`
+  - `title_query_observed_ms=58`
+  - `body_query_observed_ms=52`
+  - `body_snippet_query_observed_ms=49`
+  - `title_only_query_observed_ms=42`
+  - `shallow_page_query_observed_ms=110`
+  - `deep_offset_query_observed_ms=103`
+  - `filtered_note_query_observed_ms=103`
+  - `attachment_path_query_observed_ms=50`
+  - `attachment_catalog_query_observed_ms=29`
+  - `attachment_lookup_query_observed_ms=12`
+  - `note_attachment_refs_query_observed_ms=19`
+  - `attachment_referrers_query_observed_ms=10`
+  - `all_kind_query_observed_ms=137`
+  - `ranked_title_query_observed_ms=40`
+  - `ranked_tag_boost_query_observed_ms=41`
+  - `ranked_all_kind_query_observed_ms=199`
+  - `backlink_query_observed_ms=98`
 
 ## Update Rule
 
