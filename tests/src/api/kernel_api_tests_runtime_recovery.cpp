@@ -1326,3 +1326,24 @@ void test_reopen_catch_up_repairs_partial_state_left_by_interrupted_watcher_appl
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
+
+void run_runtime_recovery_tests() {
+  test_open_vault_catches_up_external_modify_while_closed();
+  test_open_vault_consumes_dangling_sidecar_recovery_record();
+  test_open_vault_recovers_unfinished_save_and_cleans_journal();
+  test_open_vault_ignores_torn_tail_after_valid_recovery_prefix();
+  test_open_vault_ignores_truncated_tail_after_valid_recovery_prefix();
+  test_open_vault_ignores_crc_mismatch_tail_after_valid_recovery_prefix();
+  test_open_vault_discards_temp_only_unfinished_save();
+  test_get_state_ignores_sqlite_diagnostic_recovery_rows();
+  test_startup_recovery_prefers_sidecar_truth_over_conflicting_journal_state_rows();
+  test_startup_recovery_before_target_replace_keeps_old_disk_truth();
+  test_startup_recovery_after_temp_cleanup_recovers_replaced_target_truth();
+  test_reopen_catch_up_repairs_stale_derived_state_left_by_interrupted_rebuild();
+  test_startup_recovery_replaces_stale_parser_derived_rows();
+  test_close_during_watcher_fault_backoff_leaves_delete_for_reopen_catch_up();
+  test_close_during_watcher_fault_backoff_leaves_modify_for_reopen_catch_up();
+  test_close_during_watcher_fault_backoff_leaves_create_for_reopen_catch_up();
+  test_reopen_catch_up_repairs_partial_state_left_by_interrupted_background_rebuild();
+  test_reopen_catch_up_repairs_partial_state_left_by_interrupted_watcher_apply();
+}
