@@ -53,6 +53,8 @@ This matrix covers the formal Batch 1 attachment public surface:
 
 - note rewrite replaces the live attachment ref set in the formal public surface
   - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
+- attachment-only rename keeps the old live ref path visible as `missing` and excludes the unreferenced renamed path from the formal public surface
+  - `test_attachment_api_observes_attachment_rename_reconciliation`
 - rebuild restores the formal live attachment ref set after stale attachment-ref drift
   - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
 - startup recovery restores recovered missing attachment refs through the formal public surface
@@ -76,10 +78,14 @@ This matrix covers the formal Batch 1 attachment public surface:
 
 - note refs return live attachment records
   - `test_attachment_public_surface_note_refs_and_referrers_are_stable`
+- live notes without attachment refs return an empty successful result
+  - `test_attachment_public_surface_note_refs_and_referrers_are_stable`
 - note refs preserve persisted ref order
   - `test_attachment_public_surface_note_refs_and_referrers_are_stable`
 - note refs expose global live `ref_count`
   - `test_attachment_public_surface_note_refs_and_referrers_are_stable`
+- deleted notes return `NOT_FOUND` from the formal note attachment refs surface
+  - `test_startup_recovery_plus_reopen_catch_up_removes_deleted_note_drift`
 
 ### Attachment -> Referrers
 
@@ -89,6 +95,8 @@ This matrix covers the formal Batch 1 attachment public surface:
   - `test_attachment_public_surface_note_refs_and_referrers_are_stable`
 - orphaned attachment referrers return `NOT_FOUND`
   - `test_attachment_public_surface_excludes_orphaned_paths_and_matches_search`
+- attachments owned only by deleted notes return `NOT_FOUND` from the formal referrers surface
+  - `test_startup_recovery_plus_reopen_catch_up_removes_deleted_note_drift`
 
 ### Search Consistency
 
@@ -96,6 +104,8 @@ This matrix covers the formal Batch 1 attachment public surface:
   - `test_attachment_public_surface_excludes_orphaned_paths_and_matches_search`
 - attachment path search agrees with the public live catalog
   - `test_attachment_public_surface_excludes_orphaned_paths_and_matches_search`
+- attachment path search keeps the old live ref path after attachment-only rename and excludes the unreferenced renamed path
+  - `test_attachment_api_observes_attachment_rename_reconciliation`
 
 ### Benchmark Gate
 
@@ -117,4 +127,6 @@ This matrix covers the formal Batch 1 attachment public surface:
 - support bundle exports the attachment kind mapping revision
   - `test_export_diagnostics_writes_json_snapshot`
 - support bundle exports live attachment count
+  - `test_export_diagnostics_writes_json_snapshot`
+- support bundle exports orphaned attachment count
   - `test_export_diagnostics_writes_json_snapshot`

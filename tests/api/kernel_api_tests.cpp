@@ -121,6 +121,54 @@ void require_single_note_attachment_ref_state(
   kernel_free_attachment_list(&refs);
 }
 
+void require_note_attachment_refs_not_found(
+    kernel_handle* handle,
+    const char* note_rel_path,
+    std::string_view context) {
+  kernel_attachment_list refs{};
+  const kernel_status status =
+      kernel_query_note_attachment_refs(handle, note_rel_path, static_cast<size_t>(-1), &refs);
+  require_true(
+      status.code == KERNEL_ERROR_NOT_FOUND,
+      std::string(context) + ": formal note attachment refs query should return NOT_FOUND, got status " +
+          std::to_string(status.code));
+  require_true(
+      refs.attachments == nullptr && refs.count == 0,
+      std::string(context) + ": formal note attachment refs query should clear stale output on NOT_FOUND");
+}
+
+void require_attachment_lookup_not_found(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    std::string_view context) {
+  kernel_attachment_record attachment{};
+  const kernel_status status = kernel_get_attachment(handle, attachment_rel_path, &attachment);
+  require_true(
+      status.code == KERNEL_ERROR_NOT_FOUND,
+      std::string(context) + ": formal attachment lookup should return NOT_FOUND, got status " +
+          std::to_string(status.code));
+  require_true(
+      attachment.rel_path == nullptr && attachment.basename == nullptr &&
+          attachment.extension == nullptr && attachment.ref_count == 0,
+      std::string(context) + ": formal attachment lookup should clear stale output on NOT_FOUND");
+}
+
+void require_attachment_referrers_not_found(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    std::string_view context) {
+  kernel_attachment_referrers referrers{};
+  const kernel_status status =
+      kernel_query_attachment_referrers(handle, attachment_rel_path, static_cast<size_t>(-1), &referrers);
+  require_true(
+      status.code == KERNEL_ERROR_NOT_FOUND,
+      std::string(context) + ": formal attachment referrers query should return NOT_FOUND, got status " +
+          std::to_string(status.code));
+  require_true(
+      referrers.referrers == nullptr && referrers.count == 0,
+      std::string(context) + ": formal attachment referrers query should clear stale output on NOT_FOUND");
+}
+
 void test_open_and_state_layers() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -1857,6 +1905,17 @@ void test_attachment_public_surface_note_refs_and_referrers_are_stable() {
       nullptr,
       &metadata,
       &disposition));
+  const std::string gamma =
+      "# Gamma Attachment Note\n"
+      "plain body without attachment refs\n";
+  expect_ok(kernel_write_note(
+      handle,
+      "gamma-attachments.md",
+      gamma.data(),
+      gamma.size(),
+      nullptr,
+      &metadata,
+      &disposition));
 
   kernel_attachment_list refs{};
   expect_ok(kernel_query_note_attachment_refs(
@@ -1877,6 +1936,16 @@ void test_attachment_public_surface_note_refs_and_referrers_are_stable() {
   require_true(
       refs.attachments[1].ref_count == 1,
       "note attachment refs surface should expose per-attachment live ref counts");
+  kernel_free_attachment_list(&refs);
+
+  expect_ok(kernel_query_note_attachment_refs(
+      handle,
+      "gamma-attachments.md",
+      static_cast<size_t>(-1),
+      &refs));
+  require_true(
+      refs.count == 0,
+      "note attachment refs surface should succeed with an empty result for live notes without attachment refs");
   kernel_free_attachment_list(&refs);
 
   kernel_attachment_referrers referrers{};
@@ -2138,12 +2207,24 @@ void test_attachment_api_observes_attachment_rename_reconciliation() {
 
   kernel_handle* handle = nullptr;
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+  kernel_note_metadata metadata{};
+  kernel_write_disposition disposition{};
+  const std::string content =
+      "# Attachment Rename\n"
+      "[Old](assets/old.bin)\n";
+  expect_ok(kernel_write_note(
+      handle,
+      "attachment-rename.md",
+      content.data(),
+      content.size(),
+      nullptr,
+      &metadata,
+      &disposition));
   expect_ok(kernel_close(handle));
 
   auto db = kernel::storage::Database{};
   require_true(!kernel::storage::open_or_create(storage_db_for_vault(vault), db), "attachment rename API test should open storage db");
   require_true(!kernel::storage::ensure_schema_v1(db), "attachment rename API test should ensure schema");
-  require_true(!kernel::index::refresh_markdown_path(db, vault, "assets/old.bin"), "seed attachment refresh should succeed");
 
   std::filesystem::rename(vault / "assets" / "old.bin", vault / "assets" / "renamed.bin");
   const std::vector<kernel::watcher::CoalescedAction> actions = {
@@ -2160,6 +2241,80 @@ void test_attachment_api_observes_attachment_rename_reconciliation() {
   require_true(attachment.is_missing == 1, "attachment rename should expose the old path as missing");
   expect_ok(kernel_get_attachment_metadata(handle, "assets/renamed.bin", &attachment));
   require_true(attachment.is_missing == 0, "attachment rename should expose the new path as present");
+
+  kernel_attachment_list attachments{};
+  expect_ok(kernel_query_attachments(handle, static_cast<size_t>(-1), &attachments));
+  require_true(
+      attachments.count == 1,
+      "attachment rename should keep only the still-referenced path in the formal live catalog");
+  require_true(
+      std::string(attachments.attachments[0].rel_path) == "assets/old.bin" &&
+          attachments.attachments[0].presence == KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      "attachment rename should keep the old live attachment path visible as missing in the formal catalog");
+  kernel_free_attachment_list(&attachments);
+
+  require_attachment_lookup_state(
+      handle,
+      "assets/old.bin",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_GENERIC_FILE,
+      true,
+      "attachment rename should keep the old ref path visible in the formal single-attachment surface");
+  require_single_note_attachment_ref_state(
+      handle,
+      "attachment-rename.md",
+      "assets/old.bin",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_GENERIC_FILE,
+      true,
+      "attachment rename should keep note attachment refs pinned to the old live path until note rewrite");
+  require_attachment_lookup_not_found(
+      handle,
+      "assets/renamed.bin",
+      "attachment rename should exclude the unreferenced renamed path from the formal single-attachment surface");
+
+  kernel_attachment_referrers referrers{};
+  expect_ok(kernel_query_attachment_referrers(
+      handle,
+      "assets/old.bin",
+      static_cast<size_t>(-1),
+      &referrers));
+  require_true(
+      referrers.count == 1,
+      "attachment rename should keep the old live path's formal referrers visible");
+  require_true(
+      std::string(referrers.referrers[0].note_rel_path) == "attachment-rename.md",
+      "attachment rename should keep referrers pinned to the old live path");
+  kernel_free_attachment_referrers(&referrers);
+  require_attachment_referrers_not_found(
+      handle,
+      "assets/renamed.bin",
+      "attachment rename should exclude the unreferenced renamed path from the formal referrers surface");
+
+  kernel_search_query request{};
+  request.query = "old";
+  request.limit = 8;
+  request.kind = KERNEL_SEARCH_KIND_ATTACHMENT;
+  request.sort_mode = KERNEL_SEARCH_SORT_REL_PATH_ASC;
+  kernel_search_page page{};
+  expect_ok(kernel_query_search(handle, &request, &page));
+  require_true(
+      page.count == 1 && page.total_hits == 1,
+      "attachment rename should keep the old live path searchable through the attachment path surface");
+  require_true(
+      std::string(page.hits[0].rel_path) == "assets/old.bin" &&
+          page.hits[0].result_flags == KERNEL_SEARCH_RESULT_FLAG_ATTACHMENT_MISSING,
+      "attachment rename search should expose the old live path as missing");
+  kernel_free_search_page(&page);
+
+  request.query = "renamed";
+  expect_ok(kernel_query_search(handle, &request, &page));
+  require_true(
+      page.count == 0 && page.total_hits == 0,
+      "attachment rename should exclude the unreferenced renamed path from attachment path search");
+  kernel_free_search_page(&page);
 
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
@@ -2390,6 +2545,19 @@ void test_startup_recovery_plus_reopen_catch_up_removes_deleted_note_drift() {
       query_single_int(db, "SELECT COUNT(*) FROM note_attachment_refs WHERE note_id=(SELECT note_id FROM notes WHERE rel_path='recover-delete.md');") == 0,
       "reopen catch-up should clear stale attachment refs for a deleted note");
   sqlite3_close(db);
+
+  require_note_attachment_refs_not_found(
+      handle,
+      "recover-delete.md",
+      "deleted-note recovery should remove the note from the formal attachment refs surface");
+  require_attachment_lookup_not_found(
+      handle,
+      "assets/delete.png",
+      "deleted-note recovery should remove the deleted note's attachment from the formal live catalog");
+  require_attachment_referrers_not_found(
+      handle,
+      "assets/delete.png",
+      "deleted-note recovery should remove the deleted note's attachment referrers from the formal surface");
 
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
@@ -6013,6 +6181,7 @@ void test_get_rebuild_status_reports_background_failure_result() {
 
 void test_export_diagnostics_writes_json_snapshot() {
   const auto vault = make_temp_vault();
+  const auto db_path = storage_db_for_vault(vault);
   const auto export_path = vault / "diagnostics.json";
   std::filesystem::create_directories(vault / "assets");
   write_file_bytes(vault / "assets" / "diag-present.png", "diag-present-bytes");
@@ -6045,8 +6214,33 @@ void test_export_diagnostics_writes_json_snapshot() {
       nullptr,
       &metadata,
       &disposition));
+  {
+    std::lock_guard lock(handle->storage_mutex);
+    exec_sql(
+        handle->storage.connection,
+        "INSERT INTO attachments(rel_path, file_size, mtime_ns, is_missing) "
+        "VALUES('assets/diag-orphan.bin', 17, 23, 0);");
+  }
 
   expect_ok(kernel_export_diagnostics(handle, export_path.string().c_str()));
+
+  sqlite3* db = open_sqlite_readonly(db_path);
+  const int expected_orphaned_attachment_count = query_single_int(
+      db,
+      "SELECT COUNT(*) "
+      "FROM attachments "
+      "LEFT JOIN ("
+      "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
+      "  FROM note_attachment_refs "
+      "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
+      "  WHERE notes.is_deleted = 0"
+      ") AS live_refs "
+      "  ON live_refs.attachment_rel_path = attachments.rel_path "
+      "WHERE live_refs.attachment_rel_path IS NULL;");
+  sqlite3_close(db);
+  require_true(
+      expected_orphaned_attachment_count >= 1,
+      "diagnostics orphan coverage should seed at least one orphaned attachment row");
 
   const std::string exported = read_file_text(export_path);
   require_true(exported.find("\"session_state\":\"OPEN\"") != std::string::npos, "diagnostics should include session state");
@@ -6070,6 +6264,10 @@ void test_export_diagnostics_writes_json_snapshot() {
   require_true(exported.find("\"attachment_count\":2") != std::string::npos, "diagnostics should include attachment count");
   require_true(exported.find("\"attachment_live_count\":2") != std::string::npos, "diagnostics should include live attachment count");
   require_true(exported.find("\"missing_attachment_count\":1") != std::string::npos, "diagnostics should include missing attachment count");
+  require_true(
+      exported.find("\"orphaned_attachment_count\":" + std::to_string(expected_orphaned_attachment_count)) !=
+          std::string::npos,
+      "diagnostics should include orphaned attachment count that matches SQLite truth");
   require_true(
       exported.find("\"attachment_public_surface_revision\":\"track2_batch1_public_surface_v1\"") != std::string::npos,
       "diagnostics should expose the current attachment public surface revision");

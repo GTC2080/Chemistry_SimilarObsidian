@@ -42,6 +42,18 @@ constexpr char kMissingLiveAttachmentCountSql[] =
     "  WHERE notes.is_deleted = 0 AND attachments.is_missing = 1"
     ");";
 
+constexpr char kOrphanedAttachmentCountSql[] =
+    "SELECT COUNT(*) "
+    "FROM attachments "
+    "LEFT JOIN ("
+    "  SELECT DISTINCT note_attachment_refs.attachment_rel_path "
+    "  FROM note_attachment_refs "
+    "  JOIN notes ON notes.note_id = note_attachment_refs.note_id "
+    "  WHERE notes.is_deleted = 0"
+    ") AS live_refs "
+    "  ON live_refs.attachment_rel_path = attachments.rel_path "
+    "WHERE live_refs.attachment_rel_path IS NULL;";
+
 std::error_code lookup_active_note_id_by_rel_path(
     sqlite3* db,
     std::string_view note_rel_path,
@@ -340,6 +352,14 @@ std::error_code count_missing_attachments(Database& db, std::uint64_t& out_count
   }
 
   return detail::scalar_count_query(db.connection, kMissingLiveAttachmentCountSql, out_count);
+}
+
+std::error_code count_orphaned_attachments(Database& db, std::uint64_t& out_count) {
+  if (db.connection == nullptr) {
+    return std::make_error_code(std::errc::bad_file_descriptor);
+  }
+
+  return detail::scalar_count_query(db.connection, kOrphanedAttachmentCountSql, out_count);
 }
 
 }  // namespace kernel::storage

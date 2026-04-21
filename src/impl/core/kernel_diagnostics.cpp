@@ -78,6 +78,7 @@ std::string build_diagnostics_json(
     const std::uint64_t indexed_note_count,
     const std::uint64_t attachment_count,
     const std::uint64_t missing_attachment_count,
+    const std::uint64_t orphaned_attachment_count,
     std::string_view last_continuity_fallback_reason,
     const std::uint64_t last_continuity_fallback_at_ns,
     const std::uint64_t pending_recovery_ops,
@@ -114,6 +115,7 @@ std::string build_diagnostics_json(
          << "  \"attachment_count\":" << attachment_count << ",\n"
          << "  \"attachment_live_count\":" << attachment_count << ",\n"
          << "  \"missing_attachment_count\":" << missing_attachment_count << ",\n"
+         << "  \"orphaned_attachment_count\":" << orphaned_attachment_count << ",\n"
          << "  \"attachment_public_surface_revision\":\""
          << kernel::core::json_escape(kernel::core::attachment_api::kAttachmentPublicSurfaceRevision)
          << "\",\n"
@@ -237,6 +239,7 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
   std::uint64_t pending_recovery_ops = 0;
   std::uint64_t attachment_count = 0;
   std::uint64_t missing_attachment_count = 0;
+  std::uint64_t orphaned_attachment_count = 0;
   const std::error_code pending_ec =
       kernel::recovery::count_unfinished_save_operations(
           handle->paths.recovery_journal_path,
@@ -276,6 +279,14 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
       if (missing_attachment_count_ec) {
         return kernel::core::make_status(kernel::core::map_error(missing_attachment_count_ec));
       }
+
+      const std::error_code orphaned_attachment_count_ec =
+          kernel::storage::count_orphaned_attachments(
+              handle->storage,
+              orphaned_attachment_count);
+      if (orphaned_attachment_count_ec) {
+        return kernel::core::make_status(kernel::core::map_error(orphaned_attachment_count_ec));
+      }
     }
   }
 
@@ -302,6 +313,7 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
       indexed_note_count,
       attachment_count,
       missing_attachment_count,
+      orphaned_attachment_count,
       last_continuity_fallback_reason,
       last_continuity_fallback_at_ns,
       pending_recovery_ops,
