@@ -20,6 +20,8 @@ add_executable(
   src/api/kernel_api_tests_attachment_public_surface_refs.cpp
   src/api/kernel_api_tests_rebuild_runtime.cpp
   src/api/kernel_api_tests_rebuild_runtime_background.cpp
+  src/api/kernel_api_tests_rebuild_runtime_background_lifecycle.cpp
+  src/api/kernel_api_tests_rebuild_runtime_background_wait.cpp
   src/api/kernel_api_tests_rebuild_runtime_core.cpp
   src/api/kernel_api_tests_rebuild_runtime_status.cpp
   src/api/kernel_api_tests_core_contract_state.cpp
