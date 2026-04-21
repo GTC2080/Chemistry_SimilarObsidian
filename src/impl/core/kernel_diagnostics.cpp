@@ -20,6 +20,14 @@ namespace {
 
 constexpr std::size_t kAttachmentAnomalyPathSummaryLimit = 16;
 
+struct AttachmentDiagnosticsSnapshot {
+  std::uint64_t attachment_count = 0;
+  std::uint64_t missing_attachment_count = 0;
+  std::uint64_t orphaned_attachment_count = 0;
+  std::vector<std::string> missing_attachment_paths;
+  std::vector<std::string> orphaned_attachment_paths;
+};
+
 std::string build_fault_history_json(
     const std::vector<KernelFaultRecord>& fault_history) {
   std::ostringstream output;
@@ -71,10 +79,9 @@ std::string build_recent_events_json(
 }
 
 std::string_view attachment_anomaly_summary(
-    const std::uint64_t missing_attachment_count,
-    const std::uint64_t orphaned_attachment_count) {
-  const bool has_missing = missing_attachment_count != 0;
-  const bool has_orphaned = orphaned_attachment_count != 0;
+    const AttachmentDiagnosticsSnapshot& snapshot) {
+  const bool has_missing = snapshot.missing_attachment_count != 0;
+  const bool has_orphaned = snapshot.orphaned_attachment_count != 0;
   if (has_missing && has_orphaned) {
     return "missing_live_and_orphaned_attachments";
   }
@@ -85,6 +92,72 @@ std::string_view attachment_anomaly_summary(
     return "orphaned_attachments";
   }
   return "clean";
+}
+
+kernel_status try_collect_attachment_diagnostics_snapshot(
+    kernel_handle* handle,
+    const kernel_index_state index_state,
+    AttachmentDiagnosticsSnapshot& out_snapshot) {
+  out_snapshot = AttachmentDiagnosticsSnapshot{};
+
+  const bool attachment_counts_stable =
+      index_state != KERNEL_INDEX_CATCHING_UP &&
+      index_state != KERNEL_INDEX_REBUILDING;
+  if (!attachment_counts_stable) {
+    return kernel::core::make_status(KERNEL_OK);
+  }
+
+  std::unique_lock<std::mutex> storage_lock(handle->storage_mutex, std::defer_lock);
+  const auto attachment_count_deadline =
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
+  while (!storage_lock.try_lock()) {
+    if (std::chrono::steady_clock::now() >= attachment_count_deadline) {
+      return kernel::core::make_status(KERNEL_OK);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  }
+
+  const std::error_code attachment_count_ec =
+      kernel::storage::count_attachments(handle->storage, out_snapshot.attachment_count);
+  if (attachment_count_ec) {
+    return kernel::core::make_status(kernel::core::map_error(attachment_count_ec));
+  }
+
+  const std::error_code missing_attachment_count_ec =
+      kernel::storage::count_missing_attachments(
+          handle->storage,
+          out_snapshot.missing_attachment_count);
+  if (missing_attachment_count_ec) {
+    return kernel::core::make_status(kernel::core::map_error(missing_attachment_count_ec));
+  }
+
+  const std::error_code orphaned_attachment_count_ec =
+      kernel::storage::count_orphaned_attachments(
+          handle->storage,
+          out_snapshot.orphaned_attachment_count);
+  if (orphaned_attachment_count_ec) {
+    return kernel::core::make_status(kernel::core::map_error(orphaned_attachment_count_ec));
+  }
+
+  const std::error_code missing_attachment_paths_ec =
+      kernel::storage::list_missing_attachment_paths(
+          handle->storage,
+          kAttachmentAnomalyPathSummaryLimit,
+          out_snapshot.missing_attachment_paths);
+  if (missing_attachment_paths_ec) {
+    return kernel::core::make_status(kernel::core::map_error(missing_attachment_paths_ec));
+  }
+
+  const std::error_code orphaned_attachment_paths_ec =
+      kernel::storage::list_orphaned_attachment_paths(
+          handle->storage,
+          kAttachmentAnomalyPathSummaryLimit,
+          out_snapshot.orphaned_attachment_paths);
+  if (orphaned_attachment_paths_ec) {
+    return kernel::core::make_status(kernel::core::map_error(orphaned_attachment_paths_ec));
+  }
+
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 std::string build_diagnostics_json(
@@ -108,11 +181,7 @@ std::string build_diagnostics_json(
     const std::uint64_t last_rebuild_at_ns,
     const std::uint64_t last_rebuild_duration_ms,
     const std::uint64_t indexed_note_count,
-    const std::uint64_t attachment_count,
-    const std::uint64_t missing_attachment_count,
-    const std::uint64_t orphaned_attachment_count,
-    const std::vector<std::string>& missing_attachment_paths,
-    const std::vector<std::string>& orphaned_attachment_paths,
+    const AttachmentDiagnosticsSnapshot& attachment_snapshot,
     std::string_view last_attachment_recount_reason,
     const std::uint64_t last_attachment_recount_at_ns,
     std::string_view last_continuity_fallback_reason,
@@ -148,21 +217,18 @@ std::string build_diagnostics_json(
          << "  \"last_rebuild_at_ns\":" << last_rebuild_at_ns << ",\n"
          << "  \"last_rebuild_duration_ms\":" << last_rebuild_duration_ms << ",\n"
          << "  \"indexed_note_count\":" << indexed_note_count << ",\n"
-         << "  \"attachment_count\":" << attachment_count << ",\n"
-         << "  \"attachment_live_count\":" << attachment_count << ",\n"
-         << "  \"missing_attachment_count\":" << missing_attachment_count << ",\n"
-         << "  \"orphaned_attachment_count\":" << orphaned_attachment_count << ",\n"
+         << "  \"attachment_count\":" << attachment_snapshot.attachment_count << ",\n"
+         << "  \"attachment_live_count\":" << attachment_snapshot.attachment_count << ",\n"
+         << "  \"missing_attachment_count\":" << attachment_snapshot.missing_attachment_count << ",\n"
+         << "  \"orphaned_attachment_count\":" << attachment_snapshot.orphaned_attachment_count << ",\n"
          << "  \"missing_attachment_paths\":"
-         << build_string_array_json(missing_attachment_paths) << ",\n"
+         << build_string_array_json(attachment_snapshot.missing_attachment_paths) << ",\n"
          << "  \"orphaned_attachment_paths\":"
-         << build_string_array_json(orphaned_attachment_paths) << ",\n"
+         << build_string_array_json(attachment_snapshot.orphaned_attachment_paths) << ",\n"
          << "  \"attachment_anomaly_path_summary_limit\":"
          << kAttachmentAnomalyPathSummaryLimit << ",\n"
          << "  \"attachment_anomaly_summary\":\""
-         << kernel::core::json_escape(
-                attachment_anomaly_summary(
-                    missing_attachment_count,
-                    orphaned_attachment_count))
+         << kernel::core::json_escape(attachment_anomaly_summary(attachment_snapshot))
          << "\",\n"
          << "  \"last_attachment_recount_reason\":\""
          << kernel::core::json_escape(last_attachment_recount_reason) << "\",\n"
@@ -292,11 +358,7 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
   }
 
   std::uint64_t pending_recovery_ops = 0;
-  std::uint64_t attachment_count = 0;
-  std::uint64_t missing_attachment_count = 0;
-  std::uint64_t orphaned_attachment_count = 0;
-  std::vector<std::string> missing_attachment_paths;
-  std::vector<std::string> orphaned_attachment_paths;
+  AttachmentDiagnosticsSnapshot attachment_snapshot{};
   const std::error_code pending_ec =
       kernel::recovery::count_unfinished_save_operations(
           handle->paths.recovery_journal_path,
@@ -309,60 +371,13 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
     handle->runtime.pending_recovery_ops = pending_recovery_ops;
   }
 
-  const bool attachment_counts_stable =
-      index_state != KERNEL_INDEX_CATCHING_UP &&
-      index_state != KERNEL_INDEX_REBUILDING;
-  if (attachment_counts_stable) {
-    std::unique_lock<std::mutex> storage_lock(handle->storage_mutex, std::defer_lock);
-    const auto attachment_count_deadline =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
-    while (!storage_lock.try_lock()) {
-      if (std::chrono::steady_clock::now() >= attachment_count_deadline) {
-        break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(2));
-    }
-    if (storage_lock.owns_lock()) {
-      const std::error_code attachment_count_ec =
-          kernel::storage::count_attachments(handle->storage, attachment_count);
-      if (attachment_count_ec) {
-        return kernel::core::make_status(kernel::core::map_error(attachment_count_ec));
-      }
-
-      const std::error_code missing_attachment_count_ec =
-          kernel::storage::count_missing_attachments(
-              handle->storage,
-              missing_attachment_count);
-      if (missing_attachment_count_ec) {
-        return kernel::core::make_status(kernel::core::map_error(missing_attachment_count_ec));
-      }
-
-      const std::error_code orphaned_attachment_count_ec =
-          kernel::storage::count_orphaned_attachments(
-              handle->storage,
-              orphaned_attachment_count);
-      if (orphaned_attachment_count_ec) {
-        return kernel::core::make_status(kernel::core::map_error(orphaned_attachment_count_ec));
-      }
-
-      const std::error_code missing_attachment_paths_ec =
-          kernel::storage::list_missing_attachment_paths(
-              handle->storage,
-              kAttachmentAnomalyPathSummaryLimit,
-              missing_attachment_paths);
-      if (missing_attachment_paths_ec) {
-        return kernel::core::make_status(kernel::core::map_error(missing_attachment_paths_ec));
-      }
-
-      const std::error_code orphaned_attachment_paths_ec =
-          kernel::storage::list_orphaned_attachment_paths(
-              handle->storage,
-              kAttachmentAnomalyPathSummaryLimit,
-              orphaned_attachment_paths);
-      if (orphaned_attachment_paths_ec) {
-        return kernel::core::make_status(kernel::core::map_error(orphaned_attachment_paths_ec));
-      }
-    }
+  const kernel_status attachment_snapshot_status =
+      try_collect_attachment_diagnostics_snapshot(
+          handle,
+          index_state,
+          attachment_snapshot);
+  if (attachment_snapshot_status.code != KERNEL_OK) {
+    return attachment_snapshot_status;
   }
 
   const std::string diagnostics_json = build_diagnostics_json(
@@ -386,11 +401,7 @@ extern "C" kernel_status kernel_export_diagnostics(kernel_handle* handle, const 
       last_rebuild_at_ns,
       last_rebuild_duration_ms,
       indexed_note_count,
-      attachment_count,
-      missing_attachment_count,
-      orphaned_attachment_count,
-      missing_attachment_paths,
-      orphaned_attachment_paths,
+      attachment_snapshot,
       last_attachment_recount_reason,
       last_attachment_recount_at_ns,
       last_continuity_fallback_reason,

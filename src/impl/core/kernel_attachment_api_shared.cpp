@@ -89,6 +89,18 @@ AttachmentPathShape describe_attachment_path(std::string_view rel_path) {
 
 namespace kernel::core::attachment_api {
 
+kernel_status normalize_required_rel_path_argument(
+    const char* rel_path,
+    std::string& out_rel_path) {
+  out_rel_path.clear();
+  if (!kernel::core::is_valid_relative_path(rel_path)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  out_rel_path = kernel::core::normalize_rel_path(rel_path);
+  return kernel::core::make_status(KERNEL_OK);
+}
+
 void reset_attachment_record(kernel_attachment_record* out_attachment) {
   free_attachment_record_impl(out_attachment);
 }
@@ -140,6 +152,16 @@ void reset_attachment_refs(kernel_attachment_refs* out_refs) {
 
   out_refs->refs = nullptr;
   out_refs->count = 0;
+}
+
+void reset_attachment_metadata(kernel_attachment_metadata* out_metadata) {
+  if (out_metadata == nullptr) {
+    return;
+  }
+
+  out_metadata->file_size = 0;
+  out_metadata->mtime_ns = 0;
+  out_metadata->is_missing = 0;
 }
 
 kernel_status fill_attachment_record(
@@ -256,6 +278,14 @@ kernel_status fill_attachment_refs(
   }
 
   return kernel::core::make_status(KERNEL_OK);
+}
+
+void fill_attachment_metadata(
+    const kernel::storage::AttachmentMetadataRecord& metadata,
+    kernel_attachment_metadata* out_metadata) {
+  out_metadata->file_size = metadata.file_size;
+  out_metadata->mtime_ns = metadata.mtime_ns;
+  out_metadata->is_missing = metadata.is_missing ? 1 : 0;
 }
 
 }  // namespace kernel::core::attachment_api

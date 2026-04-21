@@ -16,24 +16,32 @@ extern "C" kernel_status kernel_list_note_attachments(
     const char* note_rel_path,
     kernel_attachment_refs* out_refs) {
   kernel::core::attachment_api::reset_attachment_refs(out_refs);
-  if (handle == nullptr || out_refs == nullptr ||
-      !kernel::core::is_valid_relative_path(note_rel_path)) {
+  if (handle == nullptr || out_refs == nullptr) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  const std::string normalized_note_rel_path =
-      kernel::core::normalize_rel_path(note_rel_path);
+  std::string normalized_note_rel_path;
+  const kernel_status normalized_status =
+      kernel::core::attachment_api::normalize_required_rel_path_argument(
+          note_rel_path,
+          normalized_note_rel_path);
+  if (normalized_status.code != KERNEL_OK) {
+    return normalized_status;
+  }
 
   std::vector<std::string> refs;
-  {
-    std::lock_guard lock(handle->storage_mutex);
-    const std::error_code ec = kernel::storage::list_note_attachment_refs(
-        handle->storage,
-        normalized_note_rel_path,
-        refs);
-    if (ec) {
-      return kernel::core::make_status(kernel::core::map_error(ec));
-    }
+  const kernel_status query_status =
+      kernel::core::attachment_api::run_locked_storage_query(
+          handle,
+          refs,
+          [&](kernel::storage::Database& storage, auto& out_refs) {
+            return kernel::storage::list_note_attachment_refs(
+                storage,
+                normalized_note_rel_path,
+                out_refs);
+          });
+  if (query_status.code != KERNEL_OK) {
+    return query_status;
   }
 
   return kernel::core::attachment_api::fill_attachment_refs(refs, out_refs);
@@ -43,34 +51,36 @@ extern "C" kernel_status kernel_get_attachment_metadata(
     kernel_handle* handle,
     const char* attachment_rel_path,
     kernel_attachment_metadata* out_metadata) {
-  if (out_metadata != nullptr) {
-    out_metadata->file_size = 0;
-    out_metadata->mtime_ns = 0;
-    out_metadata->is_missing = 0;
-  }
+  kernel::core::attachment_api::reset_attachment_metadata(out_metadata);
 
-  if (handle == nullptr || out_metadata == nullptr ||
-      !kernel::core::is_valid_relative_path(attachment_rel_path)) {
+  if (handle == nullptr || out_metadata == nullptr) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  const std::string normalized_attachment_rel_path =
-      kernel::core::normalize_rel_path(attachment_rel_path);
-
-  kernel::storage::AttachmentMetadataRecord metadata;
-  {
-    std::lock_guard lock(handle->storage_mutex);
-    const std::error_code ec = kernel::storage::read_attachment_metadata(
-        handle->storage,
-        normalized_attachment_rel_path,
-        metadata);
-    if (ec) {
-      return kernel::core::make_status(kernel::core::map_error(ec));
-    }
+  std::string normalized_attachment_rel_path;
+  const kernel_status normalized_status =
+      kernel::core::attachment_api::normalize_required_rel_path_argument(
+          attachment_rel_path,
+          normalized_attachment_rel_path);
+  if (normalized_status.code != KERNEL_OK) {
+    return normalized_status;
   }
 
-  out_metadata->file_size = metadata.file_size;
-  out_metadata->mtime_ns = metadata.mtime_ns;
-  out_metadata->is_missing = metadata.is_missing ? 1 : 0;
+  kernel::storage::AttachmentMetadataRecord metadata;
+  const kernel_status query_status =
+      kernel::core::attachment_api::run_locked_storage_query(
+          handle,
+          metadata,
+          [&](kernel::storage::Database& storage, auto& out_metadata_record) {
+            return kernel::storage::read_attachment_metadata(
+                storage,
+                normalized_attachment_rel_path,
+                out_metadata_record);
+          });
+  if (query_status.code != KERNEL_OK) {
+    return query_status;
+  }
+
+  kernel::core::attachment_api::fill_attachment_metadata(metadata, out_metadata);
   return kernel::core::make_status(KERNEL_OK);
 }
