@@ -68,6 +68,10 @@ kernel_status kernel_query_attachment_referrers(
     const char* attachment_rel_path,
     size_t limit,
     kernel_attachment_referrers* out_referrers);
+kernel_status kernel_get_pdf_metadata(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    kernel_pdf_metadata_record* out_metadata);
 kernel_status kernel_list_note_attachments(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -88,6 +92,7 @@ void kernel_free_attachment_record(kernel_attachment_record* attachment);
 void kernel_free_attachment_list(kernel_attachment_list* attachments);
 void kernel_free_attachment_referrers(kernel_attachment_referrers* referrers);
 void kernel_free_attachment_refs(kernel_attachment_refs* refs);
+void kernel_free_pdf_metadata_record(kernel_pdf_metadata_record* metadata);
 
 #ifdef __cplusplus
 }

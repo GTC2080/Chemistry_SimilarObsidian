@@ -1,0 +1,3 @@
+#pragma once
+
+void run_pdf_surface_metadata_tests();

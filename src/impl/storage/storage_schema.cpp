@@ -51,6 +51,17 @@ std::error_code ensure_schema_v1(Database& db) {
       "  mtime_ns INTEGER NOT NULL,"
       "  is_missing INTEGER NOT NULL DEFAULT 0"
       ");"
+      "CREATE TABLE IF NOT EXISTS pdf_metadata("
+      "  rel_path TEXT PRIMARY KEY,"
+      "  attachment_content_revision TEXT NOT NULL,"
+      "  pdf_metadata_revision TEXT NOT NULL,"
+      "  doc_title TEXT NOT NULL,"
+      "  page_count INTEGER NOT NULL,"
+      "  has_outline INTEGER NOT NULL,"
+      "  metadata_state INTEGER NOT NULL,"
+      "  doc_title_state INTEGER NOT NULL,"
+      "  text_layer_state INTEGER NOT NULL"
+      ");"
       "CREATE TABLE IF NOT EXISTS note_attachment_refs("
       "  note_id INTEGER NOT NULL,"
       "  attachment_rel_path TEXT NOT NULL,"
@@ -60,7 +71,8 @@ std::error_code ensure_schema_v1(Database& db) {
       "CREATE INDEX IF NOT EXISTS idx_notes_is_deleted_rel_path ON notes(is_deleted, rel_path);"
       "CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);"
       "CREATE INDEX IF NOT EXISTS idx_note_links_target ON note_links(target);"
-      "CREATE INDEX IF NOT EXISTS idx_attachments_is_missing_rel_path ON attachments(is_missing, rel_path);");
+      "CREATE INDEX IF NOT EXISTS idx_attachments_is_missing_rel_path ON attachments(is_missing, rel_path);"
+      "CREATE INDEX IF NOT EXISTS idx_pdf_metadata_state_rel_path ON pdf_metadata(metadata_state, rel_path);");
   if (ec) {
     return ec;
   }
@@ -68,7 +80,7 @@ std::error_code ensure_schema_v1(Database& db) {
   sqlite3_stmt* stmt = nullptr;
   ec = detail::prepare(
       db.connection,
-      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '4');",
+      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '5');",
       &stmt);
   if (ec) {
     return ec;
@@ -78,7 +90,7 @@ std::error_code ensure_schema_v1(Database& db) {
     return ec;
   }
 
-  return detail::exec(db.connection, "PRAGMA user_version=4;");
+  return detail::exec(db.connection, "PRAGMA user_version=5;");
 }
 
 }  // namespace kernel::storage

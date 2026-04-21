@@ -17,11 +17,16 @@ add_library(
   impl/core/kernel_attachment_query_shared.cpp
   impl/core/kernel_attachment_public_api.cpp
   impl/core/kernel_attachment_legacy_api.cpp
+  impl/core/kernel_pdf_query_shared.cpp
+  impl/core/kernel_pdf_api.cpp
   impl/core/kernel_diagnostics.cpp
+  impl/core/kernel_diagnostics_storage.cpp
+  impl/core/kernel_diagnostics_json.cpp
   impl/diagnostics/logger.cpp
   impl/index/refresh_paths.cpp
   impl/index/refresh_rescan.cpp
   impl/parser/parser.cpp
+  impl/pdf/pdf_metadata.cpp
   impl/recovery/journal_format.cpp
   impl/recovery/journal_scan.cpp
   impl/recovery/journal_startup_recovery.cpp
@@ -36,6 +41,8 @@ add_library(
   impl/storage/storage_note_delete_rename.cpp
   impl/storage/storage_attachment_state.cpp
   impl/storage/storage_attachment_queries.cpp
+  impl/storage/storage_pdf_state.cpp
+  impl/storage/storage_pdf_queries.cpp
   impl/storage/storage_attachment_diagnostics_queries.cpp
   impl/storage/storage_note_queries.cpp
   impl/watcher/integration.cpp

@@ -20,7 +20,7 @@ The repository must retain regression coverage for:
 
 The repository must retain regression coverage for:
 
-- PDF metadata lookup succeeds for live `pdf_like` attachments
+- `kernel_get_pdf_metadata(...)` succeeds for live `pdf_like` attachments
 - non-PDF attachment lookup is rejected
 - non-live attachment-path lookup is rejected
 - `page_count` follows disk truth after watcher refresh
@@ -61,7 +61,8 @@ The repository must retain regression coverage for:
 
 The repository must retain regression coverage for:
 
-- diagnostics export exposes PDF contract revision, extract mode, and anchor mode
+- Batch 1 diagnostics export exposes PDF contract revision, extract mode, and lookup-key mode
+- Batch 2 diagnostics export extends PDF diagnostics with anchor mode
 - diagnostics export keys per-document PDF summaries by normalized live attachment `rel_path`
 - rebuild realigns PDF-derived state to the same truth as a clean startup on the same vault snapshot
 - recovery realigns PDF-derived state to the same truth as rebuild on the same vault snapshot

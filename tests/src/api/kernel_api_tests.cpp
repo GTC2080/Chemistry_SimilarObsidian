@@ -99,11 +99,13 @@ int main() {
     run_runtime_recovery_tests();
     run_attachment_public_surface_tests();
     run_attachment_lifecycle_tests();
+    run_pdf_surface_tests();
     run_search_public_surface_tests();
     run_kernel_api_watcher_smoke_tests();
     run_rebuild_runtime_tests();
     // Attachment rebuild missing-state coverage now lives with the attachment lifecycle cluster.
     run_attachment_diagnostics_tests();
+    run_pdf_diagnostics_tests();
     run_runtime_diagnostics_tests();
     test_phase1_alpha_smoke_flow();
     return 0;

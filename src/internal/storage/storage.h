@@ -42,6 +42,38 @@ struct AttachmentReferrerRecord {
   std::string note_title;
 };
 
+enum class PdfMetadataState : std::uint8_t {
+  Unavailable = 0,
+  Ready = 1,
+  Partial = 2,
+  Invalid = 3
+};
+
+enum class PdfDocTitleState : std::uint8_t {
+  Unavailable = 0,
+  Absent = 1,
+  Available = 2
+};
+
+enum class PdfTextLayerState : std::uint8_t {
+  Unavailable = 0,
+  Absent = 1,
+  Present = 2
+};
+
+struct PdfMetadataRecord {
+  std::string rel_path;
+  std::string attachment_content_revision;
+  std::string pdf_metadata_revision;
+  std::string doc_title;
+  std::uint64_t page_count = 0;
+  bool has_outline = false;
+  bool is_missing = false;
+  PdfMetadataState metadata_state = PdfMetadataState::Unavailable;
+  PdfDocTitleState doc_title_state = PdfDocTitleState::Unavailable;
+  PdfTextLayerState text_layer_state = PdfTextLayerState::Unavailable;
+};
+
 std::error_code open_or_create(const std::filesystem::path& db_path, Database& out_db);
 void close(Database& db);
 std::error_code ensure_schema_v1(Database& db);
@@ -67,6 +99,7 @@ std::error_code upsert_attachment_metadata(
     std::string_view rel_path,
     const kernel::platform::FileStat& stat);
 std::error_code mark_attachment_missing(Database& db, std::string_view rel_path);
+std::error_code upsert_pdf_metadata(Database& db, const PdfMetadataRecord& record);
 std::error_code list_attachment_paths(Database& db, std::vector<std::string>& out_paths);
 std::error_code list_note_attachment_refs(
     Database& db,
@@ -94,9 +127,18 @@ std::error_code read_attachment_metadata(
     Database& db,
     std::string_view rel_path,
     AttachmentMetadataRecord& out_metadata);
+std::error_code read_live_pdf_metadata_record(
+    Database& db,
+    std::string_view rel_path,
+    PdfMetadataRecord& out_record);
 std::error_code count_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_missing_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_orphaned_attachments(Database& db, std::uint64_t& out_count);
+std::error_code count_live_pdf_records(Database& db, std::uint64_t& out_count);
+std::error_code count_live_pdf_records_by_state(
+    Database& db,
+    PdfMetadataState state,
+    std::uint64_t& out_count);
 std::error_code list_missing_attachment_paths(
     Database& db,
     std::size_t limit,

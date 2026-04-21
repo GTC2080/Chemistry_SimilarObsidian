@@ -10,13 +10,17 @@ This document freezes the host-facing invariants that all Track 3 PDF surfaces m
 
 It applies to:
 
-- future PDF metadata lookup surfaces
+- the Batch 1 PDF metadata lookup surface
 - future note -> PDF source-reference surfaces
 - future PDF -> note referrer surfaces
 - PDF diagnostics export keys
 - support-bundle PDF document identity
 
-Until Track 3 public ABI lands, `pdf_like` remains only the coarse attachment kind exported by the attachment surface.
+Batch 1 lands:
+
+- `kernel_get_pdf_metadata(handle, attachment_rel_path, out_metadata)`
+
+Later Track 3 batches extend this contract with anchors and note-reference queries.
 
 ## Attachment Boundary
 
@@ -113,7 +117,9 @@ Track 3 must remain consistent with the existing stable surfaces.
 
 Frozen consistency rules:
 
-- PDF metadata lookup only succeeds for normalized live attachment `rel_path`
+- `kernel_get_pdf_metadata(...)` only succeeds for normalized live attachment `rel_path`
+- `kernel_get_pdf_metadata(...)` returns `NOT_FOUND` for non-PDF live attachments
+- `kernel_get_pdf_metadata(...)` returns `NOT_FOUND` for non-live attachment paths
 - PDF reference queries must reuse the same normalized live attachment `rel_path`
 - PDF references do not enter the existing backlinks public surface
 - PDF references do not add new search-hit kinds or new attachment content-search semantics
@@ -136,10 +142,14 @@ Support-bundle and diagnostics exports must key PDF document summaries by:
 
 - normalized live attachment `rel_path`
 
-The diagnostics contract must expose, at minimum:
+Batch 1 diagnostics contract exposes:
 
 - `pdf_contract_revision`
 - `pdf_extract_mode`
+- `pdf_lookup_key_mode`
+
+Batch 2 extends diagnostics with:
+
 - `pdf_anchor_mode`
 
 ## Deferred Track 3 Surface

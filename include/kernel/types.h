@@ -207,6 +207,37 @@ typedef struct kernel_attachment_referrers {
   size_t count;
 } kernel_attachment_referrers;
 
+typedef enum kernel_pdf_metadata_state {
+  KERNEL_PDF_METADATA_UNAVAILABLE = 0,
+  KERNEL_PDF_METADATA_READY = 1,
+  KERNEL_PDF_METADATA_PARTIAL = 2,
+  KERNEL_PDF_METADATA_INVALID = 3
+} kernel_pdf_metadata_state;
+
+typedef enum kernel_pdf_doc_title_state {
+  KERNEL_PDF_DOC_TITLE_UNAVAILABLE = 0,
+  KERNEL_PDF_DOC_TITLE_ABSENT = 1,
+  KERNEL_PDF_DOC_TITLE_AVAILABLE = 2
+} kernel_pdf_doc_title_state;
+
+typedef enum kernel_pdf_text_layer_state {
+  KERNEL_PDF_TEXT_LAYER_UNAVAILABLE = 0,
+  KERNEL_PDF_TEXT_LAYER_ABSENT = 1,
+  KERNEL_PDF_TEXT_LAYER_PRESENT = 2
+} kernel_pdf_text_layer_state;
+
+typedef struct kernel_pdf_metadata_record {
+  char* rel_path;
+  char* doc_title;
+  char* pdf_metadata_revision;
+  uint64_t page_count;
+  uint8_t has_outline;
+  kernel_attachment_presence presence;
+  kernel_pdf_metadata_state metadata_state;
+  kernel_pdf_doc_title_state doc_title_state;
+  kernel_pdf_text_layer_state text_layer_state;
+} kernel_pdf_metadata_record;
+
 #ifdef __cplusplus
 }
 #endif

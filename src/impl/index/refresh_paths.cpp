@@ -6,12 +6,42 @@
 
 #include "parser/parser.h"
 #include "platform/platform.h"
+#include "pdf/pdf_metadata.h"
 #include "vault/revision.h"
 
 #include <algorithm>
 #include <cctype>
 
 namespace kernel::index {
+
+namespace {
+
+std::error_code refresh_attachment_metadata(
+    kernel::storage::Database& db,
+    const std::filesystem::path& attachment_path,
+    std::string_view attachment_rel_path,
+    const kernel::platform::FileStat& attachment_stat) {
+  std::error_code ec =
+      kernel::storage::upsert_attachment_metadata(db, attachment_rel_path, attachment_stat);
+  if (ec || !kernel::pdf::is_pdf_rel_path(attachment_rel_path)) {
+    return ec;
+  }
+
+  kernel::platform::ReadFileResult file;
+  ec = kernel::platform::read_file(attachment_path, file);
+  if (ec) {
+    return ec;
+  }
+
+  return kernel::storage::upsert_pdf_metadata(
+      db,
+      kernel::pdf::extract_pdf_metadata(
+          attachment_rel_path,
+          file.bytes,
+          kernel::vault::compute_content_revision(file.bytes)));
+}
+
+}  // namespace
 
 bool is_markdown_rel_path(const std::filesystem::path& path) {
   std::string extension = path.extension().string();
@@ -68,7 +98,7 @@ std::error_code sync_attachment_refs_for_note(
       if (!attachment_stat.is_regular_file) {
         return std::make_error_code(std::errc::invalid_argument);
       }
-      ec = kernel::storage::upsert_attachment_metadata(db, attachment_rel_path, attachment_stat);
+      ec = refresh_attachment_metadata(db, attachment_path, attachment_rel_path, attachment_stat);
     } else {
       ec = kernel::storage::mark_attachment_missing(db, attachment_rel_path);
     }
@@ -104,7 +134,7 @@ std::error_code refresh_markdown_path(
     if (!stat.is_regular_file) {
       return std::make_error_code(std::errc::invalid_argument);
     }
-    return kernel::storage::upsert_attachment_metadata(db, rel_path, stat);
+    return refresh_attachment_metadata(db, target_path, rel_path, stat);
   }
 
   if (!stat.exists) {
