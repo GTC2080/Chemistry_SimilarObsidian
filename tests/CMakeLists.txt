@@ -46,10 +46,12 @@ add_executable(
   src/api/kernel_api_tests_runtime_recovery_startup_cleanup.cpp
   src/api/kernel_api_tests_runtime_recovery_startup_tail.cpp
   src/api/kernel_api_tests_search_expanded.cpp
+  src/api/kernel_api_tests_search_expanded_pagination.cpp
   src/api/kernel_api_tests_search_expanded_filters.cpp
   src/api/kernel_api_tests_search_expanded_filters_surface.cpp
   src/api/kernel_api_tests_search_expanded_filters_validation.cpp
   src/api/kernel_api_tests_search_expanded_ranking.cpp
+  src/api/kernel_api_tests_search_expanded_snippet.cpp
   src/api/kernel_api_tests_search_expanded_snippet_pagination.cpp
   src/api/kernel_api_tests_search_legacy.cpp
   src/api/kernel_api_tests_search_legacy_graph.cpp
