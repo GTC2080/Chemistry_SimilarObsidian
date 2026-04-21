@@ -1,7 +1,4 @@
 #pragma once
 
-void test_close_during_watcher_fault_backoff_leaves_delete_for_reopen_catch_up();
-void test_close_during_watcher_fault_backoff_leaves_modify_for_reopen_catch_up();
-void test_close_during_watcher_fault_backoff_leaves_create_for_reopen_catch_up();
-void test_reopen_catch_up_repairs_partial_state_left_by_interrupted_background_rebuild();
-void test_reopen_catch_up_repairs_partial_state_left_by_interrupted_watcher_apply();
+void run_runtime_recovery_backoff_tests();
+void run_runtime_recovery_interrupted_apply_tests();

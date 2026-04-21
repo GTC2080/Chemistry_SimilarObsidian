@@ -33,15 +33,25 @@ add_executable(
   src/api/kernel_api_tests_runtime_diagnostics_watcher.cpp
   src/api/kernel_api_tests_runtime_recovery.cpp
   src/api/kernel_api_tests_runtime_recovery_disk_truth.cpp
+  src/api/kernel_api_tests_runtime_recovery_disk_truth_catchup.cpp
+  src/api/kernel_api_tests_runtime_recovery_disk_truth_replace.cpp
   src/api/kernel_api_tests_runtime_recovery_interruptions.cpp
+  src/api/kernel_api_tests_runtime_recovery_interruptions_apply.cpp
+  src/api/kernel_api_tests_runtime_recovery_interruptions_backoff.cpp
   src/api/kernel_api_tests_runtime_recovery_startup.cpp
+  src/api/kernel_api_tests_runtime_recovery_startup_cleanup.cpp
+  src/api/kernel_api_tests_runtime_recovery_startup_tail.cpp
   src/api/kernel_api_tests_search_expanded.cpp
   src/api/kernel_api_tests_search_expanded_filters.cpp
+  src/api/kernel_api_tests_search_expanded_filters_surface.cpp
+  src/api/kernel_api_tests_search_expanded_filters_validation.cpp
   src/api/kernel_api_tests_search_expanded_ranking.cpp
   src/api/kernel_api_tests_search_expanded_snippet_pagination.cpp
   src/api/kernel_api_tests_search_legacy.cpp
   src/api/kernel_api_tests_search_legacy_graph.cpp
   src/api/kernel_api_tests_search_legacy_note.cpp
+  src/api/kernel_api_tests_search_legacy_note_basic.cpp
+  src/api/kernel_api_tests_search_legacy_note_surface.cpp
   src/api/kernel_api_tests_search_public_surface.cpp
   src/api/kernel_api_tests_watcher_smoke.cpp
   src/api/kernel_api_tests_watcher_smoke_basic.cpp

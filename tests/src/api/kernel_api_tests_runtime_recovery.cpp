@@ -6,9 +6,6 @@
 void run_runtime_recovery_tests() {
   run_runtime_recovery_startup_tests();
   run_runtime_recovery_disk_truth_tests();
-  test_close_during_watcher_fault_backoff_leaves_delete_for_reopen_catch_up();
-  test_close_during_watcher_fault_backoff_leaves_modify_for_reopen_catch_up();
-  test_close_during_watcher_fault_backoff_leaves_create_for_reopen_catch_up();
-  test_reopen_catch_up_repairs_partial_state_left_by_interrupted_background_rebuild();
-  test_reopen_catch_up_repairs_partial_state_left_by_interrupted_watcher_apply();
+  run_runtime_recovery_backoff_tests();
+  run_runtime_recovery_interrupted_apply_tests();
 }
