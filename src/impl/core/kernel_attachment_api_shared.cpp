@@ -2,12 +2,10 @@
 // formal Track 2 surfaces and legacy compatibility entry points can stay split.
 
 #include "core/kernel_attachment_api_shared.h"
+#include "core/kernel_attachment_path_shape.h"
 
 #include "core/kernel_shared.h"
 
-#include <algorithm>
-#include <cctype>
-#include <filesystem>
 #include <new>
 #include <string>
 
@@ -31,60 +29,6 @@ void free_attachment_record_impl(kernel_attachment_record* attachment) {
   attachment->flags = KERNEL_ATTACHMENT_FLAG_NONE;
   attachment->presence = KERNEL_ATTACHMENT_PRESENCE_PRESENT;
 }
-
-struct AttachmentPathShape {
-  std::string basename;
-  std::string extension;
-  kernel_attachment_kind kind = KERNEL_ATTACHMENT_KIND_UNKNOWN;
-};
-
-std::string to_lower_ascii(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](const unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return value;
-}
-
-std::string attachment_basename_from_rel_path(std::string_view rel_path) {
-  const std::filesystem::path path(rel_path);
-  const std::filesystem::path filename = path.filename();
-  if (filename.empty()) {
-    return std::string(rel_path);
-  }
-  return filename.generic_string();
-}
-
-kernel_attachment_kind classify_attachment_kind(const std::string_view extension) {
-  if (extension.empty()) {
-    return KERNEL_ATTACHMENT_KIND_UNKNOWN;
-  }
-
-  if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
-      extension == ".gif" || extension == ".bmp" || extension == ".webp" ||
-      extension == ".svg" || extension == ".tif" || extension == ".tiff") {
-    return KERNEL_ATTACHMENT_KIND_IMAGE_LIKE;
-  }
-  if (extension == ".pdf") {
-    return KERNEL_ATTACHMENT_KIND_PDF_LIKE;
-  }
-  if (extension == ".mol" || extension == ".mol2" || extension == ".sdf" ||
-      extension == ".sd" || extension == ".pdb" || extension == ".cif" ||
-      extension == ".xyz" || extension == ".cdx" || extension == ".cdxml" ||
-      extension == ".rxn") {
-    return KERNEL_ATTACHMENT_KIND_CHEM_LIKE;
-  }
-  return KERNEL_ATTACHMENT_KIND_GENERIC_FILE;
-}
-
-AttachmentPathShape describe_attachment_path(std::string_view rel_path) {
-  const std::filesystem::path path(rel_path);
-  AttachmentPathShape shape{};
-  shape.basename = attachment_basename_from_rel_path(rel_path);
-  shape.extension = to_lower_ascii(path.extension().generic_string());
-  shape.kind = classify_attachment_kind(shape.extension);
-  return shape;
-}
-
 }  // namespace
 
 namespace kernel::core::attachment_api {
@@ -167,7 +111,8 @@ void reset_attachment_metadata(kernel_attachment_metadata* out_metadata) {
 kernel_status fill_attachment_record(
     const kernel::storage::AttachmentCatalogRecord& record,
     kernel_attachment_record* out_attachment) {
-  const AttachmentPathShape path_shape = describe_attachment_path(record.rel_path);
+  const auto path_shape =
+      kernel::core::attachment_path_shape::describe_attachment_path(record.rel_path);
 
   out_attachment->rel_path = kernel::core::duplicate_c_string(record.rel_path);
   out_attachment->basename = kernel::core::duplicate_c_string(path_shape.basename);

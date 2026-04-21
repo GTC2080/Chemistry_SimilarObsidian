@@ -4,11 +4,10 @@
 #include "kernel/c_api.h"
 
 #include "core/kernel_attachment_api_shared.h"
+#include "core/kernel_attachment_query_shared.h"
 #include "core/kernel_internal.h"
 #include "core/kernel_shared.h"
-#include "storage/storage.h"
 
-#include <string>
 #include <vector>
 
 extern "C" kernel_status kernel_list_note_attachments(
@@ -20,26 +19,12 @@ extern "C" kernel_status kernel_list_note_attachments(
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  std::string normalized_note_rel_path;
-  const kernel_status normalized_status =
-      kernel::core::attachment_api::normalize_required_rel_path_argument(
-          note_rel_path,
-          normalized_note_rel_path);
-  if (normalized_status.code != KERNEL_OK) {
-    return normalized_status;
-  }
-
   std::vector<std::string> refs;
   const kernel_status query_status =
-      kernel::core::attachment_api::run_locked_storage_query(
+      kernel::core::attachment_query::query_legacy_note_attachment_refs(
           handle,
-          refs,
-          [&](kernel::storage::Database& storage, auto& out_refs) {
-            return kernel::storage::list_note_attachment_refs(
-                storage,
-                normalized_note_rel_path,
-                out_refs);
-          });
+          note_rel_path,
+          refs);
   if (query_status.code != KERNEL_OK) {
     return query_status;
   }
@@ -57,26 +42,12 @@ extern "C" kernel_status kernel_get_attachment_metadata(
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  std::string normalized_attachment_rel_path;
-  const kernel_status normalized_status =
-      kernel::core::attachment_api::normalize_required_rel_path_argument(
-          attachment_rel_path,
-          normalized_attachment_rel_path);
-  if (normalized_status.code != KERNEL_OK) {
-    return normalized_status;
-  }
-
   kernel::storage::AttachmentMetadataRecord metadata;
   const kernel_status query_status =
-      kernel::core::attachment_api::run_locked_storage_query(
+      kernel::core::attachment_query::query_legacy_attachment_metadata(
           handle,
-          metadata,
-          [&](kernel::storage::Database& storage, auto& out_metadata_record) {
-            return kernel::storage::read_attachment_metadata(
-                storage,
-                normalized_attachment_rel_path,
-                out_metadata_record);
-          });
+          attachment_rel_path,
+          metadata);
   if (query_status.code != KERNEL_OK) {
     return query_status;
   }

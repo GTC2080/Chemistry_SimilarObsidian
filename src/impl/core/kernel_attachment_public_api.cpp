@@ -4,11 +4,10 @@
 #include "kernel/c_api.h"
 
 #include "core/kernel_attachment_api_shared.h"
+#include "core/kernel_attachment_query_shared.h"
 #include "core/kernel_internal.h"
 #include "core/kernel_shared.h"
-#include "storage/storage.h"
 
-#include <string>
 #include <vector>
 
 extern "C" kernel_status kernel_query_attachments(
@@ -22,15 +21,10 @@ extern "C" kernel_status kernel_query_attachments(
 
   std::vector<kernel::storage::AttachmentCatalogRecord> records;
   const kernel_status query_status =
-      kernel::core::attachment_api::run_locked_storage_query(
+      kernel::core::attachment_query::query_live_attachment_list(
           handle,
-          records,
-          [&](kernel::storage::Database& storage, auto& out_records) {
-            return kernel::storage::list_live_attachment_records(
-                storage,
-                limit,
-                out_records);
-          });
+          limit,
+          records);
   if (query_status.code != KERNEL_OK) {
     return query_status;
   }
@@ -47,26 +41,12 @@ extern "C" kernel_status kernel_get_attachment(
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  std::string normalized_attachment_rel_path;
-  const kernel_status normalized_status =
-      kernel::core::attachment_api::normalize_required_rel_path_argument(
-          attachment_rel_path,
-          normalized_attachment_rel_path);
-  if (normalized_status.code != KERNEL_OK) {
-    return normalized_status;
-  }
-
   kernel::storage::AttachmentCatalogRecord record;
   const kernel_status query_status =
-      kernel::core::attachment_api::run_locked_storage_query(
+      kernel::core::attachment_query::query_live_attachment_record(
           handle,
-          record,
-          [&](kernel::storage::Database& storage, auto& out_record) {
-            return kernel::storage::read_live_attachment_record(
-                storage,
-                normalized_attachment_rel_path,
-                out_record);
-          });
+          attachment_rel_path,
+          record);
   if (query_status.code != KERNEL_OK) {
     return query_status;
   }
@@ -84,27 +64,13 @@ extern "C" kernel_status kernel_query_note_attachment_refs(
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  std::string normalized_note_rel_path;
-  const kernel_status normalized_status =
-      kernel::core::attachment_api::normalize_required_rel_path_argument(
-          note_rel_path,
-          normalized_note_rel_path);
-  if (normalized_status.code != KERNEL_OK) {
-    return normalized_status;
-  }
-
   std::vector<kernel::storage::AttachmentCatalogRecord> records;
   const kernel_status query_status =
-      kernel::core::attachment_api::run_locked_storage_query(
+      kernel::core::attachment_query::query_note_attachment_records(
           handle,
-          records,
-          [&](kernel::storage::Database& storage, auto& out_records) {
-            return kernel::storage::list_note_attachment_records(
-                storage,
-                normalized_note_rel_path,
-                limit,
-                out_records);
-          });
+          note_rel_path,
+          limit,
+          records);
   if (query_status.code != KERNEL_OK) {
     return query_status;
   }
@@ -122,27 +88,13 @@ extern "C" kernel_status kernel_query_attachment_referrers(
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  std::string normalized_attachment_rel_path;
-  const kernel_status normalized_status =
-      kernel::core::attachment_api::normalize_required_rel_path_argument(
-          attachment_rel_path,
-          normalized_attachment_rel_path);
-  if (normalized_status.code != KERNEL_OK) {
-    return normalized_status;
-  }
-
   std::vector<kernel::storage::AttachmentReferrerRecord> referrers;
   const kernel_status query_status =
-      kernel::core::attachment_api::run_locked_storage_query(
+      kernel::core::attachment_query::query_attachment_referrers(
           handle,
-          referrers,
-          [&](kernel::storage::Database& storage, auto& out_referrers) {
-            return kernel::storage::list_attachment_referrers(
-                storage,
-                normalized_attachment_rel_path,
-                limit,
-                out_referrers);
-          });
+          attachment_rel_path,
+          limit,
+          referrers);
   if (query_status.code != KERNEL_OK) {
     return query_status;
   }

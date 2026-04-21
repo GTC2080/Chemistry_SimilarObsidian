@@ -11,6 +11,8 @@ add_library(
   impl/core/kernel_note_io.cpp
   impl/core/kernel_query_api.cpp
   impl/core/kernel_attachment_api_shared.cpp
+  impl/core/kernel_attachment_path_shape.cpp
+  impl/core/kernel_attachment_query_shared.cpp
   impl/core/kernel_attachment_public_api.cpp
   impl/core/kernel_attachment_legacy_api.cpp
   impl/core/kernel_diagnostics.cpp
