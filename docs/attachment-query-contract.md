@@ -41,6 +41,10 @@ Observable consequences:
 
 `kernel_attachment_record` freezes these host-facing fields:
 
+Field-level metadata semantics are frozen in:
+
+- [attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/docs/attachment-metadata-contract.md)
+
 - `rel_path`
   - normalized vault-relative attachment path
   - unique identifier for one live catalog entry

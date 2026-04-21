@@ -38,6 +38,32 @@ This matrix covers the formal Batch 1 attachment public surface:
 - orphaned metadata row lookup returns `NOT_FOUND`
   - `test_attachment_public_surface_excludes_orphaned_paths_and_matches_search`
 
+### Metadata Contract
+
+- present attachments expose non-zero `file_size` and `mtime_ns`
+  - `test_attachment_public_surface_lists_live_catalog_and_single_attachment`
+- never-observed missing attachments may expose `file_size=0` and `mtime_ns=0`
+  - `test_attachment_public_surface_lists_live_catalog_and_single_attachment`
+- generic, chem-like, and extensionless attachments map to stable coarse kinds
+  - `test_attachment_public_surface_metadata_contract_covers_kind_mapping_and_missing_carry_forward`
+- watcher-driven delete preserves last reconciled `file_size` and `mtime_ns` while flipping `presence` to `missing`
+  - `test_attachment_public_surface_metadata_contract_covers_kind_mapping_and_missing_carry_forward`
+
+### Lifecycle Consistency
+
+- note rewrite replaces the live attachment ref set in the formal public surface
+  - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
+- rebuild restores the formal live attachment ref set after stale attachment-ref drift
+  - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
+- startup recovery restores recovered missing attachment refs through the formal public surface
+  - `test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state`
+- startup recovery replaces stale attachment refs and exposes recovered present metadata through the formal public surface
+  - `test_startup_recovery_replaces_stale_attachment_refs_and_metadata`
+- reopen catch-up preserves the live attachment ref while reconciling a closed-window delete to `missing`
+  - `test_reopen_catch_up_repairs_attachment_missing_state_after_closed_window_delete`
+- rebuild preserves the live attachment ref while reconciling a deleted file to `missing`
+  - `test_rebuild_reconciles_attachment_missing_state`
+
 ### Note -> Attachment Refs
 
 - note refs return live attachment records
@@ -77,6 +103,8 @@ This matrix covers the formal Batch 1 attachment public surface:
 ### Diagnostics Export
 
 - support bundle exports the attachment public surface revision
+  - `test_export_diagnostics_writes_json_snapshot`
+- support bundle exports the attachment metadata contract revision
   - `test_export_diagnostics_writes_json_snapshot`
 - support bundle exports the attachment kind mapping revision
   - `test_export_diagnostics_writes_json_snapshot`

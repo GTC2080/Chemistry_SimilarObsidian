@@ -42,6 +42,85 @@ std::string two_digit_index(const int value) {
   return std::to_string(value);
 }
 
+void require_attachment_lookup_state(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    const kernel_attachment_presence expected_presence,
+    const std::uint64_t expected_ref_count,
+    const kernel_attachment_kind expected_kind,
+    const bool expect_nonzero_metadata,
+    std::string_view context) {
+  kernel_attachment_record attachment{};
+  const kernel_status status = kernel_get_attachment(handle, attachment_rel_path, &attachment);
+  require_true(
+      status.code == KERNEL_OK,
+      std::string(context) + ": formal attachment lookup should succeed, got status " +
+          std::to_string(status.code));
+  require_true(
+      std::string(attachment.rel_path) == attachment_rel_path,
+      std::string(context) + ": formal attachment lookup should preserve rel_path");
+  require_true(
+      attachment.presence == expected_presence,
+      std::string(context) + ": formal attachment lookup should preserve presence");
+  require_true(
+      attachment.ref_count == expected_ref_count,
+      std::string(context) + ": formal attachment lookup should preserve live ref_count");
+  require_true(
+      attachment.kind == expected_kind,
+      std::string(context) + ": formal attachment lookup should preserve attachment kind");
+  if (expect_nonzero_metadata) {
+    require_true(
+        attachment.file_size > 0,
+        std::string(context) + ": formal attachment lookup should preserve non-zero file_size");
+    require_true(
+        attachment.mtime_ns > 0,
+        std::string(context) + ": formal attachment lookup should preserve non-zero mtime_ns");
+  }
+  kernel_free_attachment_record(&attachment);
+}
+
+void require_single_note_attachment_ref_state(
+    kernel_handle* handle,
+    const char* note_rel_path,
+    const char* attachment_rel_path,
+    const kernel_attachment_presence expected_presence,
+    const std::uint64_t expected_ref_count,
+    const kernel_attachment_kind expected_kind,
+    const bool expect_nonzero_metadata,
+    std::string_view context) {
+  kernel_attachment_list refs{};
+  const kernel_status status =
+      kernel_query_note_attachment_refs(handle, note_rel_path, static_cast<size_t>(-1), &refs);
+  require_true(
+      status.code == KERNEL_OK,
+      std::string(context) + ": formal note attachment refs query should succeed, got status " +
+          std::to_string(status.code));
+  require_true(
+      refs.count == 1,
+      std::string(context) + ": formal note attachment refs should expose exactly one live attachment");
+  require_true(
+      std::string(refs.attachments[0].rel_path) == attachment_rel_path,
+      std::string(context) + ": formal note attachment refs should expose the expected rel_path");
+  require_true(
+      refs.attachments[0].presence == expected_presence,
+      std::string(context) + ": formal note attachment refs should preserve presence");
+  require_true(
+      refs.attachments[0].ref_count == expected_ref_count,
+      std::string(context) + ": formal note attachment refs should preserve live ref_count");
+  require_true(
+      refs.attachments[0].kind == expected_kind,
+      std::string(context) + ": formal note attachment refs should preserve attachment kind");
+  if (expect_nonzero_metadata) {
+    require_true(
+        refs.attachments[0].file_size > 0,
+        std::string(context) + ": formal note attachment refs should preserve non-zero file_size");
+    require_true(
+        refs.attachments[0].mtime_ns > 0,
+        std::string(context) + ": formal note attachment refs should preserve non-zero mtime_ns");
+  }
+  kernel_free_attachment_list(&refs);
+}
+
 void test_open_and_state_layers() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -1568,6 +1647,12 @@ void test_attachment_public_surface_lists_live_catalog_and_single_attachment() {
       attachments.attachments[0].presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT,
       "attachment public surface should report present attachments");
   require_true(
+      attachments.attachments[0].file_size > 0,
+      "attachment public surface should expose reconciled file size for present attachments");
+  require_true(
+      attachments.attachments[0].mtime_ns > 0,
+      "attachment public surface should expose reconciled mtime for present attachments");
+  require_true(
       attachments.attachments[0].ref_count == 2,
       "attachment public surface should report the live note ref count");
   require_true(
@@ -1580,6 +1665,12 @@ void test_attachment_public_surface_lists_live_catalog_and_single_attachment() {
   require_true(
       attachments.attachments[1].presence == KERNEL_ATTACHMENT_PRESENCE_MISSING,
       "attachment public surface should preserve live missing attachments");
+  require_true(
+      attachments.attachments[1].file_size == 0,
+      "attachment public surface should allow zero file size for missing attachments never seen on disk");
+  require_true(
+      attachments.attachments[1].mtime_ns == 0,
+      "attachment public surface should allow zero mtime for missing attachments never seen on disk");
   require_true(
       attachments.attachments[1].ref_count == 1,
       "attachment public surface should track missing attachment ref counts");
@@ -1602,6 +1693,12 @@ void test_attachment_public_surface_lists_live_catalog_and_single_attachment() {
       attachment.presence == KERNEL_ATTACHMENT_PRESENCE_PRESENT,
       "single attachment lookup should preserve present state");
   require_true(
+      attachment.file_size == attachments.attachments[0].file_size,
+      "single attachment lookup should preserve present file size");
+  require_true(
+      attachment.mtime_ns == attachments.attachments[0].mtime_ns,
+      "single attachment lookup should preserve present mtime");
+  require_true(
       attachment.ref_count == 2,
       "single attachment lookup should preserve the live ref count");
   kernel_free_attachment_record(&attachment);
@@ -1610,6 +1707,12 @@ void test_attachment_public_surface_lists_live_catalog_and_single_attachment() {
   require_true(
       attachment.presence == KERNEL_ATTACHMENT_PRESENCE_MISSING,
       "single attachment lookup should preserve live missing state");
+  require_true(
+      attachment.file_size == 0,
+      "single attachment lookup should preserve zero file size for never-observed missing rows");
+  require_true(
+      attachment.mtime_ns == 0,
+      "single attachment lookup should preserve zero mtime for never-observed missing rows");
   require_true(
       attachment.kind == KERNEL_ATTACHMENT_KIND_PDF_LIKE,
       "single attachment lookup should preserve attachment kind for missing rows");
@@ -1621,6 +1724,98 @@ void test_attachment_public_surface_lists_live_catalog_and_single_attachment() {
       "single attachment lookup should reject disk files that are not in the live catalog");
 
   kernel_free_attachment_list(&attachments);
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
+void test_attachment_public_surface_metadata_contract_covers_kind_mapping_and_missing_carry_forward() {
+  const auto vault = make_temp_vault();
+  std::filesystem::create_directories(vault / "assets");
+  std::filesystem::create_directories(vault / "chem");
+  std::filesystem::create_directories(vault / "misc");
+  write_file_bytes(vault / "assets" / "data.bin", "12345");
+  write_file_bytes(vault / "chem" / "ligand.CDX", "chem");
+  write_file_bytes(vault / "misc" / "noext", "noext");
+
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  kernel_note_metadata metadata{};
+  kernel_write_disposition disposition{};
+  const std::string content =
+      "# Metadata Attachment Surface\n"
+      "[Generic](assets/data.bin)\n"
+      "[Chem](chem/ligand.CDX)\n";
+  expect_ok(kernel_write_note(
+      handle,
+      "metadata-attachments.md",
+      content.data(),
+      content.size(),
+      nullptr,
+      &metadata,
+      &disposition));
+  {
+    std::lock_guard lock(handle->storage_mutex);
+    require_true(
+        !kernel::index::refresh_markdown_path(handle->storage, vault, "misc/noext"),
+        "metadata contract test should refresh extensionless attachment metadata");
+    exec_sql(
+        handle->storage.connection,
+        "INSERT INTO note_attachment_refs(note_id, attachment_rel_path) "
+        "VALUES((SELECT note_id FROM notes WHERE rel_path='metadata-attachments.md'), 'misc/noext');");
+  }
+
+  kernel_attachment_list attachments{};
+  expect_ok(kernel_query_attachments(handle, static_cast<size_t>(-1), &attachments));
+  require_true(attachments.count == 3, "metadata contract test should see all three live attachments");
+
+  require_true(
+      std::string(attachments.attachments[0].rel_path) == "assets/data.bin" &&
+          attachments.attachments[0].kind == KERNEL_ATTACHMENT_KIND_GENERIC_FILE &&
+          std::string(attachments.attachments[0].extension) == ".bin" &&
+          attachments.attachments[0].file_size == 5 &&
+          attachments.attachments[0].mtime_ns > 0,
+      "metadata contract should freeze generic-file kind and stable present metadata");
+  require_true(
+      std::string(attachments.attachments[1].rel_path) == "chem/ligand.CDX" &&
+          attachments.attachments[1].kind == KERNEL_ATTACHMENT_KIND_CHEM_LIKE &&
+          std::string(attachments.attachments[1].extension) == ".cdx" &&
+          attachments.attachments[1].file_size == 4 &&
+          attachments.attachments[1].mtime_ns > 0,
+      "metadata contract should normalize extensions and classify chem-like attachments");
+  require_true(
+      std::string(attachments.attachments[2].rel_path) == "misc/noext" &&
+          attachments.attachments[2].kind == KERNEL_ATTACHMENT_KIND_UNKNOWN &&
+          std::string(attachments.attachments[2].extension).empty() &&
+          attachments.attachments[2].file_size == 5 &&
+          attachments.attachments[2].mtime_ns > 0,
+      "metadata contract should classify extensionless attachments as unknown");
+
+  const auto preserved_size = attachments.attachments[0].file_size;
+  const auto preserved_mtime = attachments.attachments[0].mtime_ns;
+  kernel_free_attachment_list(&attachments);
+
+  std::filesystem::remove(vault / "assets" / "data.bin");
+  require_eventually(
+      [&]() {
+        kernel_attachment_record attachment{};
+        const kernel_status status = kernel_get_attachment(handle, "assets/data.bin", &attachment);
+        if (status.code != KERNEL_OK) {
+          return false;
+        }
+
+        const bool matches =
+            attachment.presence == KERNEL_ATTACHMENT_PRESENCE_MISSING &&
+            attachment.kind == KERNEL_ATTACHMENT_KIND_GENERIC_FILE &&
+            std::string(attachment.extension) == ".bin" &&
+            attachment.file_size == preserved_size &&
+            attachment.mtime_ns == preserved_mtime;
+        kernel_free_attachment_record(&attachment);
+        return matches;
+      },
+      "metadata contract should preserve last present size and mtime after watcher delete");
+
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
@@ -1854,11 +2049,15 @@ void test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state() {
       &metadata,
       &disposition));
 
-  kernel_attachment_refs refs{};
-  expect_ok(kernel_list_note_attachments(handle, "attachment-surface.md", &refs));
-  require_true(refs.count == 1, "rewrite should replace old attachment refs in the public API");
-  require_true(std::string(refs.refs[0].rel_path) == "docs/recovered.pdf", "rewrite should expose only the new attachment ref");
-  kernel_free_attachment_refs(&refs);
+  require_single_note_attachment_ref_state(
+      handle,
+      "attachment-surface.md",
+      "docs/recovered.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      true,
+      "rewrite should replace old attachment refs in the formal public surface");
 
   {
     std::lock_guard lock(handle->storage_mutex);
@@ -1869,14 +2068,23 @@ void test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state() {
 
   expect_ok(kernel_rebuild_index(handle));
 
-  expect_ok(kernel_list_note_attachments(handle, "attachment-surface.md", &refs));
-  require_true(refs.count == 1, "rebuild should restore the live attachment ref set");
-  require_true(std::string(refs.refs[0].rel_path) == "docs/recovered.pdf", "rebuild should expose the disk-backed attachment ref");
-  kernel_free_attachment_refs(&refs);
-
-  kernel_attachment_metadata attachment{};
-  expect_ok(kernel_get_attachment_metadata(handle, "docs/recovered.pdf", &attachment));
-  require_true(attachment.is_missing == 0, "rebuild should preserve present attachment metadata");
+  require_single_note_attachment_ref_state(
+      handle,
+      "attachment-surface.md",
+      "docs/recovered.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      true,
+      "rebuild should restore the formal live attachment ref set");
+  require_attachment_lookup_state(
+      handle,
+      "docs/recovered.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      true,
+      "rebuild should preserve formal attachment metadata");
 
   expect_ok(kernel_close(handle));
 
@@ -1900,13 +2108,23 @@ void test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state() {
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
   require_index_ready(handle, "attachment public API recovery test should settle to READY");
 
-  expect_ok(kernel_list_note_attachments(handle, "attachment-surface.md", &refs));
-  require_true(refs.count == 1, "startup recovery should restore the recovered attachment ref");
-  require_true(std::string(refs.refs[0].rel_path) == "docs/recovered-missing.pdf", "startup recovery should expose the recovered attachment ref");
-  kernel_free_attachment_refs(&refs);
-
-  expect_ok(kernel_get_attachment_metadata(handle, "docs/recovered-missing.pdf", &attachment));
-  require_true(attachment.is_missing == 1, "startup recovery should expose recovered missing attachment metadata");
+  require_single_note_attachment_ref_state(
+      handle,
+      "attachment-surface.md",
+      "docs/recovered-missing.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      false,
+      "startup recovery should restore the recovered attachment ref in the formal public surface");
+  require_attachment_lookup_state(
+      handle,
+      "docs/recovered-missing.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      false,
+      "startup recovery should expose recovered missing attachment metadata through the formal public surface");
 
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
@@ -2084,6 +2302,24 @@ void test_startup_recovery_replaces_stale_attachment_refs_and_metadata() {
       "startup recovery should sync recovered attachment metadata from disk truth");
   sqlite3_close(db);
 
+  require_single_note_attachment_ref_state(
+      handle,
+      "recover-attachments.md",
+      "docs/new.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      true,
+      "startup recovery should expose the recovered attachment ref through the formal public surface");
+  require_attachment_lookup_state(
+      handle,
+      "docs/new.pdf",
+      KERNEL_ATTACHMENT_PRESENCE_PRESENT,
+      1,
+      KERNEL_ATTACHMENT_KIND_PDF_LIKE,
+      true,
+      "startup recovery should expose recovered attachment metadata through the formal public surface");
+
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir);
@@ -2206,6 +2442,24 @@ void test_reopen_catch_up_repairs_attachment_missing_state_after_closed_window_d
           "AND attachment_rel_path='assets/closed-window-delete.png';") == 1,
       "reopen catch-up should preserve note attachment refs while reconciling missing attachment state");
   sqlite3_close(db);
+
+  require_single_note_attachment_ref_state(
+      handle,
+      "closed-window-attachment.md",
+      "assets/closed-window-delete.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "reopen catch-up should preserve the live attachment ref through the formal public surface");
+  require_attachment_lookup_state(
+      handle,
+      "assets/closed-window-delete.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "reopen catch-up should expose missing attachment metadata through the formal public surface");
 
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
@@ -4816,6 +5070,24 @@ void test_rebuild_reconciles_attachment_missing_state() {
       "rebuild should preserve note attachment refs while refreshing missing state");
   sqlite3_close(readonly_db);
 
+  require_single_note_attachment_ref_state(
+      handle,
+      "rebuild-attachment.md",
+      "assets/rebuild-attachment.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "rebuild should preserve the live attachment ref through the formal public surface");
+  require_attachment_lookup_state(
+      handle,
+      "assets/rebuild-attachment.png",
+      KERNEL_ATTACHMENT_PRESENCE_MISSING,
+      1,
+      KERNEL_ATTACHMENT_KIND_IMAGE_LIKE,
+      true,
+      "rebuild should refresh missing attachment metadata through the formal public surface");
+
   expect_ok(kernel_close(handle));
   std::filesystem::remove_all(vault);
   std::filesystem::remove_all(state_dir_for_vault(vault));
@@ -5717,6 +5989,10 @@ void test_export_diagnostics_writes_json_snapshot() {
   require_true(
       exported.find("\"attachment_public_surface_revision\":\"track2_batch1_public_surface_v1\"") != std::string::npos,
       "diagnostics should expose the current attachment public surface revision");
+  require_true(
+      exported.find("\"attachment_metadata_contract_revision\":\"track2_batch2_metadata_contract_v1\"") !=
+          std::string::npos,
+      "diagnostics should expose the current attachment metadata contract revision");
   require_true(
       exported.find("\"attachment_kind_mapping_revision\":\"track2_batch1_extension_mapping_v1\"") != std::string::npos,
       "diagnostics should expose the current attachment kind mapping revision");
@@ -6690,6 +6966,7 @@ int main() {
     test_attachment_api_lists_note_refs_in_parser_order();
     test_attachment_api_reports_missing_state_and_rejects_invalid_inputs();
     test_attachment_public_surface_lists_live_catalog_and_single_attachment();
+    test_attachment_public_surface_metadata_contract_covers_kind_mapping_and_missing_carry_forward();
     test_attachment_public_surface_note_refs_and_referrers_are_stable();
     test_attachment_public_surface_excludes_orphaned_paths_and_matches_search();
     test_attachment_api_rewrite_recovery_and_rebuild_follow_live_state();

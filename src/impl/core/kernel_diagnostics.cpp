@@ -2,6 +2,7 @@
 
 #include "kernel/c_api.h"
 
+#include "core/kernel_attachment_api_shared.h"
 #include "core/kernel_internal.h"
 #include "core/kernel_shared.h"
 #include "platform/platform.h"
@@ -16,11 +17,6 @@
 #include <vector>
 
 namespace {
-
-inline constexpr std::string_view kAttachmentPublicSurfaceRevision =
-    "track2_batch1_public_surface_v1";
-inline constexpr std::string_view kAttachmentKindMappingRevision =
-    "track2_batch1_extension_mapping_v1";
 
 std::string build_fault_history_json(
     const std::vector<KernelFaultRecord>& fault_history) {
@@ -119,9 +115,15 @@ std::string build_diagnostics_json(
          << "  \"attachment_live_count\":" << attachment_count << ",\n"
          << "  \"missing_attachment_count\":" << missing_attachment_count << ",\n"
          << "  \"attachment_public_surface_revision\":\""
-         << kernel::core::json_escape(kAttachmentPublicSurfaceRevision) << "\",\n"
+         << kernel::core::json_escape(kernel::core::attachment_api::kAttachmentPublicSurfaceRevision)
+         << "\",\n"
+         << "  \"attachment_metadata_contract_revision\":\""
+         << kernel::core::json_escape(
+                kernel::core::attachment_api::kAttachmentMetadataContractRevision)
+         << "\",\n"
          << "  \"attachment_kind_mapping_revision\":\""
-         << kernel::core::json_escape(kAttachmentKindMappingRevision) << "\",\n"
+         << kernel::core::json_escape(kernel::core::attachment_api::kAttachmentKindMappingRevision)
+         << "\",\n"
          << "  \"last_continuity_fallback_reason\":\""
          << kernel::core::json_escape(last_continuity_fallback_reason) << "\",\n"
          << "  \"last_continuity_fallback_at_ns\":" << last_continuity_fallback_at_ns << ",\n"

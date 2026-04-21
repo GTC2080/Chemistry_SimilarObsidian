@@ -37,6 +37,7 @@ Before release, confirm these repository documents still match the shipped behav
 - [recovery-crash-matrix-checklist.md](/E:/测试/Chemistry_Obsidian/docs/recovery-crash-matrix-checklist.md)
 - [watcher-lifecycle-checklist.md](/E:/测试/Chemistry_Obsidian/docs/watcher-lifecycle-checklist.md)
 - [attachment-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/attachment-query-contract.md)
+- [attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/docs/attachment-metadata-contract.md)
 - [attachment-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/attachment-regression-matrix.md)
 - [search-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/search-query-contract.md)
 - [search-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/search-regression-matrix.md)

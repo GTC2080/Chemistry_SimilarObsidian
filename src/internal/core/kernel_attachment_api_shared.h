@@ -8,9 +8,17 @@
 #include "storage/storage.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace kernel::core::attachment_api {
+
+inline constexpr std::string_view kAttachmentPublicSurfaceRevision =
+    "track2_batch1_public_surface_v1";
+inline constexpr std::string_view kAttachmentMetadataContractRevision =
+    "track2_batch2_metadata_contract_v1";
+inline constexpr std::string_view kAttachmentKindMappingRevision =
+    "track2_batch1_extension_mapping_v1";
 
 void reset_attachment_record(kernel_attachment_record* out_attachment);
 void reset_attachment_list(kernel_attachment_list* out_attachments);
