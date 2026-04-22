@@ -15,9 +15,9 @@ It names the existing commands, checklists, and pass conditions that must be sat
 1. Full diagnostics smoke and API regression
 
 - Build:
-  - `cmake --build E:\测试\Chemistry_Obsidian\out\build --config Debug --target kernel_api_tests`
+  - `cmake --build E:\测试\Chemistry_Obsidian\kernel\out\build --config Debug --target kernel_api_tests`
 - Run:
-  - `E:\测试\Chemistry_Obsidian\out\build\tests\Debug\kernel_api_tests.exe`
+  - `E:\测试\Chemistry_Obsidian\kernel\out\build\tests\Debug\kernel_api_tests.exe`
 - Pass condition:
   - exit code `0`
   - diagnostics export regressions pass, including support-bundle fields, rebuild observability, and runtime-state snapshots
@@ -25,7 +25,7 @@ It names the existing commands, checklists, and pass conditions that must be sat
 2. Full kernel gate
 
 - Run:
-  - `cmake --build E:\测试\Chemistry_Obsidian\out\build --config Debug --target kernel_phase_gate`
+  - `cmake --build E:\测试\Chemistry_Obsidian\kernel\out\build --config Debug --target kernel_phase_gate`
 - Pass condition:
   - `ctest` reports zero failed tests
   - all benchmark executables pass their built-in thresholds
@@ -34,21 +34,21 @@ It names the existing commands, checklists, and pass conditions that must be sat
 
 Before release, confirm these repository documents still match the shipped behavior:
 
-- [recovery-crash-matrix-checklist.md](/E:/测试/Chemistry_Obsidian/docs/governance/recovery-crash-matrix-checklist.md)
-- [watcher-lifecycle-checklist.md](/E:/测试/Chemistry_Obsidian/docs/governance/watcher-lifecycle-checklist.md)
-- [attachment-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/attachment-query-contract.md)
-- [attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/attachment-metadata-contract.md)
-- [attachment-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/regression/attachment-regression-matrix.md)
-- [pdf-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/pdf-query-contract.md)
-- [pdf-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/regression/pdf-regression-matrix.md)
-- [search-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/search-query-contract.md)
-- [search-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/regression/search-regression-matrix.md)
-- [domain-extension-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/domain-extension-contract.md)
-- [domain-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/regression/domain-regression-matrix.md)
-- [chemistry-capability-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/chemistry-capability-contract.md)
-- [chemistry-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/regression/chemistry-regression-matrix.md)
-- [kernel-phase1-status.md](/E:/测试/Chemistry_Obsidian/docs/status/kernel-phase1-status.md)
-- [benchmark-baselines.md](/E:/测试/Chemistry_Obsidian/docs/governance/benchmark-baselines.md)
+- [recovery-crash-matrix-checklist.md](/E:/测试/Chemistry_Obsidian/kernel/docs/governance/recovery-crash-matrix-checklist.md)
+- [watcher-lifecycle-checklist.md](/E:/测试/Chemistry_Obsidian/kernel/docs/governance/watcher-lifecycle-checklist.md)
+- [attachment-query-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/attachment-query-contract.md)
+- [attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/attachment-metadata-contract.md)
+- [attachment-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/attachment-regression-matrix.md)
+- [pdf-query-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/pdf-query-contract.md)
+- [pdf-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/pdf-regression-matrix.md)
+- [search-query-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/search-query-contract.md)
+- [search-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/search-regression-matrix.md)
+- [domain-extension-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/domain-extension-contract.md)
+- [domain-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/domain-regression-matrix.md)
+- [chemistry-capability-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/chemistry-capability-contract.md)
+- [chemistry-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/chemistry-regression-matrix.md)
+- [kernel-phase1-status.md](/E:/测试/Chemistry_Obsidian/kernel/docs/status/kernel-phase1-status.md)
+- [benchmark-baselines.md](/E:/测试/Chemistry_Obsidian/kernel/docs/governance/benchmark-baselines.md)
 
 ## Baseline Update Rule
 

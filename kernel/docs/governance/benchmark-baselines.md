@@ -22,7 +22,7 @@ The repository now exposes named build targets for this verification:
 
 The full release flow is frozen in:
 
-- [release-checklist.md](/E:/测试/Chemistry_Obsidian/docs/governance/release-checklist.md)
+- [release-checklist.md](/E:/测试/Chemistry_Obsidian/kernel/docs/governance/release-checklist.md)
 
 The goal is not micro-optimization.
 The goal is to keep the current stable kernel line from silently regressing startup, watcher, rebuild, or query paths.
@@ -186,6 +186,6 @@ Only update these baselines after:
 ## Standard Commands
 
 - full phase gate
-  - `cmake --build E:\测试\Chemistry_Obsidian\out\build --config Debug --target kernel_phase_gate`
+  - `cmake --build E:\测试\Chemistry_Obsidian\kernel\out\build --config Debug --target kernel_phase_gate`
 - benchmark-only gate
-  - `cmake --build E:\测试\Chemistry_Obsidian\out\build --config Debug --target kernel_benchmark_gates`
+  - `cmake --build E:\测试\Chemistry_Obsidian\kernel\out\build --config Debug --target kernel_benchmark_gates`

@@ -21,7 +21,7 @@ Legacy note-search status:
 
 - `kernel_search_notes(...)` and `kernel_search_notes_limited(...)` are now `deprecated-but-supported`
 - Track 1 search expansion does not add `snippet / pagination / filters / ranking` behavior to these legacy entry points
-- new host-facing search expansion behavior is frozen separately in [search-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/search-query-contract.md)
+- new host-facing search expansion behavior is frozen separately in [search-query-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/search-query-contract.md)
 
 ## Shared Result Contract
 

@@ -3,6 +3,8 @@
 # Out-of-source build directories used in this repo
 /out/
 /build/
+/kernel/out/
+/kernel/build/
 
 # CMake generated files
 /CMakeUserPresets.json
@@ -11,6 +13,7 @@
 /compile_commands.json
 /CTestTestfile.cmake
 /Testing/
+/kernel/CMakeUserPresets.json
 **/CMakeFiles/
 
 # Visual Studio / MSBuild generated files
@@ -46,6 +49,13 @@
 .DS_Store
 Thumbs.db
 
+# Future Electron app local artifacts
+/apps/electron/node_modules/
+/apps/electron/dist/
+/apps/electron/out/
+
 # Local planning and placeholder tooling that do not need to ship in the public repo
 docs/superpowers/
 tools/dev_cli/
+kernel/docs/superpowers/
+kernel/tools/dev_cli/

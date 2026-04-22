@@ -43,7 +43,7 @@ Observable consequences:
 
 Field-level metadata semantics are frozen in:
 
-- [attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/attachment-metadata-contract.md)
+- [attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/attachment-metadata-contract.md)
 
 - `rel_path`
   - normalized vault-relative attachment path
