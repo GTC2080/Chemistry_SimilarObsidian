@@ -4,7 +4,7 @@
  * Mapper for attachment / PDF envelopes.
  */
 
-import { reportHostGap } from "../services/envelope-guard.js";
+import { reportHostGap } from "../../services/envelope-guard.js";
 
 export function mapAttachmentRecord(data) {
   if (!data || typeof data !== "object") {

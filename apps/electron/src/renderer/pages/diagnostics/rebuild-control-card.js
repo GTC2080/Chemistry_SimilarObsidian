@@ -4,8 +4,8 @@
  * Rebuild workflow controls.
  */
 
-import { rebuild } from "../services/host-api-client.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { rebuild } from "../../services/host-api-client.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createRebuildControlCard() {
   const card = document.createElement("div");

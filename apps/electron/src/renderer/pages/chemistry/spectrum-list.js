@@ -4,7 +4,7 @@
  * Table of chemistry spectra.
  */
 
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createSpectrumList(viewModel, opts = {}) {
   const { onSelect } = opts;

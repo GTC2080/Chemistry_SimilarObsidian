@@ -4,8 +4,8 @@
  * Reusable component: given a noteRelPath, renders attachment links.
  */
 
-import { attachments } from "../services/host-api-client.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { attachments } from "../../services/host-api-client.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createNoteAttachmentRefs(noteRelPath, opts = {}) {
   const { onSelect } = opts;

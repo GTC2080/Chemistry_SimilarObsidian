@@ -7,7 +7,7 @@
 import { createDiagnosticsExportCard } from "./diagnostics-export-card.js";
 import { createRebuildControlCard } from "./rebuild-control-card.js";
 import { createRuntimePage } from "./runtime-page.js";
-import { store } from "../state/host-store.js";
+import { store } from "../../state/host-store.js";
 
 export function createDiagnosticsPage() {
   const page = document.createElement("div");

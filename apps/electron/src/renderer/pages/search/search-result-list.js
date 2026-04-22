@@ -5,7 +5,7 @@
  */
 
 import { createSearchResultItem } from "./search-result-item.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createSearchResultList(viewModel, opts = {}) {
   const { onPageNext, onPagePrev } = opts;

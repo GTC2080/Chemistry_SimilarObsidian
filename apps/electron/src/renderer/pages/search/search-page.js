@@ -4,8 +4,8 @@
  * Top-level search surface.
  */
 
-import { search } from "../services/host-api-client.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { search } from "../../services/host-api-client.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 import { createSearchFilterBar } from "./search-filter-bar.js";
 import { createSearchResultList } from "./search-result-list.js";
 import { mapSearchPage } from "./search-view-model.js";

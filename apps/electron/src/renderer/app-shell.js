@@ -1,29 +1,27 @@
 /**
  * app-shell.js
  *
- * Root module: bootstrap, routing, global state coordination.
+ * Root module: routes between Launcher (no vault) and Workspace (vault open).
  */
 
 import { store } from "./state/host-store.js";
 import { bootstrap, runtime, session } from "./services/host-api-client.js";
-import { createAppLayout } from "./components/layout/app-layout.js";
 import { createStateSurface } from "./components/shared/state-surface.js";
 import { createRuntimeStatusBadge } from "./components/shared/runtime-status-badge.js";
-import { createSessionStatusCard } from "./components/shared/session-status-card.js";
-import { createWelcomePage } from "./pages/welcome-page.js";
-import { createVaultPage } from "./pages/vault-page.js";
-import { createRuntimePage } from "./pages/runtime-page.js";
-import { createSearchPage } from "./pages/search-page.js";
-import { createAttachmentPage } from "./pages/attachment-page.js";
-import { createChemistryPage } from "./pages/chemistry-page.js";
-import { createDiagnosticsPage } from "./pages/diagnostics-page.js";
+import { createLauncherShell } from "./components/layout/launcher-shell.js";
+import { createLauncherPage } from "./pages/launcher/launcher-page.js";
+import { createWorkspaceShell } from "./components/layout/workspace-shell.js";
+import { createWorkspaceHomePage } from "./pages/workspace/workspace-home-page.js";
+import { createSearchPage } from "./pages/search/search-page.js";
+import { createAttachmentPage } from "./pages/attachments/attachment-page.js";
+import { createChemistryPage } from "./pages/chemistry/chemistry-page.js";
+import { createDiagnosticsPage } from "./pages/diagnostics/diagnostics-page.js";
 
 const POLLING_INTERVAL_MS = 5000;
 
 class AppShell {
   constructor() {
-    this._layout = null;
-    this._contentArea = null;
+    this._root = null;
     this._runtimeTimer = null;
     this._initialized = false;
     this._sessionTransitioning = false;
@@ -34,6 +32,8 @@ class AppShell {
   async init() {
     if (this._initialized) return;
     this._initialized = true;
+
+    this._root = document.getElementById("app-root");
 
     // 1. Bootstrap check
     const bootstrapEnv = await bootstrap.getInfo("app-init");
@@ -55,26 +55,23 @@ class AppShell {
     store.setEnvelope("runtime", runtimeEnv);
     store.setEnvelope("session", sessionEnv);
 
-    // 3. Determine initial page based on session state
+    // 3. Determine mode based on session state
     const sessionState = store.getSessionState();
-    const initialPage = sessionState === "open" ? "vault" : "welcome";
+    const initialPage = sessionState === "open" ? "files" : "launcher";
     store.setCurrentPage(initialPage);
 
-    // 4. Build layout
-    this._buildLayout();
-
-    // 5. Subscribe to store changes
+    // 4. Subscribe to store changes
     store.subscribe(() => this._onStoreUpdate());
 
-    // 6. Start runtime polling if session is open
+    // 5. Start runtime polling if session is open
     if (sessionState === "open") {
       this._startRuntimePolling();
     }
 
-    // 7. Render initial content
-    this._renderContent();
+    // 6. Render initial mode
+    this._renderMode();
 
-    // 8. Visibility change handling
+    // 7. Visibility change handling
     this._visibilityHandler = () => {
       if (document.visibilityState === "visible") {
         if (store.getSessionState() === "open") {
@@ -84,34 +81,8 @@ class AppShell {
     };
     document.addEventListener("visibilitychange", this._visibilityHandler);
 
-    // 9. Expose smoke helpers
+    // 8. Expose smoke helpers
     this._exposeSmokeHelpers();
-  }
-
-  _buildLayout() {
-    const snapshot = store.snapshot();
-    const sessionState = store.getSessionState();
-    const sessionOpen = sessionState === "open";
-
-    const { element, contentArea } = createAppLayout({
-      title: "Chemistry Obsidian",
-      currentPage: snapshot.currentPage,
-      sessionOpen,
-      activeVaultPath: store.getActiveVaultPath(),
-      onNavigate: (pageId) => this._navigateTo(pageId),
-      onCloseVault: () => this._closeVault()
-    });
-
-    this._layout = element;
-    this._contentArea = contentArea;
-
-    const root = document.getElementById("app-root");
-    if (root) {
-      root.innerHTML = "";
-      root.appendChild(element);
-    }
-
-    this._updateTopBarStatus();
   }
 
   _onStoreUpdate() {
@@ -119,116 +90,115 @@ class AppShell {
     const sessionOpen = sessionState === "open";
     const snapshot = store.snapshot();
 
-    // Update top-bar runtime badge
-    this._updateTopBarStatus();
-
-    // If session transitioned, handle page routing and polling
+    // Handle session transition: start/stop polling and page routing
     const prevSessionOpen = this._lastSessionOpen;
     this._lastSessionOpen = sessionOpen;
 
     if (prevSessionOpen !== sessionOpen) {
       if (sessionOpen) {
         this._startRuntimePolling();
-        if (snapshot.currentPage === "welcome") {
-          store.setCurrentPage("vault");
+        if (snapshot.currentPage === "launcher") {
+          store.setCurrentPage("files");
         }
       } else {
         this._stopRuntimePolling();
-        store.setCurrentPage("welcome");
+        store.setCurrentPage("launcher");
       }
     }
 
-    this._renderContent();
+    this._renderMode();
   }
 
-  _updateTopBarStatus() {
-    if (!this._layout) return;
-    let badgeContainer = this._layout.querySelector("#runtime-status-badge-container");
-    if (!badgeContainer) return;
-
-    badgeContainer.innerHTML = "";
-    const runtimeEnv = store.getRuntimeSummary();
-    const badge = createRuntimeStatusBadge(runtimeEnv);
-    badgeContainer.appendChild(badge);
-  }
-
-  _renderContent() {
-    if (!this._contentArea) return;
-    this._contentArea.innerHTML = "";
+  _renderMode() {
+    if (!this._root) return;
 
     const snapshot = store.snapshot();
 
-    // Host unavailable takes precedence
+    // Host unavailable takes absolute precedence
     if (!snapshot.hostAvailable) {
+      this._root.innerHTML = "";
       const surface = createStateSurface("unavailable", {
         message: "Host unavailable. Preload bridge may be missing.",
         onRetry: () => window.location.reload()
       });
-      this._contentArea.appendChild(surface);
+      this._root.appendChild(surface);
       return;
     }
 
     const currentPage = snapshot.currentPage;
     const sessionState = store.getSessionState();
 
-    // Degraded banner (non-blocking)
-    const degradedBanner = this._buildDegradedBanner();
-    if (degradedBanner) {
-      this._contentArea.appendChild(degradedBanner);
-    }
-
-    if (currentPage === "welcome" || sessionState !== "open") {
-      const effectiveState = this._sessionTransitioning ? "opening" : sessionState;
-      const welcome = createWelcomePage({
-        onOpenVault: (path) => this._openVault(path),
-        lastError: store.getLastSessionError(),
-        sessionState: effectiveState
-      });
-      this._contentArea.appendChild(welcome);
+    if (currentPage === "launcher" || sessionState !== "open") {
+      this._renderLauncher();
       return;
     }
 
-    // Session is open and we're on a vault sub-page
-    if (currentPage === "runtime") {
-      this._contentArea.appendChild(createRuntimePage(store.getRuntimeSummary()));
-      return;
-    }
+    // Workspace mode: vault is open
+    this._renderWorkspace();
+  }
+
+  _renderLauncher() {
+    if (!this._root) return;
+    this._root.innerHTML = "";
+
+    const runtimeEnv = store.getRuntimeSummary();
+    const badge = createRuntimeStatusBadge(runtimeEnv);
+
+    const { element, card } = createLauncherShell({ statusBadge: badge });
+
+    const launcherPage = createLauncherPage({
+      onOpenVault: (path) => this._openVault(path),
+      lastError: store.getLastSessionError(),
+      isOpening: this._sessionTransitioning
+    });
+
+    card.appendChild(launcherPage);
+    this._root.appendChild(element);
+  }
+
+  _renderWorkspace() {
+    if (!this._root) return;
+    this._root.innerHTML = "";
+
+    const currentPage = store.getCurrentPage();
+
+    const content = this._buildWorkspaceContent(currentPage);
+
+    const { element } = createWorkspaceShell({
+      currentPage,
+      vaultName: store.getActiveVaultPath() || "Vault",
+      runtimeEnvelope: store.getRuntimeSummary(),
+      onNavigate: (pageId) => {
+        store.setCurrentPage(pageId);
+        this._renderWorkspace();
+      },
+      onCloseVault: () => this._closeVault(),
+      children: content
+    });
+
+    this._root.appendChild(element);
+  }
+
+  _buildWorkspaceContent(currentPage) {
+    const container = document.createElement("div");
+
+    // Degraded banner
+    const banner = this._buildDegradedBanner();
+    if (banner) container.appendChild(banner);
 
     if (currentPage === "search") {
-      this._contentArea.appendChild(createSearchPage());
-      return;
+      container.appendChild(createSearchPage());
+    } else if (currentPage === "attachments") {
+      container.appendChild(createAttachmentPage());
+    } else if (currentPage === "chemistry") {
+      container.appendChild(createChemistryPage());
+    } else if (currentPage === "diagnostics") {
+      container.appendChild(createDiagnosticsPage());
+    } else {
+      container.appendChild(createWorkspaceHomePage({ vaultPath: store.getActiveVaultPath() }));
     }
 
-    if (currentPage === "attachments") {
-      this._contentArea.appendChild(createAttachmentPage());
-      return;
-    }
-
-    if (currentPage === "chemistry") {
-      this._contentArea.appendChild(createChemistryPage());
-      return;
-    }
-
-    if (currentPage === "diagnostics") {
-      this._contentArea.appendChild(createDiagnosticsPage());
-      return;
-    }
-
-    // Default vault page with optional side panel
-    const wrapper = document.createElement("div");
-    wrapper.style.cssText = "display: grid; grid-template-columns: 1fr 320px; gap: 16px; height: 100%;";
-
-    const mainPane = document.createElement("div");
-    mainPane.style.cssText = "min-width: 0; overflow: auto;";
-    mainPane.appendChild(createVaultPage({ currentPage }));
-    wrapper.appendChild(mainPane);
-
-    const sidePane = document.createElement("div");
-    sidePane.style.cssText = "overflow: auto;";
-    sidePane.appendChild(createSessionStatusCard(store.getEnvelope("session")));
-    wrapper.appendChild(sidePane);
-
-    this._contentArea.appendChild(wrapper);
+    return container;
   }
 
   _buildDegradedBanner() {
@@ -267,7 +237,6 @@ class AppShell {
     const root = document.getElementById("app-root");
     if (!root) return;
     root.innerHTML = "";
-
     const surface = createStateSurface("unavailable", {
       message,
       onRetry: () => window.location.reload()
@@ -275,13 +244,9 @@ class AppShell {
     root.appendChild(surface);
   }
 
-  _navigateTo(pageId) {
-    store.setCurrentPage(pageId);
-  }
-
   async _openVault(vaultPath) {
     this._sessionTransitioning = true;
-    this._renderContent();
+    this._renderMode();
 
     const result = await session.openVault(vaultPath, "app-open-vault");
     this._sessionTransitioning = false;
@@ -295,7 +260,7 @@ class AppShell {
 
   async _closeVault() {
     this._sessionTransitioning = true;
-    this._renderContent();
+    this._renderMode();
 
     const result = await session.closeVault("app-close-vault");
     this._sessionTransitioning = false;
@@ -329,7 +294,10 @@ class AppShell {
   _exposeSmokeHelpers() {
     window.__rendererSmoke = {
       getPageName: () => store.getCurrentPage(),
-      navigateTo: (pageName) => this._navigateTo(pageName),
+      navigateTo: (pageName) => {
+        store.setCurrentPage(pageName);
+        this._renderMode();
+      },
       getHostStoreSnapshot: () => store.snapshot()
     };
   }

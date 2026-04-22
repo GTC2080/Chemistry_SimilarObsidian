@@ -4,7 +4,7 @@
  * Grid or table of attachments.
  */
 
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createAttachmentList(viewModel, opts = {}) {
   const { onSelect } = opts;

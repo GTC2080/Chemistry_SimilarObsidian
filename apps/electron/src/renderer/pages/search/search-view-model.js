@@ -5,7 +5,7 @@
  * Validates required fields and flags host gaps.
  */
 
-import { reportHostGap } from "../services/envelope-guard.js";
+import { reportHostGap } from "../../services/envelope-guard.js";
 
 const REQUIRED_ITEM_FIELDS = ["title", "rel_path", "snippet", "kind"];
 const OPTIONAL_ITEM_FIELDS = ["tags", "backlinks_count"];

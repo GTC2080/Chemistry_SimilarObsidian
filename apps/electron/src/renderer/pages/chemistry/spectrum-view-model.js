@@ -4,7 +4,7 @@
  * Mapper for chemistry spectra envelopes.
  */
 
-import { reportHostGap } from "../services/envelope-guard.js";
+import { reportHostGap } from "../../services/envelope-guard.js";
 
 export function mapSpectrumRecord(data) {
   if (!data || typeof data !== "object") {

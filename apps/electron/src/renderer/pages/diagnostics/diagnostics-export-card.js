@@ -6,8 +6,8 @@
  * while EXPLICIT-HOST-GAP-010 (save dialog) remains unfilled.
  */
 
-import { diagnostics } from "../services/host-api-client.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { diagnostics } from "../../services/host-api-client.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createDiagnosticsExportCard() {
   const card = document.createElement("div");

@@ -4,8 +4,8 @@
  * Reusable component: given a noteRelPath, renders chemistry spectrum links with ref type labels.
  */
 
-import { chemistry } from "../services/host-api-client.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { chemistry } from "../../services/host-api-client.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 import { mapChemNoteRef } from "./spectrum-view-model.js";
 
 export function createNoteChemRefs(noteRelPath, opts = {}) {

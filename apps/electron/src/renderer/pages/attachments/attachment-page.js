@@ -4,11 +4,11 @@
  * Top-level attachment surface with list and detail tabs.
  */
 
-import { attachments } from "../services/host-api-client.js";
+import { attachments } from "../../services/host-api-client.js";
 import { createAttachmentList } from "./attachment-list.js";
 import { createAttachmentDetail } from "./attachment-detail.js";
 import { mapAttachmentList } from "./attachment-view-model.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createAttachmentPage() {
   const page = document.createElement("div");

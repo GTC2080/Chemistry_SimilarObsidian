@@ -4,9 +4,9 @@
  * Single spectrum view with metadata, note refs, and ref type indicators.
  */
 
-import { chemistry } from "../services/host-api-client.js";
+import { chemistry } from "../../services/host-api-client.js";
 import { mapSpectrumRecord, mapChemNoteRef } from "./spectrum-view-model.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createSpectrumDetail(attachmentRelPath) {
   const page = document.createElement("div");

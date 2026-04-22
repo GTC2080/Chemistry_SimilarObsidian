@@ -4,11 +4,11 @@
  * Top-level chemistry surface with list and detail tabs.
  */
 
-import { chemistry } from "../services/host-api-client.js";
+import { chemistry } from "../../services/host-api-client.js";
 import { createSpectrumList } from "./spectrum-list.js";
 import { createSpectrumDetail } from "./spectrum-detail.js";
 import { mapSpectrumList } from "./spectrum-view-model.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createChemistryPage() {
   const page = document.createElement("div");

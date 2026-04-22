@@ -4,7 +4,7 @@
  * Diagnostic view: formatted runtime.getSummary() dump.
  */
 
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createRuntimePage(runtimeEnvelope) {
   const page = document.createElement("div");

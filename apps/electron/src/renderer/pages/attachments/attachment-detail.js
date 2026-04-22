@@ -4,10 +4,10 @@
  * Single attachment view with metadata, PDF subsection, and referrers.
  */
 
-import { attachments, pdf } from "../services/host-api-client.js";
+import { attachments, pdf } from "../../services/host-api-client.js";
 import { createPdfMetadataCard } from "./pdf-metadata-card.js";
 import { mapAttachmentRecord, mapPdfMetadata } from "./attachment-view-model.js";
-import { createStateSurface } from "../components/shared/state-surface.js";
+import { createStateSurface } from "../../components/shared/state-surface.js";
 
 export function createAttachmentDetail(relPath) {
   const page = document.createElement("div");
