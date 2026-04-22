@@ -23,34 +23,6 @@ constexpr char kLiveAttachmentCatalogSelect[] =
     "JOIN notes ON notes.note_id = refs.note_id AND notes.is_deleted = 0 "
     "LEFT JOIN attachments ON attachments.rel_path = refs.attachment_rel_path ";
 
-std::error_code lookup_active_note_id_by_rel_path(
-    sqlite3* db,
-    std::string_view note_rel_path,
-    sqlite3_int64& out_note_id) {
-  sqlite3_stmt* stmt = nullptr;
-  std::error_code ec = detail::prepare(
-      db,
-      "SELECT note_id FROM notes WHERE rel_path=?1 AND is_deleted=0;",
-      &stmt);
-  if (ec) {
-    return ec;
-  }
-
-  sqlite3_bind_text(stmt, 1, std::string(note_rel_path).c_str(), -1, SQLITE_TRANSIENT);
-  const int step_rc = sqlite3_step(stmt);
-  if (step_rc == SQLITE_DONE) {
-    sqlite3_finalize(stmt);
-    return std::make_error_code(std::errc::no_such_file_or_directory);
-  }
-  if (step_rc != SQLITE_ROW) {
-    sqlite3_finalize(stmt);
-    return std::error_code(step_rc, std::generic_category());
-  }
-
-  out_note_id = sqlite3_column_int64(stmt, 0);
-  return detail::finalize_with_result(stmt, step_rc);
-}
-
 AttachmentCatalogRecord read_attachment_catalog_record(sqlite3_stmt* stmt) {
   AttachmentCatalogRecord record{};
   detail::assign_text_column(stmt, 0, record.rel_path);
@@ -102,7 +74,8 @@ std::error_code list_note_attachment_refs(
   }
 
   sqlite3_int64 note_id = 0;
-  std::error_code ec = lookup_active_note_id_by_rel_path(db.connection, note_rel_path, note_id);
+  std::error_code ec =
+      detail::lookup_active_note_id_by_rel_path(db.connection, note_rel_path, note_id);
   if (ec) {
     return ec;
   }
@@ -196,7 +169,8 @@ std::error_code list_note_attachment_records(
   }
 
   sqlite3_int64 note_id = 0;
-  std::error_code ec = lookup_active_note_id_by_rel_path(db.connection, note_rel_path, note_id);
+  std::error_code ec =
+      detail::lookup_active_note_id_by_rel_path(db.connection, note_rel_path, note_id);
   if (ec) {
     return ec;
   }

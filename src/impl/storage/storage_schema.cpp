@@ -76,13 +76,24 @@ std::error_code ensure_schema_v1(Database& db) {
       "  attachment_rel_path TEXT NOT NULL,"
       "  PRIMARY KEY(note_id, attachment_rel_path)"
       ");"
+      "CREATE TABLE IF NOT EXISTS note_pdf_source_refs("
+      "  note_id INTEGER NOT NULL,"
+      "  ordinal INTEGER NOT NULL,"
+      "  pdf_rel_path TEXT NOT NULL,"
+      "  anchor_serialized TEXT NOT NULL,"
+      "  page INTEGER NOT NULL,"
+      "  excerpt_text TEXT NOT NULL,"
+      "  PRIMARY KEY(note_id, ordinal)"
+      ");"
       "CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(title, body, tokenize='unicode61');"
       "CREATE INDEX IF NOT EXISTS idx_notes_is_deleted_rel_path ON notes(is_deleted, rel_path);"
       "CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);"
       "CREATE INDEX IF NOT EXISTS idx_note_links_target ON note_links(target);"
       "CREATE INDEX IF NOT EXISTS idx_attachments_is_missing_rel_path ON attachments(is_missing, rel_path);"
       "CREATE INDEX IF NOT EXISTS idx_pdf_metadata_state_rel_path ON pdf_metadata(metadata_state, rel_path);"
-      "CREATE INDEX IF NOT EXISTS idx_pdf_anchors_rel_path_page ON pdf_anchors(rel_path, page);");
+      "CREATE INDEX IF NOT EXISTS idx_pdf_anchors_rel_path_page ON pdf_anchors(rel_path, page);"
+      "CREATE INDEX IF NOT EXISTS idx_note_pdf_source_refs_pdf_rel_path_note_ordinal "
+      "ON note_pdf_source_refs(pdf_rel_path, note_id, ordinal);");
   if (ec) {
     return ec;
   }
@@ -90,7 +101,7 @@ std::error_code ensure_schema_v1(Database& db) {
   sqlite3_stmt* stmt = nullptr;
   ec = detail::prepare(
       db.connection,
-      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '6');",
+      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '7');",
       &stmt);
   if (ec) {
     return ec;
@@ -100,7 +111,7 @@ std::error_code ensure_schema_v1(Database& db) {
     return ec;
   }
 
-  return detail::exec(db.connection, "PRAGMA user_version=6;");
+  return detail::exec(db.connection, "PRAGMA user_version=7;");
 }
 
 }  // namespace kernel::storage

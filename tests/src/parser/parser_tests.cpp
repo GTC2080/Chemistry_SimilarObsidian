@@ -93,6 +93,24 @@ void test_extracts_attachment_refs_from_local_links_and_embeds() {
   require_true(result.attachment_refs[2] == "slides/deck.pptx", "obsidian embed path should be captured");
 }
 
+void test_extracts_pdf_source_refs_and_normalizes_attachment_targets() {
+  const auto result = kernel::parser::parse_markdown(
+      "[Source](docs/paper.pdf#anchor=pdfa:v1|path=docs/paper.pdf|basis=b1|page=2|xfp=f1)\n"
+      "[Plain](docs/plain.pdf)\n"
+      "![[docs/embed.pdf#anchor=ignored]]\n");
+
+  require_true(result.attachment_refs.size() == 3, "parser should preserve normalized attachment refs alongside pdf source refs");
+  require_true(result.attachment_refs[0] == "docs/paper.pdf", "parser should strip source-ref fragment from attachment target");
+  require_true(result.attachment_refs[1] == "docs/plain.pdf", "parser should keep plain pdf attachment refs");
+  require_true(result.attachment_refs[2] == "docs/embed.pdf", "parser should strip source-ref fragments from embed attachment refs");
+  require_true(result.pdf_source_refs.size() == 1, "parser should extract exactly one markdown PDF source ref");
+  require_true(result.pdf_source_refs[0].pdf_rel_path == "docs/paper.pdf", "parser should freeze normalized pdf_rel_path for source refs");
+  require_true(
+      result.pdf_source_refs[0].anchor_serialized ==
+          "pdfa:v1|path=docs/paper.pdf|basis=b1|page=2|xfp=f1",
+      "parser should preserve canonical serialized PDF anchors from markdown links");
+}
+
 void test_empty_input_yields_empty_result() {
   const auto result = kernel::parser::parse_markdown("");
 
@@ -100,6 +118,7 @@ void test_empty_input_yields_empty_result() {
   require_true(result.tags.empty(), "empty input should have no tags");
   require_true(result.wikilinks.empty(), "empty input should have no wikilinks");
   require_true(result.attachment_refs.empty(), "empty input should have no attachment refs");
+  require_true(result.pdf_source_refs.empty(), "empty input should have no pdf source refs");
 }
 
 }  // namespace
@@ -114,6 +133,7 @@ int main() {
     test_preserves_tag_order_and_duplicates();
     test_preserves_wikilink_order_and_duplicates();
     test_extracts_attachment_refs_from_local_links_and_embeds();
+    test_extracts_pdf_source_refs_and_normalizes_attachment_targets();
     test_empty_input_yields_empty_result();
     return 0;
   } catch (const std::exception& ex) {

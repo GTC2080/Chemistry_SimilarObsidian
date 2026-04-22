@@ -4,7 +4,9 @@
 
 #include <cctype>
 #include <filesystem>
+#include <string>
 #include <string_view>
+#include <utility>
 
 namespace kernel::parser {
 namespace {
@@ -80,6 +82,87 @@ bool looks_like_local_attachment_target(std::string_view target) {
   }
 
   return !extension.empty() && extension != ".md";
+}
+
+std::string normalized_local_attachment_target(std::string_view target) {
+  target = trim_ascii_whitespace(target);
+  if (target.empty() || target[0] == '#') {
+    return {};
+  }
+
+  if (target.size() >= 2 && target.front() == '<' && target.back() == '>') {
+    target.remove_prefix(1);
+    target.remove_suffix(1);
+    target = trim_ascii_whitespace(target);
+  }
+  if (target.find("://") != std::string_view::npos) {
+    return {};
+  }
+
+  const std::size_t anchor_fragment = target.find("#anchor=");
+  if (anchor_fragment != std::string_view::npos) {
+    target = trim_ascii_whitespace(target.substr(0, anchor_fragment));
+  }
+
+  const std::filesystem::path path{std::string(target)};
+  std::string extension = path.extension().string();
+  for (char& ch : extension) {
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  }
+
+  if (extension.empty() || extension == ".md") {
+    return {};
+  }
+  return std::string(target);
+}
+
+bool extract_pdf_source_ref_target(
+    std::string_view target,
+    PdfSourceRef& out_source_ref) {
+  out_source_ref = PdfSourceRef{};
+  target = trim_ascii_whitespace(target);
+  if (target.empty()) {
+    return false;
+  }
+
+  if (target.size() >= 2 && target.front() == '<' && target.back() == '>') {
+    target.remove_prefix(1);
+    target.remove_suffix(1);
+    target = trim_ascii_whitespace(target);
+  }
+  if (target.find("://") != std::string_view::npos) {
+    return false;
+  }
+
+  const std::size_t anchor_fragment = target.find("#anchor=");
+  if (anchor_fragment == std::string_view::npos) {
+    return false;
+  }
+
+  const std::string normalized_attachment =
+      normalized_local_attachment_target(target);
+  if (normalized_attachment.empty()) {
+    return false;
+  }
+
+  std::filesystem::path path{normalized_attachment};
+  std::string extension = path.extension().string();
+  for (char& ch : extension) {
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  }
+  if (extension != ".pdf") {
+    return false;
+  }
+
+  const std::string_view anchor_serialized =
+      trim_ascii_whitespace(target.substr(anchor_fragment + 8));
+  if (anchor_serialized.empty()) {
+    return false;
+  }
+
+  out_source_ref.pdf_rel_path = normalized_attachment;
+  out_source_ref.anchor_serialized = std::string(anchor_serialized);
+  return true;
 }
 
 void parse_title_line(std::string_view line, ParseResult& result) {
@@ -175,8 +258,15 @@ void scan_markdown_attachment_links(std::string_view markdown, ParseResult& resu
 
     std::string_view target = trim_ascii_whitespace(
         markdown.substr(close_bracket + 2, close_paren - close_bracket - 2));
-    if (looks_like_local_attachment_target(target)) {
-      result.attachment_refs.emplace_back(target);
+    const std::string normalized_attachment =
+        normalized_local_attachment_target(target);
+    if (!normalized_attachment.empty()) {
+      result.attachment_refs.push_back(normalized_attachment);
+    }
+
+    PdfSourceRef source_ref;
+    if (extract_pdf_source_ref_target(target, source_ref)) {
+      result.pdf_source_refs.push_back(std::move(source_ref));
     }
 
     cursor = close_paren + 1;
@@ -202,8 +292,10 @@ void scan_embedded_attachment_refs(std::string_view markdown, ParseResult& resul
       target = target.substr(0, alias);
     }
     target = trim_ascii_whitespace(target);
-    if (looks_like_local_attachment_target(target)) {
-      result.attachment_refs.emplace_back(target);
+    const std::string normalized_attachment =
+        normalized_local_attachment_target(target);
+    if (!normalized_attachment.empty()) {
+      result.attachment_refs.push_back(normalized_attachment);
     }
 
     cursor = close + 2;

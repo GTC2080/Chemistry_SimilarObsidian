@@ -51,11 +51,17 @@ The repository must retain regression coverage for:
 
 - note -> PDF refs return the frozen `pdf_rel_path`
 - PDF -> note referrers return the same normalized live attachment `rel_path`
+- markdown `#anchor=` links are the only formal note-side source-ref carrier
 - note -> PDF refs order is stable
 - PDF -> note referrers order is stable
+- plain PDF attachment links do not appear in the formal PDF reference surfaces
 - missing PDF attachments surface the frozen missing reference state
 - stale anchors surface the frozen stale reference state
 - unresolved anchors surface the frozen unresolved reference state
+- note -> PDF refs return stable page numbers when the serialized anchor carries a valid page
+- stale reference rows preserve their stored excerpt snapshot
+- live PDFs with zero formal source refs return an empty PDF -> note referrers list
+- non-live PDF document keys return `NOT_FOUND` for PDF -> note referrers
 - PDF references do not enter the existing backlinks public surface
 - PDF references do not create new search-hit kinds in the existing search surface
 

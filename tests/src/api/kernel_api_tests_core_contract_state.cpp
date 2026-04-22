@@ -115,7 +115,7 @@ void test_open_creates_state_dir_and_storage_db() {
   require_true(std::filesystem::is_regular_file(db_path), "open_vault should create state sqlite db");
 
   sqlite3* db = open_sqlite_readonly(db_path);
-  require_true(query_single_int(db, "PRAGMA user_version;") == 6, "storage schema should be at version 6");
+  require_true(query_single_int(db, "PRAGMA user_version;") == 7, "storage schema should be at version 7");
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_meta';") == 1,
       "schema_meta table should exist");
@@ -137,6 +137,9 @@ void test_open_creates_state_dir_and_storage_db() {
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='note_attachment_refs';") == 1,
       "note_attachment_refs table should exist");
+  require_true(
+      query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='note_pdf_source_refs';") == 1,
+      "note_pdf_source_refs table should exist");
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='note_fts';") == 1,
       "note_fts table should exist");
@@ -185,9 +188,9 @@ void test_open_vault_reopen_preserves_schema_v1() {
   expect_ok(kernel_close(handle));
 
   sqlite3* db = open_sqlite_readonly(db_path);
-  require_true(query_single_int(db, "PRAGMA user_version;") == 6, "schema reopen should preserve user_version=6");
+  require_true(query_single_int(db, "PRAGMA user_version;") == 7, "schema reopen should preserve user_version=7");
   require_true(
-      query_single_text(db, "SELECT value FROM schema_meta WHERE key='schema_version';") == "6",
+      query_single_text(db, "SELECT value FROM schema_meta WHERE key='schema_version';") == "7",
       "schema reopen should preserve schema_meta version");
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM notes WHERE is_deleted=0;") == 0,
@@ -201,6 +204,9 @@ void test_open_vault_reopen_preserves_schema_v1() {
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='note_fts';") == 1,
       "schema reopen should preserve note_fts table");
+  require_true(
+      query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='note_pdf_source_refs';") == 1,
+      "schema reopen should preserve note_pdf_source_refs table");
   sqlite3_close(db);
 
   std::filesystem::remove_all(vault);

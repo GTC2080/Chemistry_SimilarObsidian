@@ -20,7 +20,10 @@ Batch 1 lands:
 
 - `kernel_get_pdf_metadata(handle, attachment_rel_path, out_metadata)`
 
-Later Track 3 batches extend this contract with anchors and note-reference queries.
+Batch 3 lands:
+
+- `kernel_query_note_pdf_source_refs(handle, note_rel_path, limit, out_refs)`
+- `kernel_query_pdf_referrers(handle, attachment_rel_path, limit, out_referrers)`
 
 ## Attachment Boundary
 
@@ -128,6 +131,56 @@ Frozen consistency rules:
 - PDF references do not add new search-hit kinds or new attachment content-search semantics
 - attachment path search remains attachment-path-only even when the attachment is `pdf_like`
 
+## Batch 3 Note-Reference Carrier
+
+Track 3 Batch 3 freezes one note-side carrier shape:
+
+- markdown local links with `#anchor=` on a PDF attachment target
+
+Frozen note-side source-reference shape:
+
+- `[Label](assets/paper.pdf#anchor=<canonical_pdf_anchor>)`
+
+Frozen semantics:
+
+- the PDF document key is the normalized live attachment `rel_path` before `#anchor=`
+- the source anchor payload is the raw canonical serialized anchor after `#anchor=`
+- plain attachment links such as `[Paper](assets/paper.pdf)` stay attachment refs only
+- embed syntax does not become a separate PDF source-reference contract
+- note-side PDF source refs must not require the host to parse note text or join SQLite tables itself
+
+## Batch 3 Public Result State
+
+Track 3 Batch 3 freezes these public states for note ↔ PDF references:
+
+- `resolved`
+- `missing`
+- `stale`
+- `unresolved`
+
+Frozen semantics:
+
+- `resolved`
+  - the live PDF attachment is present and the canonical serialized anchor still validates against the current derived PDF anchor row
+- `missing`
+  - the live attachment path remains in the live catalog through note references but the file is currently missing
+- `stale`
+  - the live PDF attachment is present but the canonical serialized anchor no longer matches the current derived anchor for that page
+- `unresolved`
+  - the anchor cannot be parsed or cannot be validated to a resolved/stale state on the current live PDF truth
+
+## Batch 3 Ordering And Lookup Rules
+
+Track 3 Batch 3 freezes these result-ordering and lookup rules:
+
+- note -> PDF refs are ordered by note source order
+- PDF -> note referrers are ordered by `note_rel_path ASC`, then note-local source-ref order
+- `kernel_query_note_pdf_source_refs(...)` returns `NOT_FOUND` for non-live notes
+- `kernel_query_pdf_referrers(...)` returns `NOT_FOUND` for non-live PDF document keys
+- `kernel_query_pdf_referrers(...)` returns an empty list for live PDF attachments that currently have no formal source refs
+- plain attachment refs do not appear in note -> PDF refs or PDF -> note referrers
+- the host does not reconstruct note ↔ PDF relationships from attachments, backlinks, or search results
+
 ## Lifecycle Consistency Rules
 
 Track 3 must stay aligned with the existing lifecycle contracts.
@@ -162,13 +215,14 @@ Batch 2 anchor validation distinguishes:
 - `unverifiable`
 - `unavailable`
 
-## Deferred Track 3 Surface
+## Remaining Track 3 Surface
 
-This document freezes the invariants ahead of the concrete Batch 1-4 ABI additions.
+Track 3 Batch 1-3 now uses this document as the frozen host-facing contract.
 
-Future Track 3 public entries must adopt these rules without reopening:
+Later Track 3 work must extend these rules without reopening:
 
 - document identity
 - metadata revision composition
 - anchor basis revision composition
+- note-reference carrier shape
 - attachment/search/backlinks consistency boundaries

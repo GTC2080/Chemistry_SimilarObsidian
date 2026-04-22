@@ -108,6 +108,7 @@ Required work:
 
 - add note -> PDF source reference queries
 - add PDF -> note referrer queries
+- freeze markdown local-link `#anchor=` as the only formal note-side carrier
 - freeze result ordering, `ref_state`, excerpt preview, and missing/stale/unresolved semantics
 - keep PDF references outside the existing backlinks public surface
 - keep PDF references outside the existing search-hit surface

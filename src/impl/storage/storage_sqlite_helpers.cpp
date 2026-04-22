@@ -75,6 +75,31 @@ std::error_code lookup_note_id_by_rel_path(
   return finalize_with_result(stmt, step_rc);
 }
 
+std::error_code lookup_active_note_id_by_rel_path(
+    sqlite3* db,
+    std::string_view rel_path,
+    sqlite3_int64& out_note_id) {
+  sqlite3_stmt* stmt = nullptr;
+  std::error_code ec = prepare(
+      db,
+      "SELECT note_id FROM notes WHERE rel_path=?1 AND is_deleted=0;",
+      &stmt);
+  if (ec) {
+    return ec;
+  }
+
+  sqlite3_bind_text(stmt, 1, std::string(rel_path).c_str(), -1, SQLITE_TRANSIENT);
+  const int step_rc = sqlite3_step(stmt);
+  if (step_rc != SQLITE_ROW) {
+    sqlite3_finalize(stmt);
+    return step_rc == SQLITE_DONE ? std::make_error_code(std::errc::no_such_file_or_directory)
+                                  : std::error_code(step_rc, std::generic_category());
+  }
+
+  out_note_id = sqlite3_column_int64(stmt, 0);
+  return finalize_with_result(stmt, step_rc);
+}
+
 std::error_code clear_note_parse_rows(sqlite3* db, const sqlite3_int64 note_id) {
   sqlite3_stmt* stmt = nullptr;
   std::error_code ec = prepare(db, "DELETE FROM note_tags WHERE note_id=?1;", &stmt);
@@ -99,6 +124,17 @@ std::error_code clear_note_attachment_rows(sqlite3* db, const sqlite3_int64 note
   sqlite3_stmt* stmt = nullptr;
   std::error_code ec =
       prepare(db, "DELETE FROM note_attachment_refs WHERE note_id=?1;", &stmt);
+  if (ec) {
+    return ec;
+  }
+  sqlite3_bind_int64(stmt, 1, note_id);
+  return finalize_with_result(stmt, sqlite3_step(stmt));
+}
+
+std::error_code clear_note_pdf_source_ref_rows(sqlite3* db, const sqlite3_int64 note_id) {
+  sqlite3_stmt* stmt = nullptr;
+  std::error_code ec =
+      prepare(db, "DELETE FROM note_pdf_source_refs WHERE note_id=?1;", &stmt);
   if (ec) {
     return ec;
   }
@@ -152,6 +188,33 @@ std::error_code insert_note_attachment_ref(
   }
   sqlite3_bind_int64(stmt, 1, note_id);
   sqlite3_bind_text(stmt, 2, std::string(attachment_rel_path).c_str(), -1, SQLITE_TRANSIENT);
+  return finalize_with_result(stmt, sqlite3_step(stmt));
+}
+
+std::error_code insert_note_pdf_source_ref(
+    sqlite3* db,
+    const sqlite3_int64 note_id,
+    const std::int64_t ordinal,
+    std::string_view pdf_rel_path,
+    std::string_view anchor_serialized,
+    const std::uint64_t page,
+    std::string_view excerpt_text) {
+  sqlite3_stmt* stmt = nullptr;
+  std::error_code ec = prepare(
+      db,
+      "INSERT INTO note_pdf_source_refs("
+      "  note_id, ordinal, pdf_rel_path, anchor_serialized, page, excerpt_text"
+      ") VALUES(?1, ?2, ?3, ?4, ?5, ?6);",
+      &stmt);
+  if (ec) {
+    return ec;
+  }
+  sqlite3_bind_int64(stmt, 1, note_id);
+  sqlite3_bind_int64(stmt, 2, static_cast<sqlite3_int64>(ordinal));
+  sqlite3_bind_text(stmt, 3, std::string(pdf_rel_path).c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 4, std::string(anchor_serialized).c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int64(stmt, 5, static_cast<sqlite3_int64>(page));
+  sqlite3_bind_text(stmt, 6, std::string(excerpt_text).c_str(), -1, SQLITE_TRANSIENT);
   return finalize_with_result(stmt, sqlite3_step(stmt));
 }
 

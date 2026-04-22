@@ -23,6 +23,9 @@ add_executable(
   src/api/kernel_api_tests_pdf_surface.cpp
   src/api/kernel_api_tests_pdf_surface_metadata.cpp
   src/api/kernel_api_tests_pdf_surface_anchor.cpp
+  src/api/kernel_api_tests_pdf_surface_reference.cpp
+  src/api/kernel_api_tests_pdf_surface_reference_note_refs.cpp
+  src/api/kernel_api_tests_pdf_surface_reference_referrers.cpp
   src/api/kernel_api_tests_pdf_diagnostics.cpp
   src/api/kernel_api_tests_pdf_diagnostics_snapshot.cpp
   src/api/kernel_api_tests_rebuild_runtime.cpp

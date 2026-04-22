@@ -6,4 +6,5 @@
 void run_pdf_surface_tests() {
   run_pdf_surface_metadata_tests();
   run_pdf_surface_anchor_tests();
+  run_pdf_surface_reference_tests();
 }

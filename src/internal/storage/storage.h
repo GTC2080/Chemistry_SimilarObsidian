@@ -42,6 +42,21 @@ struct AttachmentReferrerRecord {
   std::string note_title;
 };
 
+struct NotePdfSourceRefRecord {
+  std::string pdf_rel_path;
+  std::string anchor_serialized;
+  std::string excerpt_text;
+  std::uint64_t page = 0;
+};
+
+struct PdfSourceReferrerRecord {
+  std::string note_rel_path;
+  std::string note_title;
+  std::string anchor_serialized;
+  std::string excerpt_text;
+  std::uint64_t page = 0;
+};
+
 enum class PdfMetadataState : std::uint8_t {
   Unavailable = 0,
   Ready = 1,
@@ -154,6 +169,16 @@ std::error_code read_live_pdf_anchor_record(
     std::string_view rel_path,
     std::uint64_t page,
     PdfAnchorRecord& out_record);
+std::error_code list_note_pdf_source_ref_records(
+    Database& db,
+    std::string_view note_rel_path,
+    std::size_t limit,
+    std::vector<NotePdfSourceRefRecord>& out_records);
+std::error_code list_pdf_source_referrer_records(
+    Database& db,
+    std::string_view pdf_rel_path,
+    std::size_t limit,
+    std::vector<PdfSourceReferrerRecord>& out_records);
 std::error_code count_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_missing_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_orphaned_attachments(Database& db, std::uint64_t& out_count);

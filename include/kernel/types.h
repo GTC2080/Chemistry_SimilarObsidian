@@ -238,6 +238,40 @@ typedef struct kernel_pdf_metadata_record {
   kernel_pdf_text_layer_state text_layer_state;
 } kernel_pdf_metadata_record;
 
+typedef enum kernel_pdf_ref_state {
+  KERNEL_PDF_REF_RESOLVED = 0,
+  KERNEL_PDF_REF_MISSING = 1,
+  KERNEL_PDF_REF_STALE = 2,
+  KERNEL_PDF_REF_UNRESOLVED = 3
+} kernel_pdf_ref_state;
+
+typedef struct kernel_pdf_source_ref {
+  char* pdf_rel_path;
+  char* anchor_serialized;
+  char* excerpt_text;
+  uint64_t page;
+  kernel_pdf_ref_state state;
+} kernel_pdf_source_ref;
+
+typedef struct kernel_pdf_source_refs {
+  kernel_pdf_source_ref* refs;
+  size_t count;
+} kernel_pdf_source_refs;
+
+typedef struct kernel_pdf_referrer {
+  char* note_rel_path;
+  char* note_title;
+  char* anchor_serialized;
+  char* excerpt_text;
+  uint64_t page;
+  kernel_pdf_ref_state state;
+} kernel_pdf_referrer;
+
+typedef struct kernel_pdf_referrers {
+  kernel_pdf_referrer* referrers;
+  size_t count;
+} kernel_pdf_referrers;
+
 #ifdef __cplusplus
 }
 #endif
