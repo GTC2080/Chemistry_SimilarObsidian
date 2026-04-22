@@ -15,6 +15,7 @@ Current state:
 - `renderer` only shows a plain placeholder page backed by that host bridge
 - host-side regression checks now exist for adapter request shaping and native binding resolution
 - packaged-mode native binding resolution now has a dedicated baseline check
+- a packaged host smoke now validates that the packaged Electron shell can start and load the native adapter
 
 What this shell is for:
 
@@ -27,7 +28,6 @@ What is not done yet:
 
 - no renderer feature UI
 - no React/Vue/Svelte stack
-- no real packaged app bundle yet
 - no release polish
 
 Current bridge groups:
@@ -78,5 +78,6 @@ Current validation entry:
 - `npm run build:native`
 - `npm test`
 - `npm run check:packaged-resolution`
+- `npm run package:smoke`
 
 Renderer and UI work will be added later by Kimi.

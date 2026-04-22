@@ -27,7 +27,7 @@ Current integration status:
 - diagnostics export and rebuild start/status/wait are wired through the host adapter
 - host-side regression tests now cover adapter request shaping and native binding resolution
 - packaged-mode native binding resolution now has a dedicated readiness check
-- real packaged-run smoke is still pending
+- packaged-run smoke now validates a packaged Electron shell plus native adapter load path
 
 ## Canonical Build Rule
 
