@@ -80,12 +80,20 @@ void test_export_diagnostics_reflects_rebuilding_without_fault() {
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
   require_index_ready(handle, "rebuild diagnostics test should start from a ready state");
 
-  kernel::index::inject_full_rescan_delay_ms(300, 1000);
+  kernel::index::inject_full_rescan_delay_ms(800, 1000);
 
   kernel_status rebuild_status{KERNEL_ERROR_INTERNAL};
   std::jthread rebuild_thread([&]() {
     rebuild_status = kernel_rebuild_index(handle);
   });
+
+  require_eventually(
+      [&]() {
+        kernel_state_snapshot snapshot{};
+        return kernel_get_state(handle, &snapshot).code == KERNEL_OK &&
+               snapshot.index_state == KERNEL_INDEX_REBUILDING;
+      },
+      "delayed rebuild should expose REBUILDING before diagnostics export");
 
   require_eventually(
       [&]() {

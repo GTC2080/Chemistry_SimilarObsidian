@@ -41,11 +41,15 @@ The repository must retain regression coverage for:
 
 The repository must retain regression coverage for:
 
+- `kernel_query_attachment_domain_objects(...)` succeeds for live attachment carriers
+- `kernel_query_pdf_domain_objects(...)` succeeds for live PDF carriers
+- `kernel_get_domain_object(...)` roundtrips canonical domain object keys
 - attachment -> subtype queries return canonical `domain_object_key` values
 - PDF -> subtype queries return canonical `domain_object_key` values
 - single subtype lookup roundtrips the same canonical `domain_object_key`
 - subtype states distinguish `present`, `missing`, `unresolved`, and `unsupported`
 - subtype meaning refines but does not replace coarse carrier kind
+- non-canonical serialized keys are rejected
 - rebuild reconstitutes the same subtype surface for the same carrier truth
 - recovery realigns subtype state to the same truth as rebuild
 - watcher overflow / full rescan realigns subtype state to the same truth as rebuild
@@ -55,12 +59,16 @@ The repository must retain regression coverage for:
 
 The repository must retain regression coverage for:
 
+- `kernel_query_note_domain_source_refs(...)` succeeds for live notes
+- `kernel_query_domain_object_referrers(...)` succeeds for live source-reference-capable domain objects
 - note -> domain refs return canonical `target_object_key` values
 - domain object -> note referrers return the same canonical `target_object_key`
 - `selector_kind` accepts only the frozen v1 selector set
 - selector serialization roundtrips without drift
 - validation states distinguish resolved, stale, unresolved, and unsupported conditions
 - preview text remains plain text, single segment, and bounded
+- `target_basis_revision` is preserved for canonical projected PDF anchors
+- malformed projected selectors keep their stored selector string and expose an empty `target_basis_revision`
 - rebuild reconstitutes the same domain source-reference surface for the same vault truth
 - recovery realigns domain source references to the same truth as rebuild
 - watcher overflow / full rescan realigns domain source references to the same truth as rebuild
@@ -71,12 +79,20 @@ The repository must retain regression coverage for:
 
 The repository must retain regression coverage for:
 
-- diagnostics export exposes `domain_contract_revision`
+- diagnostics export exposes `domain_contract_revision`, `domain_diagnostics_revision`, and `domain_benchmark_gate_revision`
 - diagnostics export exposes namespace, subtype, and source-reference summaries
 - diagnostics export exposes last domain recount reason and timestamp
+- diagnostics export exposes domain metadata / object / source-reference count summaries
 - diagnostics export exposes capability-track status summary
 - rebuild updates domain recount summaries using the same public keys as query surfaces
 - recovery updates domain recount summaries using the same public keys as query surfaces
 - watcher overflow / full rescan updates domain recount summaries using the same public keys as query surfaces
-- benchmark gates cover domain metadata lookup, subtype lookup, and domain-source-reference queries
+- benchmark gates cover:
+  - `domain_attachment_metadata_query`
+  - `domain_pdf_metadata_query`
+  - `domain_attachment_objects_query`
+  - `domain_pdf_objects_query`
+  - `domain_object_lookup_query`
+  - `domain_note_source_refs_query`
+  - `domain_object_referrers_query`
 - release checklist requires domain diagnostics smoke, domain regression matrix, and domain benchmark gates for any formal capability track

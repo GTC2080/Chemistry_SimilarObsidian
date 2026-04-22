@@ -2,7 +2,7 @@
 
 # Benchmark Baselines
 
-Last updated: `2026-04-21`
+Last updated: `2026-04-22`
 
 ## Purpose
 
@@ -43,7 +43,7 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
   - `note_count=64`
   - `filter_note_count=16`
   - `iterations=200`
-  - includes attachment catalog, single attachment lookup, note attachment refs, and attachment referrers smoke loops
+  - includes attachment catalog, single attachment lookup, note attachment refs, attachment referrers, PDF source-ref/referrer, and Track 4 domain query smoke loops
 
 ## Current Gates
 
@@ -87,6 +87,24 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
   - `note_attachment_refs_query_threshold_ms=140`
   - `attachment_referrers_query_baseline_ms=17`
   - `attachment_referrers_query_threshold_ms=160`
+  - `pdf_source_refs_query_baseline_ms=100`
+  - `pdf_source_refs_query_threshold_ms=180`
+  - `pdf_referrers_query_baseline_ms=162`
+  - `pdf_referrers_query_threshold_ms=220`
+  - `domain_attachment_metadata_query_baseline_ms=29`
+  - `domain_attachment_metadata_query_threshold_ms=140`
+  - `domain_pdf_metadata_query_baseline_ms=45`
+  - `domain_pdf_metadata_query_threshold_ms=160`
+  - `domain_attachment_objects_query_baseline_ms=25`
+  - `domain_attachment_objects_query_threshold_ms=120`
+  - `domain_pdf_objects_query_baseline_ms=29`
+  - `domain_pdf_objects_query_threshold_ms=140`
+  - `domain_object_lookup_query_baseline_ms=31`
+  - `domain_object_lookup_query_threshold_ms=120`
+  - `domain_note_source_refs_query_baseline_ms=117`
+  - `domain_note_source_refs_query_threshold_ms=220`
+  - `domain_object_referrers_query_baseline_ms=256`
+  - `domain_object_referrers_query_threshold_ms=340`
   - `all_kind_query_baseline_ms=167`
   - `all_kind_query_threshold_ms=240`
   - `ranked_title_query_baseline_ms=51`
@@ -101,32 +119,41 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
 ## Fresh Verification Snapshot
 
 - startup
-  - `clean_observed_ms=2161`
-  - `recovery_observed_ms=1969`
+  - `clean_observed_ms=1860`
+  - `recovery_observed_ms=2707`
 - io
-  - `io_roundtrip_observed_ms=240`
-  - `external_create_observed_ms=219`
+  - `io_roundtrip_observed_ms=256`
+  - `external_create_observed_ms=245`
 - rebuild
-  - `rebuild_observed_ms=11857`
+  - `rebuild_observed_ms=11911`
 - query
-  - `tag_query_observed_ms=133`
-  - `title_query_observed_ms=58`
-  - `body_query_observed_ms=52`
-  - `body_snippet_query_observed_ms=49`
-  - `title_only_query_observed_ms=42`
-  - `shallow_page_query_observed_ms=110`
-  - `deep_offset_query_observed_ms=103`
-  - `filtered_note_query_observed_ms=103`
-  - `attachment_path_query_observed_ms=50`
-  - `attachment_catalog_query_observed_ms=29`
-  - `attachment_lookup_query_observed_ms=12`
-  - `note_attachment_refs_query_observed_ms=19`
-  - `attachment_referrers_query_observed_ms=10`
-  - `all_kind_query_observed_ms=137`
-  - `ranked_title_query_observed_ms=40`
-  - `ranked_tag_boost_query_observed_ms=41`
-  - `ranked_all_kind_query_observed_ms=199`
-  - `backlink_query_observed_ms=98`
+  - `tag_query_observed_ms=165`
+  - `title_query_observed_ms=60`
+  - `body_query_observed_ms=60`
+  - `body_snippet_query_observed_ms=62`
+  - `title_only_query_observed_ms=59`
+  - `shallow_page_query_observed_ms=141`
+  - `deep_offset_query_observed_ms=137`
+  - `filtered_note_query_observed_ms=129`
+  - `attachment_path_query_observed_ms=92`
+  - `attachment_catalog_query_observed_ms=55`
+  - `attachment_lookup_query_observed_ms=21`
+  - `note_attachment_refs_query_observed_ms=33`
+  - `attachment_referrers_query_observed_ms=16`
+  - `pdf_source_refs_query_observed_ms=113`
+  - `pdf_referrers_query_observed_ms=199`
+  - `domain_attachment_metadata_query_observed_ms=27`
+  - `domain_pdf_metadata_query_observed_ms=45`
+  - `domain_attachment_objects_query_observed_ms=24`
+  - `domain_pdf_objects_query_observed_ms=27`
+  - `domain_object_lookup_query_observed_ms=30`
+  - `domain_note_source_refs_query_observed_ms=124`
+  - `domain_object_referrers_query_observed_ms=218`
+  - `all_kind_query_observed_ms=184`
+  - `ranked_title_query_observed_ms=84`
+  - `ranked_tag_boost_query_observed_ms=86`
+  - `ranked_all_kind_query_observed_ms=228`
+  - `backlink_query_observed_ms=145`
 
 ## Update Rule
 

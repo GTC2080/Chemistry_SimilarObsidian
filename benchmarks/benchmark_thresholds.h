@@ -104,6 +104,34 @@ inline constexpr BenchmarkGate kPdfReferrersQueryGate{
     "pdf_referrers_query",
     162,
     220};
+inline constexpr BenchmarkGate kDomainAttachmentMetadataQueryGate{
+    "domain_attachment_metadata_query",
+    29,
+    140};
+inline constexpr BenchmarkGate kDomainPdfMetadataQueryGate{
+    "domain_pdf_metadata_query",
+    45,
+    160};
+inline constexpr BenchmarkGate kDomainAttachmentObjectsQueryGate{
+    "domain_attachment_objects_query",
+    25,
+    120};
+inline constexpr BenchmarkGate kDomainPdfObjectsQueryGate{
+    "domain_pdf_objects_query",
+    29,
+    140};
+inline constexpr BenchmarkGate kDomainObjectLookupQueryGate{
+    "domain_object_lookup_query",
+    31,
+    120};
+inline constexpr BenchmarkGate kDomainNoteSourceRefsQueryGate{
+    "domain_note_source_refs_query",
+    117,
+    220};
+inline constexpr BenchmarkGate kDomainObjectReferrersQueryGate{
+    "domain_object_referrers_query",
+    256,
+    340};
 inline constexpr BenchmarkGate kAllKindQueryGate{
     "all_kind_query",
     167,

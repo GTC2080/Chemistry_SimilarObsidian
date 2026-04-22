@@ -100,6 +100,9 @@ int main() {
     run_attachment_public_surface_tests();
     run_attachment_lifecycle_tests();
     run_domain_surface_tests();
+    run_domain_object_tests();
+    run_domain_reference_tests();
+    run_domain_diagnostics_tests();
     run_pdf_surface_tests();
     run_search_public_surface_tests();
     run_kernel_api_watcher_smoke_tests();

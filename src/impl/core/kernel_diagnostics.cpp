@@ -48,6 +48,8 @@ kernel::core::diagnostics_export::RuntimeDiagnosticsSnapshot capture_runtime_sna
     snapshot.last_attachment_recount_at_ns = handle->runtime.last_attachment_recount.at_ns;
     snapshot.last_pdf_recount_reason = handle->runtime.last_pdf_recount.reason;
     snapshot.last_pdf_recount_at_ns = handle->runtime.last_pdf_recount.at_ns;
+    snapshot.last_domain_recount_reason = handle->runtime.last_domain_recount.reason;
+    snapshot.last_domain_recount_at_ns = handle->runtime.last_domain_recount.at_ns;
     snapshot.last_continuity_fallback_reason =
         handle->runtime.last_continuity_fallback.reason;
     snapshot.last_continuity_fallback_at_ns =
@@ -143,11 +145,18 @@ extern "C" kernel_status kernel_export_diagnostics(
     return pdf_status;
   }
 
+  kernel::core::diagnostics_export::DomainDiagnosticsSnapshot domain_snapshot{};
+  kernel::core::diagnostics_export::collect_domain_diagnostics_snapshot(
+      attachment_snapshot,
+      pdf_snapshot,
+      domain_snapshot);
+
   const std::string diagnostics_json =
       kernel::core::diagnostics_export::build_diagnostics_json(
           runtime_snapshot,
           attachment_snapshot,
-          pdf_snapshot);
+          pdf_snapshot,
+          domain_snapshot);
   const std::filesystem::path target_path =
       std::filesystem::path(output_path).lexically_normal();
   return write_diagnostics_json_atomically(target_path, diagnostics_json);

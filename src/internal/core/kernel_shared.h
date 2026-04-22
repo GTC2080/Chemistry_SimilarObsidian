@@ -44,6 +44,10 @@ void record_pdf_recount(
     kernel_handle* handle,
     std::string_view reason,
     std::uint64_t at_ns = 0);
+void record_domain_recount(
+    kernel_handle* handle,
+    std::string_view reason,
+    std::uint64_t at_ns = 0);
 void record_continuity_fallback(kernel_handle* handle, std::string_view reason);
 
 const char* session_state_name(kernel_session_state state);

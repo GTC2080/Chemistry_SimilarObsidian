@@ -2,6 +2,7 @@
 
 #include "kernel/c_api.h"
 #include "benchmarks/benchmark_thresholds.h"
+#include "benchmarks/query/query_benchmark_domain.h"
 #include "core/kernel_pdf_query_shared.h"
 
 #include <chrono>
@@ -235,6 +236,10 @@ int main() {
   constexpr const char* kBenchAttachmentNoteRelPath = "filter/filter-note-00.md";
   constexpr const char* kBenchPdfRelPath = "pdf/bench-source.pdf";
   constexpr const char* kBenchPdfSourceNoteRelPath = "pdf/bench-source-refs.md";
+  constexpr const char* kBenchAttachmentDomainObjectKey =
+      "dom:v1/attachment/filter%2Ffiltermixedtoken-00.png/generic/attachment_resource";
+  constexpr const char* kBenchPdfDomainObjectKey =
+      "dom:v1/pdf/pdf%2Fbench-source.pdf/generic/pdf_document";
 
   const auto tag_start = std::chrono::steady_clock::now();
   for (int i = 0; i < iterations; ++i) {
@@ -479,6 +484,17 @@ int main() {
   }
   const auto pdf_referrers_end = std::chrono::steady_clock::now();
 
+  const kernel::benchmarks::query::DomainBenchmarkConfig domain_benchmark_config{
+      kBenchAttachmentRelPath,
+      kBenchAttachmentDomainObjectKey,
+      kBenchPdfRelPath,
+      kBenchPdfDomainObjectKey,
+      kBenchPdfSourceNoteRelPath};
+  const bool domain_within_gates = kernel::benchmarks::query::run_domain_query_benchmarks(
+      handle,
+      domain_benchmark_config,
+      iterations);
+
   const auto all_kind_start = std::chrono::steady_clock::now();
   for (int i = 0; i < iterations; ++i) {
     kernel_search_query request = make_default_query("FilterMixedToken", 12);
@@ -670,6 +686,7 @@ int main() {
                                         attachment_referrers_within_gate &&
                                         pdf_source_refs_within_gate &&
                                         pdf_referrers_within_gate &&
+                                        domain_within_gates &&
                                         all_kind_within_gate &&
                                         ranked_title_within_gate &&
                                         ranked_tag_boost_within_gate &&
@@ -691,6 +708,7 @@ int main() {
                  attachment_referrers_within_gate &&
                  pdf_source_refs_within_gate &&
                  pdf_referrers_within_gate &&
+                 domain_within_gates &&
                  all_kind_within_gate &&
                  ranked_title_within_gate &&
                  ranked_tag_boost_within_gate &&

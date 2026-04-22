@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/kernel_internal.h"
+#include "core/kernel_domain_contract.h"
 #include "kernel/c_api.h"
 
 #include <cstddef>
@@ -39,6 +40,18 @@ struct PdfDiagnosticsSnapshot {
   std::uint64_t unresolved_pdf_source_ref_count = 0;
 };
 
+struct DomainDiagnosticsSnapshot {
+  std::uint64_t attachment_domain_metadata_entry_count = 0;
+  std::uint64_t pdf_domain_metadata_entry_count = 0;
+  std::uint64_t domain_object_count = 0;
+  std::uint64_t domain_source_ref_count = 0;
+  std::uint64_t resolved_domain_source_ref_count = 0;
+  std::uint64_t missing_domain_source_ref_count = 0;
+  std::uint64_t stale_domain_source_ref_count = 0;
+  std::uint64_t unresolved_domain_source_ref_count = 0;
+  std::uint64_t unsupported_domain_source_ref_count = 0;
+};
+
 struct RuntimeDiagnosticsSnapshot {
   kernel_session_state session_state = KERNEL_SESSION_OPEN;
   kernel_index_state index_state = KERNEL_INDEX_UNAVAILABLE;
@@ -64,6 +77,8 @@ struct RuntimeDiagnosticsSnapshot {
   std::uint64_t last_attachment_recount_at_ns = 0;
   std::string last_pdf_recount_reason;
   std::uint64_t last_pdf_recount_at_ns = 0;
+  std::string last_domain_recount_reason;
+  std::uint64_t last_domain_recount_at_ns = 0;
   std::string last_continuity_fallback_reason;
   std::uint64_t last_continuity_fallback_at_ns = 0;
   std::uint64_t pending_recovery_ops = 0;
@@ -83,10 +98,15 @@ kernel_status collect_pdf_diagnostics_snapshot(
     kernel_handle* handle,
     kernel_index_state index_state,
     PdfDiagnosticsSnapshot& out_snapshot);
+void collect_domain_diagnostics_snapshot(
+    const AttachmentDiagnosticsSnapshot& attachment_snapshot,
+    const PdfDiagnosticsSnapshot& pdf_snapshot,
+    DomainDiagnosticsSnapshot& out_snapshot);
 
 std::string build_diagnostics_json(
     const RuntimeDiagnosticsSnapshot& runtime_snapshot,
     const AttachmentDiagnosticsSnapshot& attachment_snapshot,
-    const PdfDiagnosticsSnapshot& pdf_snapshot);
+    const PdfDiagnosticsSnapshot& pdf_snapshot,
+    const DomainDiagnosticsSnapshot& domain_snapshot);
 
 }  // namespace kernel::core::diagnostics_export

@@ -22,6 +22,26 @@ Batch 1 lands:
 - `kernel_query_pdf_domain_metadata(handle, attachment_rel_path, limit, out_entries)`
 - `kernel_free_domain_metadata_list(out_entries)`
 
+Batch 2 lands:
+
+- `kernel_query_attachment_domain_objects(handle, attachment_rel_path, limit, out_objects)`
+- `kernel_query_pdf_domain_objects(handle, attachment_rel_path, limit, out_objects)`
+- `kernel_get_domain_object(handle, domain_object_key, out_object)`
+- `kernel_free_domain_object_descriptor(out_object)`
+- `kernel_free_domain_object_list(out_objects)`
+
+Batch 3 lands:
+
+- `kernel_query_note_domain_source_refs(handle, note_rel_path, limit, out_refs)`
+- `kernel_query_domain_object_referrers(handle, domain_object_key, limit, out_referrers)`
+- `kernel_free_domain_source_refs(out_refs)`
+- `kernel_free_domain_referrers(out_referrers)`
+
+Batch 4 lands:
+
+- diagnostics export extends the support bundle with domain contract revisions, recount summaries, and domain-count summaries
+- benchmark gates extend the query benchmark with formal domain metadata, object, and source-reference timings
+
 ## Carrier Boundary
 
 Domain capability tracks remain derived from existing kernel carriers.
@@ -162,6 +182,14 @@ The same serialized form must be used by:
 
 `domain_object_key` is a derived public key, not a new core truth id.
 
+Frozen escape rules:
+
+- `encoded_carrier_key` uses percent-encoding for any byte outside the unreserved set
+- the unreserved set is `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`
+- `/` in normalized carrier keys must serialize as `%2F`
+- the canonical serialized form uses uppercase hex digits in escape sequences
+- non-canonical serialized keys are rejected by single-object lookup
+
 ## Domain Object Subtype Rules
 
 Domain object subtypes are derived views over existing carriers.
@@ -181,6 +209,35 @@ Frozen subtype rules:
 - a subtype may become `unresolved` when the carrier exists but the domain contract cannot derive stable subtype state
 - a subtype may become `unsupported` when the namespace and subtype are known but the current kernel mode does not expose a stable surface for it
 
+Current public subtype entries:
+
+- attachment carrier:
+  - `generic.attachment_resource`
+- PDF carrier:
+  - `generic.pdf_document`
+
+Current public subtype revisions:
+
+- `generic.attachment_resource`
+  - `subtype_revision = 1`
+- `generic.pdf_document`
+  - `subtype_revision = 1`
+
+Current public state mapping:
+
+- `generic.attachment_resource`
+  - present carrier -> `present`
+  - missing carrier -> `missing`
+- `generic.pdf_document`
+  - ready / partial PDF metadata -> `present`
+  - missing PDF carrier -> `missing`
+  - invalid / unavailable PDF metadata -> `unresolved`
+
+Current exclusions:
+
+- no public subtype currently returns `unsupported`
+- no discipline-specific subtype is public yet
+
 ## Frozen Selector Kind Rule
 
 The first public generic domain source-reference contract allows only:
@@ -195,6 +252,30 @@ Frozen semantics:
 - selector payloads must be serializable, bounded, rebuildable, and diagnosable
 - selector payloads must not contain viewport state, screen coordinates, geometry, highlight styling, or viewer-session state
 - `preview_text` remains plain text, single segment, and bounded in length
+
+Current Batch 3 emission rules:
+
+- current generic domain refs emit only:
+  - `selector_kind = opaque_domain_selector`
+- the current generic domain substrate projects the formal PDF anchor string into:
+  - `selector_serialized`
+- `target_basis_revision` is filled from the parsed PDF anchor basis revision when selector parsing succeeds
+- malformed selectors keep the stored selector string and downgrade `target_basis_revision` to empty
+
+Current public source-reference target set:
+
+- `generic.pdf_document`
+  - participates in the generic domain source-reference surface
+- `generic.attachment_resource`
+  - currently returns an empty generic referrer list
+
+Current generic reference-state mapping:
+
+- projected resolved PDF refs -> `resolved`
+- projected missing PDF refs -> `missing`
+- projected stale PDF refs -> `stale`
+- projected unresolved PDF refs -> `unresolved`
+- no current public generic ref emits `unsupported`
 
 ## Surface Consistency Rules
 
@@ -219,6 +300,69 @@ Frozen lifecycle rules:
 - watcher refresh must only update affected carrier-derived domain state
 - watcher overflow and full rescan must realign domain state to the same truth as rebuild
 - diagnostics and support-bundle exports must describe current and recent domain recount outcomes using the same public keys and revisions as query surfaces
+
+## Current Diagnostics Contract
+
+Current diagnostics export keys:
+
+- `last_domain_recount_reason`
+- `last_domain_recount_at_ns`
+- `domain_contract_revision`
+- `domain_diagnostics_revision`
+- `domain_benchmark_gate_revision`
+- `domain_namespace_summary`
+- `domain_subtype_summary`
+- `domain_source_reference_summary`
+- `domain_attachment_metadata_entry_count`
+- `domain_pdf_metadata_entry_count`
+- `domain_object_count`
+- `domain_source_ref_count`
+- `domain_source_ref_resolved_count`
+- `domain_source_ref_missing_count`
+- `domain_source_ref_stale_count`
+- `domain_source_ref_unresolved_count`
+- `domain_source_ref_unsupported_count`
+- `domain_unresolved_summary`
+- `domain_stale_summary`
+- `domain_unsupported_summary`
+- `capability_track_status_summary`
+
+Current frozen revision values:
+
+- `domain_contract_revision = track4_batch3_domain_extension_contract_v1`
+- `domain_diagnostics_revision = track4_batch4_domain_diagnostics_v1`
+- `domain_benchmark_gate_revision = track4_batch4_domain_query_gates_v1`
+
+Current summary semantics:
+
+- `domain_namespace_summary`
+  - the comma-separated public namespace roots currently exposed by the formal domain surface
+- `domain_subtype_summary`
+  - the comma-separated public subtype identifiers currently exposed by the formal domain surface
+- `domain_source_reference_summary`
+  - the current generic source-reference substrate projection set
+- `domain_unresolved_summary`
+  - `clean` when no unresolved public domain objects or refs are present
+  - `domain_source_refs` when unresolved projected generic refs are present
+- `domain_stale_summary`
+  - `clean` when no stale projected generic refs are present
+  - `domain_source_refs` when stale projected generic refs are present
+- `domain_unsupported_summary`
+  - `clean` when no unsupported public domain surface is active
+- `capability_track_status_summary`
+  - the semicolon-separated status summary for currently formalized domain capability slices
+
+## Current Benchmark Gate Set
+
+Current formal domain query gates:
+
+- `domain_attachment_metadata_query`
+- `domain_pdf_metadata_query`
+- `domain_attachment_objects_query`
+- `domain_pdf_objects_query`
+- `domain_object_lookup_query`
+- `domain_note_source_refs_query`
+- `domain_object_referrers_query`
 
 ## Capability-Track Admission Rules
 

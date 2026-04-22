@@ -92,6 +92,30 @@ kernel_status kernel_query_pdf_domain_metadata(
     const char* attachment_rel_path,
     size_t limit,
     kernel_domain_metadata_list* out_entries);
+kernel_status kernel_query_attachment_domain_objects(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    size_t limit,
+    kernel_domain_object_list* out_objects);
+kernel_status kernel_query_pdf_domain_objects(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    size_t limit,
+    kernel_domain_object_list* out_objects);
+kernel_status kernel_get_domain_object(
+    kernel_handle* handle,
+    const char* domain_object_key,
+    kernel_domain_object_descriptor* out_object);
+kernel_status kernel_query_note_domain_source_refs(
+    kernel_handle* handle,
+    const char* note_rel_path,
+    size_t limit,
+    kernel_domain_source_refs* out_refs);
+kernel_status kernel_query_domain_object_referrers(
+    kernel_handle* handle,
+    const char* domain_object_key,
+    size_t limit,
+    kernel_domain_referrers* out_referrers);
 kernel_status kernel_list_note_attachments(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -116,6 +140,10 @@ void kernel_free_pdf_metadata_record(kernel_pdf_metadata_record* metadata);
 void kernel_free_pdf_source_refs(kernel_pdf_source_refs* refs);
 void kernel_free_pdf_referrers(kernel_pdf_referrers* referrers);
 void kernel_free_domain_metadata_list(kernel_domain_metadata_list* entries);
+void kernel_free_domain_object_descriptor(kernel_domain_object_descriptor* object);
+void kernel_free_domain_object_list(kernel_domain_object_list* objects);
+void kernel_free_domain_source_refs(kernel_domain_source_refs* refs);
+void kernel_free_domain_referrers(kernel_domain_referrers* referrers);
 
 #ifdef __cplusplus
 }

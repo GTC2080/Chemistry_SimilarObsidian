@@ -75,6 +75,11 @@ struct KernelPdfRecountSnapshot {
   std::uint64_t at_ns = 0;
 };
 
+struct KernelDomainRecountSnapshot {
+  std::string reason;
+  std::uint64_t at_ns = 0;
+};
+
 struct KernelRuntimeState {
   std::uint64_t pending_recovery_ops = 0;
   std::uint64_t indexed_note_count = 0;
@@ -97,6 +102,7 @@ struct KernelRuntimeState {
   KernelContinuityFallbackSnapshot last_continuity_fallback;
   KernelAttachmentRecountSnapshot last_attachment_recount;
   KernelPdfRecountSnapshot last_pdf_recount;
+  KernelDomainRecountSnapshot last_domain_recount;
   std::unordered_map<std::string, WatcherSuppressionEntry> suppressed_watcher_paths;
 };
 

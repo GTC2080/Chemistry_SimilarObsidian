@@ -209,4 +209,29 @@ kernel_status collect_pdf_diagnostics_snapshot(
       });
 }
 
+void collect_domain_diagnostics_snapshot(
+    const AttachmentDiagnosticsSnapshot& attachment_snapshot,
+    const PdfDiagnosticsSnapshot& pdf_snapshot,
+    DomainDiagnosticsSnapshot& out_snapshot) {
+  out_snapshot = DomainDiagnosticsSnapshot{};
+  out_snapshot.attachment_domain_metadata_entry_count =
+      attachment_snapshot.attachment_count *
+      kernel::core::domain_contract::kAttachmentDomainMetadataPublicKeyCount;
+  out_snapshot.pdf_domain_metadata_entry_count =
+      pdf_snapshot.live_pdf_count *
+      kernel::core::domain_contract::kPdfDomainMetadataPublicKeyCount;
+  out_snapshot.domain_object_count =
+      attachment_snapshot.attachment_count + pdf_snapshot.live_pdf_count;
+  out_snapshot.domain_source_ref_count = pdf_snapshot.pdf_source_ref_count;
+  out_snapshot.resolved_domain_source_ref_count =
+      pdf_snapshot.resolved_pdf_source_ref_count;
+  out_snapshot.missing_domain_source_ref_count =
+      pdf_snapshot.missing_pdf_source_ref_count;
+  out_snapshot.stale_domain_source_ref_count =
+      pdf_snapshot.stale_pdf_source_ref_count;
+  out_snapshot.unresolved_domain_source_ref_count =
+      pdf_snapshot.unresolved_pdf_source_ref_count;
+  out_snapshot.unsupported_domain_source_ref_count = 0;
+}
+
 }  // namespace kernel::core::diagnostics_export

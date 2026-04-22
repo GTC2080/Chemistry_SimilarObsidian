@@ -23,6 +23,15 @@ add_executable(
   src/api/kernel_api_tests_domain_surface.cpp
   src/api/kernel_api_tests_domain_surface_attachment.cpp
   src/api/kernel_api_tests_domain_surface_pdf.cpp
+  src/api/kernel_api_tests_domain_objects.cpp
+  src/api/kernel_api_tests_domain_objects_attachment.cpp
+  src/api/kernel_api_tests_domain_objects_pdf.cpp
+  src/api/kernel_api_tests_domain_references.cpp
+  src/api/kernel_api_tests_domain_references_note_refs.cpp
+  src/api/kernel_api_tests_domain_references_referrers.cpp
+  src/api/kernel_api_tests_domain_diagnostics.cpp
+  src/api/kernel_api_tests_domain_diagnostics_snapshot.cpp
+  src/api/kernel_api_tests_domain_diagnostics_recount.cpp
   src/api/kernel_api_tests_pdf_surface.cpp
   src/api/kernel_api_tests_pdf_surface_metadata.cpp
   src/api/kernel_api_tests_pdf_surface_anchor.cpp

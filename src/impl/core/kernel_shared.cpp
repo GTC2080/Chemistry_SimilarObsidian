@@ -162,6 +162,15 @@ void record_pdf_recount(
   handle->runtime.last_pdf_recount.at_ns = at_ns != 0 ? at_ns : now_ns();
 }
 
+void record_domain_recount(
+    kernel_handle* handle,
+    std::string_view reason,
+    const std::uint64_t at_ns) {
+  std::lock_guard lock(handle->runtime_mutex);
+  handle->runtime.last_domain_recount.reason = std::string(reason);
+  handle->runtime.last_domain_recount.at_ns = at_ns != 0 ? at_ns : now_ns();
+}
+
 void record_continuity_fallback(kernel_handle* handle, std::string_view reason) {
   std::lock_guard lock(handle->runtime_mutex);
   handle->runtime.last_continuity_fallback.reason = std::string(reason);

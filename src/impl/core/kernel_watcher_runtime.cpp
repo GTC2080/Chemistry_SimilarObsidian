@@ -237,6 +237,7 @@ void watcher_loop(std::stop_token stop_token, kernel_handle* handle) {
     if (attachment_recounted) {
       record_attachment_recount(handle, "watcher_full_rescan");
       record_pdf_recount(handle, "watcher_full_rescan");
+      record_domain_recount(handle, "watcher_full_rescan");
     }
   }
 }

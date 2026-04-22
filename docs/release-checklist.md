@@ -2,11 +2,11 @@
 
 # Release Checklist
 
-Last updated: `2026-04-21`
+Last updated: `2026-04-22`
 
 ## Purpose
 
-This checklist is the official release-ready entrypoint for the current Phase 1 kernel line.
+This checklist is the official release-ready entrypoint for the current stable kernel line.
 It does not add new gates.
 It names the existing commands, checklists, and pass conditions that must be satisfied before calling the line stable.
 
@@ -39,8 +39,12 @@ Before release, confirm these repository documents still match the shipped behav
 - [attachment-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/attachment-query-contract.md)
 - [attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/docs/attachment-metadata-contract.md)
 - [attachment-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/attachment-regression-matrix.md)
+- [pdf-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/pdf-query-contract.md)
+- [pdf-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/pdf-regression-matrix.md)
 - [search-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/search-query-contract.md)
 - [search-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/search-regression-matrix.md)
+- [domain-extension-contract.md](/E:/测试/Chemistry_Obsidian/docs/domain-extension-contract.md)
+- [domain-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/domain-regression-matrix.md)
 - [benchmark-baselines.md](/E:/测试/Chemistry_Obsidian/docs/benchmark-baselines.md)
 
 ## Baseline Update Rule
@@ -61,10 +65,14 @@ Diagnostics smoke is considered satisfied when `kernel_api_tests.exe` passes the
 - attachment anomaly summary export
 - attachment anomaly path summary export
 - attachment recount export
+- pdf contract export
+- pdf recount export
 - search contract export
 - search pagination export
 - search filter export
 - search ranking export
+- domain contract export
+- domain recount export
 - startup recovery outcome export
 - watcher fault and recovery export
 - rebuild in-flight and completed-result export

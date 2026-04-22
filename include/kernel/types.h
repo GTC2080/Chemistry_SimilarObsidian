@@ -306,6 +306,86 @@ typedef struct kernel_domain_metadata_list {
   size_t count;
 } kernel_domain_metadata_list;
 
+typedef enum kernel_domain_object_state {
+  KERNEL_DOMAIN_OBJECT_PRESENT = 0,
+  KERNEL_DOMAIN_OBJECT_MISSING = 1,
+  KERNEL_DOMAIN_OBJECT_UNRESOLVED = 2,
+  KERNEL_DOMAIN_OBJECT_UNSUPPORTED = 3
+} kernel_domain_object_state;
+
+typedef enum kernel_domain_object_flags {
+  KERNEL_DOMAIN_OBJECT_FLAG_NONE = 0
+} kernel_domain_object_flags;
+
+typedef struct kernel_domain_object_descriptor {
+  char* domain_object_key;
+  kernel_domain_carrier_kind carrier_kind;
+  char* carrier_key;
+  char* subtype_namespace;
+  char* subtype_name;
+  uint32_t subtype_revision;
+  kernel_attachment_kind coarse_kind;
+  kernel_attachment_presence presence;
+  kernel_domain_object_state state;
+  uint32_t flags;
+} kernel_domain_object_descriptor;
+
+typedef struct kernel_domain_object_list {
+  kernel_domain_object_descriptor* objects;
+  size_t count;
+} kernel_domain_object_list;
+
+typedef enum kernel_domain_selector_kind {
+  KERNEL_DOMAIN_SELECTOR_PAGE = 0,
+  KERNEL_DOMAIN_SELECTOR_TEXT_EXCERPT = 1,
+  KERNEL_DOMAIN_SELECTOR_TOKEN_REF = 2,
+  KERNEL_DOMAIN_SELECTOR_OPAQUE_DOMAIN_SELECTOR = 3
+} kernel_domain_selector_kind;
+
+typedef enum kernel_domain_ref_state {
+  KERNEL_DOMAIN_REF_RESOLVED = 0,
+  KERNEL_DOMAIN_REF_MISSING = 1,
+  KERNEL_DOMAIN_REF_STALE = 2,
+  KERNEL_DOMAIN_REF_UNRESOLVED = 3,
+  KERNEL_DOMAIN_REF_UNSUPPORTED = 4
+} kernel_domain_ref_state;
+
+typedef enum kernel_domain_ref_flags {
+  KERNEL_DOMAIN_REF_FLAG_NONE = 0
+} kernel_domain_ref_flags;
+
+typedef struct kernel_domain_source_ref {
+  char* target_object_key;
+  kernel_domain_selector_kind selector_kind;
+  char* selector_serialized;
+  char* preview_text;
+  char* target_basis_revision;
+  kernel_domain_ref_state state;
+  uint32_t flags;
+} kernel_domain_source_ref;
+
+typedef struct kernel_domain_source_refs {
+  kernel_domain_source_ref* refs;
+  size_t count;
+} kernel_domain_source_refs;
+
+typedef struct kernel_domain_referrer {
+  char* note_rel_path;
+  char* note_title;
+  char* target_object_key;
+  kernel_domain_selector_kind selector_kind;
+  char* selector_serialized;
+  char* preview_text;
+  char* target_basis_revision;
+  kernel_domain_ref_state state;
+  uint32_t flags;
+} kernel_domain_referrer;
+
+typedef struct kernel_domain_referrers {
+  kernel_domain_referrer* referrers;
+  size_t count;
+} kernel_domain_referrers;
+
 #ifdef __cplusplus
 }
 #endif
