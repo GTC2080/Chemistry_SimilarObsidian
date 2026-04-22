@@ -2,7 +2,10 @@
  * launcher-page.js
  *
  * Vault Launcher: Recent Vaults + Open Vault + Create Vault.
- * This is the only screen visible when no vault is open.
+ * Information hierarchy:
+ *   1. Recent Vaults
+ *   2. Actions (Open Vault primary, Create Vault secondary)
+ *   3. Error (only on failure)
  */
 
 import { createRecentVaultsList, addRecentVault } from "./recent-vaults-list.js";
@@ -13,21 +16,17 @@ export function createLauncherPage(opts = {}) {
   const page = document.createElement("div");
   page.className = "launcher-page";
 
-  // Recent Vaults
+  // ── Block 1: Recent Vaults ──
   const recentList = createRecentVaultsList({
     onOpen: (path) => onOpenVault?.(path)
   });
   page.appendChild(recentList);
 
-  // Divider
-  const divider = document.createElement("div");
-  divider.style.cssText = "height: 1px; background: #e5e7eb; margin: 16px 0;";
-  page.appendChild(divider);
+  // ── Block 2: Actions ──
+  const actionsBlock = document.createElement("div");
+  actionsBlock.style.cssText = "margin-top: 8px;";
 
-  // Open Vault section
-  const openSection = document.createElement("div");
-  openSection.style.cssText = "margin-bottom: 12px;";
-
+  // Open Vault: primary button, expands input area on click
   const openBtn = document.createElement("button");
   openBtn.textContent = isOpening ? "Opening..." : "Open Vault";
   openBtn.disabled = isOpening;
@@ -41,18 +40,21 @@ export function createLauncherPage(opts = {}) {
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     opacity: ${isOpening ? "0.7" : "1"};
   `;
-  openSection.appendChild(openBtn);
+  actionsBlock.appendChild(openBtn);
 
+  // Path input area (secondary flow, collapsible)
   const inputWrap = document.createElement("div");
   inputWrap.style.cssText = `
     display: flex;
     gap: 8px;
     overflow: hidden;
-    transition: max-height 0.2s ease;
     max-height: 0;
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.2s ease;
+    margin-bottom: 0;
   `;
 
   const pathInput = document.createElement("input");
@@ -79,15 +81,16 @@ export function createLauncherPage(opts = {}) {
     color: #fff;
     cursor: pointer;
     font-size: 13px;
+    flex-shrink: 0;
   `;
   inputWrap.appendChild(submitBtn);
 
-  openSection.appendChild(inputWrap);
-  page.appendChild(openSection);
+  actionsBlock.appendChild(inputWrap);
 
-  // Create Vault placeholder
+  // Create Vault: secondary button
   const createBtn = document.createElement("button");
   createBtn.textContent = "Create New Vault";
+  createBtn.disabled = isOpening;
   createBtn.style.cssText = `
     width: 100%;
     padding: 10px 16px;
@@ -97,17 +100,18 @@ export function createLauncherPage(opts = {}) {
     color: #374151;
     cursor: pointer;
     font-size: 14px;
-    margin-bottom: 12px;
+    opacity: ${isOpening ? "0.7" : "1"};
   `;
   createBtn.addEventListener("click", () => {
     alert("Create Vault is not yet available.");
   });
-  page.appendChild(createBtn);
+  actionsBlock.appendChild(createBtn);
 
-  // Error area (fixed at bottom of card)
+  page.appendChild(actionsBlock);
+
+  // ── Block 3: Error (fixed at bottom, only when present) ──
   const errorArea = document.createElement("div");
-  errorArea.style.cssText = "min-height: 0;";
-  page.appendChild(errorArea);
+  errorArea.style.cssText = "margin-top: 12px; min-height: 0;";
 
   if (lastError) {
     const errorBlock = document.createElement("div");
@@ -127,6 +131,7 @@ export function createLauncherPage(opts = {}) {
 
     if (lastError.message) {
       const msg = document.createElement("div");
+      msg.style.marginTop = "2px";
       msg.textContent = lastError.message;
       errorBlock.appendChild(msg);
     }
@@ -134,13 +139,24 @@ export function createLauncherPage(opts = {}) {
     errorArea.appendChild(errorBlock);
   }
 
-  // Interactions
+  page.appendChild(errorArea);
+
+  // ── Interactions ──
   let inputExpanded = false;
 
   function expandInput() {
     inputExpanded = true;
     inputWrap.style.maxHeight = "60px";
+    inputWrap.style.opacity = "1";
+    inputWrap.style.marginBottom = "8px";
     pathInput.focus();
+  }
+
+  function collapseInput() {
+    inputExpanded = false;
+    inputWrap.style.maxHeight = "0";
+    inputWrap.style.opacity = "0";
+    inputWrap.style.marginBottom = "0";
   }
 
   function submit() {
@@ -173,10 +189,11 @@ export function createLauncherPage(opts = {}) {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.75);
       border-radius: 14px;
       font-size: 14px;
       color: #4b5563;
+      z-index: 1;
     `;
     overlay.textContent = "Opening vault...";
     page.style.position = "relative";

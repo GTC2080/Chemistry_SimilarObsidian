@@ -2,10 +2,12 @@
  * launcher-shell.js
  *
  * Vault Launcher layout: centered card with light top bar.
+ * Top bar shows only app name + neutral "No vault open" text.
+ * No runtime diagnostic badges in launcher mode.
  */
 
 export function createLauncherShell(opts = {}) {
-  const { statusBadge, children } = opts;
+  const { children } = opts;
 
   const shell = document.createElement("div");
   shell.className = "launcher-shell";
@@ -18,7 +20,7 @@ export function createLauncherShell(opts = {}) {
     color: #1f2937;
   `;
 
-  // Top bar: very light
+  // Top bar: very light, no diagnostic badges
   const topBar = document.createElement("header");
   topBar.style.cssText = `
     display: flex;
@@ -32,12 +34,10 @@ export function createLauncherShell(opts = {}) {
   appTitle.textContent = "Chemistry Obsidian";
   topBar.appendChild(appTitle);
 
-  if (statusBadge) {
-    const badgeWrap = document.createElement("div");
-    badgeWrap.style.cssText = "display: flex; align-items: center; gap: 6px;";
-    badgeWrap.appendChild(statusBadge);
-    topBar.appendChild(badgeWrap);
-  }
+  const statusText = document.createElement("span");
+  statusText.style.cssText = "font-size: 12px; color: #9ca3af;";
+  statusText.textContent = "No vault open";
+  topBar.appendChild(statusText);
 
   shell.appendChild(topBar);
 

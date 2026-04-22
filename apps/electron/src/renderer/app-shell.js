@@ -141,10 +141,7 @@ class AppShell {
     if (!this._root) return;
     this._root.innerHTML = "";
 
-    const runtimeEnv = store.getRuntimeSummary();
-    const badge = createRuntimeStatusBadge(runtimeEnv);
-
-    const { element, card } = createLauncherShell({ statusBadge: badge });
+    const { element, card } = createLauncherShell({});
 
     const launcherPage = createLauncherPage({
       onOpenVault: (path) => this._openVault(path),
