@@ -28,6 +28,7 @@ add_executable(
   src/api/kernel_api_tests_pdf_surface_reference_referrers.cpp
   src/api/kernel_api_tests_pdf_diagnostics.cpp
   src/api/kernel_api_tests_pdf_diagnostics_snapshot.cpp
+  src/api/kernel_api_tests_pdf_diagnostics_recount.cpp
   src/api/kernel_api_tests_rebuild_runtime.cpp
   src/api/kernel_api_tests_rebuild_runtime_background.cpp
   src/api/kernel_api_tests_rebuild_runtime_background_lifecycle.cpp

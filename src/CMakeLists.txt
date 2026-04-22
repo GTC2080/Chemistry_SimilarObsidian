@@ -19,6 +19,7 @@ add_library(
   impl/core/kernel_attachment_legacy_api.cpp
   impl/core/kernel_pdf_query_shared.cpp
   impl/core/kernel_pdf_api.cpp
+  impl/core/kernel_pdf_reference_resolution.cpp
   impl/core/kernel_pdf_reference_query_shared.cpp
   impl/core/kernel_pdf_reference_api_reset.cpp
   impl/core/kernel_pdf_reference_api_fill.cpp
@@ -51,6 +52,7 @@ add_library(
   impl/storage/storage_pdf_state.cpp
   impl/storage/storage_pdf_queries.cpp
   impl/storage/storage_pdf_reference_queries.cpp
+  impl/storage/storage_pdf_diagnostics_queries.cpp
   impl/storage/storage_attachment_diagnostics_queries.cpp
   impl/storage/storage_note_queries.cpp
   impl/watcher/integration.cpp

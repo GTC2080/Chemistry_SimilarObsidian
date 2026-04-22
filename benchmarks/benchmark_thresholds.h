@@ -96,6 +96,14 @@ inline constexpr BenchmarkGate kAttachmentReferrersQueryGate{
     "attachment_referrers_query",
     17,
     160};
+inline constexpr BenchmarkGate kPdfSourceRefsQueryGate{
+    "pdf_source_refs_query",
+    100,
+    180};
+inline constexpr BenchmarkGate kPdfReferrersQueryGate{
+    "pdf_referrers_query",
+    162,
+    220};
 inline constexpr BenchmarkGate kAllKindQueryGate{
     "all_kind_query",
     167,

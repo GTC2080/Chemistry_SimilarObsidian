@@ -208,6 +208,19 @@ Batch 2 extends diagnostics with:
 
 - `pdf_anchor_mode`
 
+Batch 4 extends diagnostics with:
+
+- `pdf_live_anchor_count`
+- `pdf_source_ref_count`
+- `pdf_source_ref_resolved_count`
+- `pdf_source_ref_missing_count`
+- `pdf_source_ref_stale_count`
+- `pdf_source_ref_unresolved_count`
+- `pdf_metadata_anomaly_summary`
+- `pdf_reference_anomaly_summary`
+- `last_pdf_recount_reason`
+- `last_pdf_recount_at_ns`
+
 Batch 2 anchor validation distinguishes:
 
 - `resolved`

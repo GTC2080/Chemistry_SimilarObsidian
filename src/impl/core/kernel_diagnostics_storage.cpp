@@ -3,6 +3,7 @@
 
 #include "core/kernel_diagnostics_support.h"
 
+#include "core/kernel_pdf_reference_resolution.h"
 #include "core/kernel_shared.h"
 #include "storage/storage.h"
 
@@ -14,7 +15,7 @@
 namespace kernel::core::diagnostics_export {
 namespace {
 
-constexpr auto kDiagnosticsLockBudget = std::chrono::milliseconds(100);
+constexpr auto kDiagnosticsLockBudget = std::chrono::milliseconds(200);
 
 bool storage_counts_stable(const kernel_index_state index_state) {
   return index_state != KERNEL_INDEX_CATCHING_UP &&
@@ -151,6 +152,57 @@ kernel_status collect_pdf_diagnostics_snapshot(
         if (unavailable_count_ec) {
           return kernel::core::make_status(
               kernel::core::map_error(unavailable_count_ec));
+        }
+
+        const std::error_code anchor_count_ec =
+            kernel::storage::count_live_pdf_anchor_records(
+                storage,
+                out_snapshot.live_pdf_anchor_count);
+        if (anchor_count_ec) {
+          return kernel::core::make_status(kernel::core::map_error(anchor_count_ec));
+        }
+
+        std::vector<kernel::storage::PdfSourceRefDiagnosticsRecord> reference_records;
+        const std::error_code reference_records_ec =
+            kernel::storage::list_live_pdf_source_ref_diagnostics_records(
+                storage,
+                reference_records);
+        if (reference_records_ec) {
+          return kernel::core::make_status(
+              kernel::core::map_error(reference_records_ec));
+        }
+
+        out_snapshot.pdf_source_ref_count =
+            static_cast<std::uint64_t>(reference_records.size());
+        for (const auto& record : reference_records) {
+          kernel::core::pdf_reference_resolution::ResolvedPdfReference resolved;
+          const std::error_code resolve_ec =
+              kernel::core::pdf_reference_resolution::resolve_pdf_reference(
+                  storage,
+                  record.pdf_rel_path,
+                  record.anchor_serialized,
+                  record.page,
+                  record.excerpt_text,
+                  resolved);
+          if (resolve_ec) {
+            return kernel::core::make_status(kernel::core::map_error(resolve_ec));
+          }
+
+          switch (resolved.state) {
+            case KERNEL_PDF_REF_RESOLVED:
+              ++out_snapshot.resolved_pdf_source_ref_count;
+              break;
+            case KERNEL_PDF_REF_MISSING:
+              ++out_snapshot.missing_pdf_source_ref_count;
+              break;
+            case KERNEL_PDF_REF_STALE:
+              ++out_snapshot.stale_pdf_source_ref_count;
+              break;
+            case KERNEL_PDF_REF_UNRESOLVED:
+            default:
+              ++out_snapshot.unresolved_pdf_source_ref_count;
+              break;
+          }
         }
 
         return kernel::core::make_status(KERNEL_OK);

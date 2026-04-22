@@ -5,4 +5,5 @@
 
 void run_pdf_diagnostics_tests() {
   run_pdf_diagnostics_snapshot_tests();
+  run_pdf_diagnostics_recount_tests();
 }

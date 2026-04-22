@@ -57,6 +57,14 @@ struct PdfSourceReferrerRecord {
   std::uint64_t page = 0;
 };
 
+struct PdfSourceRefDiagnosticsRecord {
+  std::string note_rel_path;
+  std::string pdf_rel_path;
+  std::string anchor_serialized;
+  std::string excerpt_text;
+  std::uint64_t page = 0;
+};
+
 enum class PdfMetadataState : std::uint8_t {
   Unavailable = 0,
   Ready = 1,
@@ -187,6 +195,10 @@ std::error_code count_live_pdf_records_by_state(
     Database& db,
     PdfMetadataState state,
     std::uint64_t& out_count);
+std::error_code count_live_pdf_anchor_records(Database& db, std::uint64_t& out_count);
+std::error_code list_live_pdf_source_ref_diagnostics_records(
+    Database& db,
+    std::vector<PdfSourceRefDiagnosticsRecord>& out_records);
 std::error_code list_missing_attachment_paths(
     Database& db,
     std::size_t limit,

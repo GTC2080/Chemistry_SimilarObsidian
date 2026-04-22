@@ -46,6 +46,8 @@ kernel::core::diagnostics_export::RuntimeDiagnosticsSnapshot capture_runtime_sna
     snapshot.last_rebuild_duration_ms = handle->runtime.last_rebuild.duration_ms;
     snapshot.last_attachment_recount_reason = handle->runtime.last_attachment_recount.reason;
     snapshot.last_attachment_recount_at_ns = handle->runtime.last_attachment_recount.at_ns;
+    snapshot.last_pdf_recount_reason = handle->runtime.last_pdf_recount.reason;
+    snapshot.last_pdf_recount_at_ns = handle->runtime.last_pdf_recount.at_ns;
     snapshot.last_continuity_fallback_reason =
         handle->runtime.last_continuity_fallback.reason;
     snapshot.last_continuity_fallback_at_ns =

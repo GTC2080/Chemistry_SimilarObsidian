@@ -31,6 +31,12 @@ struct PdfDiagnosticsSnapshot {
   std::uint64_t partial_pdf_count = 0;
   std::uint64_t invalid_pdf_count = 0;
   std::uint64_t unavailable_pdf_count = 0;
+  std::uint64_t live_pdf_anchor_count = 0;
+  std::uint64_t pdf_source_ref_count = 0;
+  std::uint64_t resolved_pdf_source_ref_count = 0;
+  std::uint64_t missing_pdf_source_ref_count = 0;
+  std::uint64_t stale_pdf_source_ref_count = 0;
+  std::uint64_t unresolved_pdf_source_ref_count = 0;
 };
 
 struct RuntimeDiagnosticsSnapshot {
@@ -56,6 +62,8 @@ struct RuntimeDiagnosticsSnapshot {
   std::uint64_t indexed_note_count = 0;
   std::string last_attachment_recount_reason;
   std::uint64_t last_attachment_recount_at_ns = 0;
+  std::string last_pdf_recount_reason;
+  std::uint64_t last_pdf_recount_at_ns = 0;
   std::string last_continuity_fallback_reason;
   std::uint64_t last_continuity_fallback_at_ns = 0;
   std::uint64_t pending_recovery_ops = 0;

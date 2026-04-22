@@ -81,6 +81,58 @@ std::string_view attachment_anomaly_summary(
   return "clean";
 }
 
+std::string build_pdf_metadata_anomaly_summary(
+    const PdfDiagnosticsSnapshot& snapshot) {
+  std::string summary;
+  const auto append_token = [&](std::string_view token) {
+    if (!summary.empty()) {
+      summary += "_";
+    }
+    summary += token;
+  };
+
+  if (snapshot.partial_pdf_count != 0) {
+    append_token("partial");
+  }
+  if (snapshot.invalid_pdf_count != 0) {
+    append_token("invalid");
+  }
+  if (snapshot.unavailable_pdf_count != 0) {
+    append_token("unavailable");
+  }
+  if (summary.empty()) {
+    return "clean";
+  }
+  summary += "_pdf_metadata";
+  return summary;
+}
+
+std::string build_pdf_reference_anomaly_summary(
+    const PdfDiagnosticsSnapshot& snapshot) {
+  std::string summary;
+  const auto append_token = [&](std::string_view token) {
+    if (!summary.empty()) {
+      summary += "_";
+    }
+    summary += token;
+  };
+
+  if (snapshot.missing_pdf_source_ref_count != 0) {
+    append_token("missing");
+  }
+  if (snapshot.stale_pdf_source_ref_count != 0) {
+    append_token("stale");
+  }
+  if (snapshot.unresolved_pdf_source_ref_count != 0) {
+    append_token("unresolved");
+  }
+  if (summary.empty()) {
+    return "clean";
+  }
+  summary += "_pdf_references";
+  return summary;
+}
+
 }  // namespace
 
 std::string build_diagnostics_json(
@@ -147,6 +199,11 @@ std::string build_diagnostics_json(
          << "\",\n"
          << "  \"last_attachment_recount_at_ns\":"
          << runtime_snapshot.last_attachment_recount_at_ns << ",\n"
+         << "  \"last_pdf_recount_reason\":\""
+         << kernel::core::json_escape(runtime_snapshot.last_pdf_recount_reason)
+         << "\",\n"
+         << "  \"last_pdf_recount_at_ns\":"
+         << runtime_snapshot.last_pdf_recount_at_ns << ",\n"
          << "  \"attachment_public_surface_revision\":\""
          << kernel::core::json_escape(
                 kernel::core::attachment_api::kAttachmentPublicSurfaceRevision)
@@ -173,6 +230,22 @@ std::string build_diagnostics_json(
          << "  \"pdf_metadata_invalid_count\":" << pdf_snapshot.invalid_pdf_count << ",\n"
          << "  \"pdf_metadata_unavailable_count\":"
          << pdf_snapshot.unavailable_pdf_count << ",\n"
+         << "  \"pdf_live_anchor_count\":" << pdf_snapshot.live_pdf_anchor_count << ",\n"
+         << "  \"pdf_source_ref_count\":" << pdf_snapshot.pdf_source_ref_count << ",\n"
+         << "  \"pdf_source_ref_resolved_count\":"
+         << pdf_snapshot.resolved_pdf_source_ref_count << ",\n"
+         << "  \"pdf_source_ref_missing_count\":"
+         << pdf_snapshot.missing_pdf_source_ref_count << ",\n"
+         << "  \"pdf_source_ref_stale_count\":"
+         << pdf_snapshot.stale_pdf_source_ref_count << ",\n"
+         << "  \"pdf_source_ref_unresolved_count\":"
+         << pdf_snapshot.unresolved_pdf_source_ref_count << ",\n"
+         << "  \"pdf_metadata_anomaly_summary\":\""
+         << kernel::core::json_escape(build_pdf_metadata_anomaly_summary(pdf_snapshot))
+         << "\",\n"
+         << "  \"pdf_reference_anomaly_summary\":\""
+         << kernel::core::json_escape(build_pdf_reference_anomaly_summary(pdf_snapshot))
+         << "\",\n"
          << "  \"last_continuity_fallback_reason\":\""
          << kernel::core::json_escape(runtime_snapshot.last_continuity_fallback_reason)
          << "\",\n"

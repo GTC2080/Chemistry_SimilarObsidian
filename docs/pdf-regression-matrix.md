@@ -71,6 +71,7 @@ The repository must retain regression coverage for:
 
 - Batch 1 diagnostics export exposes PDF contract revision, extract mode, and lookup-key mode
 - Batch 2 diagnostics export extends PDF diagnostics with anchor mode
+- Batch 4 diagnostics export exposes anchor counts, source-ref counts, anomaly summaries, and last PDF recount fields
 - diagnostics export keys per-document PDF summaries by normalized live attachment `rel_path`
 - rebuild realigns PDF-derived state to the same truth as a clean startup on the same vault snapshot
 - recovery realigns PDF-derived state to the same truth as rebuild on the same vault snapshot

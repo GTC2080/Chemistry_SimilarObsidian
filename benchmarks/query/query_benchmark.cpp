@@ -2,12 +2,14 @@
 
 #include "kernel/c_api.h"
 #include "benchmarks/benchmark_thresholds.h"
+#include "core/kernel_pdf_query_shared.h"
 
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -59,6 +61,34 @@ kernel_search_query make_default_query(const char* query, const std::size_t limi
   request.include_deleted = 0;
   request.sort_mode = KERNEL_SEARCH_SORT_REL_PATH_ASC;
   return request;
+}
+
+std::string make_pdf_bytes(const std::vector<std::string>& page_texts) {
+  std::string bytes = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n";
+  for (std::size_t page = 0; page < page_texts.size(); ++page) {
+    bytes += std::to_string(page + 2);
+    bytes += " 0 obj\n<< /Type /Page >>\n";
+    if (!page_texts[page].empty()) {
+      bytes += "BT\n/F1 12 Tf\n(";
+      bytes += page_texts[page];
+      bytes += ") Tj\nET\n";
+    }
+    bytes += "endobj\n";
+  }
+  bytes += "%%EOF\n";
+  return bytes;
+}
+
+bool query_pdf_anchors(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    std::vector<kernel::storage::PdfAnchorRecord>& out_records) {
+  return expect_ok(
+      kernel::core::pdf_query::query_live_pdf_anchor_records(
+          handle,
+          attachment_rel_path,
+          out_records),
+      "pdf anchor query");
 }
 
 }  // namespace
@@ -160,9 +190,51 @@ int main() {
     }
   }
 
+  if (!seed_binary_file(vault / "pdf" / "bench-source.pdf", make_pdf_bytes({"Benchmark PDF Source Text"}))) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "pdf/bench-seed.md",
+          "# PDF Bench Seed\n[PDF](pdf/bench-source.pdf)\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+
+  std::vector<kernel::storage::PdfAnchorRecord> pdf_anchor_records;
+  if (!query_pdf_anchors(handle, "pdf/bench-source.pdf", pdf_anchor_records) ||
+      pdf_anchor_records.size() != 1) {
+    std::cerr << "pdf anchor query returned unexpected anchor count\n";
+    return 1;
+  }
+  const std::string pdf_anchor = pdf_anchor_records[0].anchor_serialized;
+
+  if (!seed_note(
+          handle,
+          "pdf/bench-source-refs.md",
+          "# PDF Bench Source Refs\n"
+          "[First](pdf/bench-source.pdf#anchor=" + pdf_anchor + ")\n"
+          "[Second](pdf/bench-source.pdf#anchor=" + pdf_anchor + ")\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+  if (!seed_note(
+          handle,
+          "pdf/bench-referrer.md",
+          "# PDF Bench Referrer\n"
+          "[Third](pdf/bench-source.pdf#anchor=" + pdf_anchor + ")\n",
+          metadata,
+          disposition)) {
+    return 1;
+  }
+
   constexpr int iterations = 200;
   constexpr const char* kBenchAttachmentRelPath = "filter/filtermixedtoken-00.png";
   constexpr const char* kBenchAttachmentNoteRelPath = "filter/filter-note-00.md";
+  constexpr const char* kBenchPdfRelPath = "pdf/bench-source.pdf";
+  constexpr const char* kBenchPdfSourceNoteRelPath = "pdf/bench-source-refs.md";
 
   const auto tag_start = std::chrono::steady_clock::now();
   for (int i = 0; i < iterations; ++i) {
@@ -371,6 +443,42 @@ int main() {
   }
   const auto attachment_referrers_end = std::chrono::steady_clock::now();
 
+  const auto pdf_source_refs_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_pdf_source_refs refs{};
+    if (!expect_ok(
+            kernel_query_note_pdf_source_refs(handle, kBenchPdfSourceNoteRelPath, 4, &refs),
+            "pdf source refs query")) {
+      return 1;
+    }
+    if (refs.count != 2 ||
+        std::string(refs.refs[0].pdf_rel_path) != kBenchPdfRelPath ||
+        refs.refs[0].state != KERNEL_PDF_REF_RESOLVED) {
+      std::cerr << "pdf source refs query returned unexpected source-ref state\n";
+      return 1;
+    }
+    kernel_free_pdf_source_refs(&refs);
+  }
+  const auto pdf_source_refs_end = std::chrono::steady_clock::now();
+
+  const auto pdf_referrers_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < iterations; ++i) {
+    kernel_pdf_referrers referrers{};
+    if (!expect_ok(
+            kernel_query_pdf_referrers(handle, kBenchPdfRelPath, 4, &referrers),
+            "pdf referrers query")) {
+      return 1;
+    }
+    if (referrers.count != 3 ||
+        std::string(referrers.referrers[0].note_rel_path) != "pdf/bench-referrer.md" ||
+        referrers.referrers[0].state != KERNEL_PDF_REF_RESOLVED) {
+      std::cerr << "pdf referrers query returned unexpected referrer state\n";
+      return 1;
+    }
+    kernel_free_pdf_referrers(&referrers);
+  }
+  const auto pdf_referrers_end = std::chrono::steady_clock::now();
+
   const auto all_kind_start = std::chrono::steady_clock::now();
   for (int i = 0; i < iterations; ++i) {
     kernel_search_query request = make_default_query("FilterMixedToken", 12);
@@ -487,6 +595,12 @@ int main() {
   const auto attachment_referrers_elapsed_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(attachment_referrers_end - attachment_referrers_start)
           .count();
+  const auto pdf_source_refs_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(pdf_source_refs_end - pdf_source_refs_start)
+          .count();
+  const auto pdf_referrers_elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(pdf_referrers_end - pdf_referrers_start)
+          .count();
   const auto all_kind_elapsed_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(all_kind_end - all_kind_start).count();
   const auto ranked_title_elapsed_ms =
@@ -526,6 +640,12 @@ int main() {
   const bool attachment_referrers_within_gate = kernel::benchmarks::report_gate(
       kernel::benchmarks::kAttachmentReferrersQueryGate,
       attachment_referrers_elapsed_ms);
+  const bool pdf_source_refs_within_gate = kernel::benchmarks::report_gate(
+      kernel::benchmarks::kPdfSourceRefsQueryGate,
+      pdf_source_refs_elapsed_ms);
+  const bool pdf_referrers_within_gate = kernel::benchmarks::report_gate(
+      kernel::benchmarks::kPdfReferrersQueryGate,
+      pdf_referrers_elapsed_ms);
   const bool all_kind_within_gate =
       kernel::benchmarks::report_gate(kernel::benchmarks::kAllKindQueryGate, all_kind_elapsed_ms);
   const bool ranked_title_within_gate =
@@ -548,6 +668,8 @@ int main() {
                                         attachment_lookup_within_gate &&
                                         note_attachment_refs_within_gate &&
                                         attachment_referrers_within_gate &&
+                                        pdf_source_refs_within_gate &&
+                                        pdf_referrers_within_gate &&
                                         all_kind_within_gate &&
                                         ranked_title_within_gate &&
                                         ranked_tag_boost_within_gate &&
@@ -567,6 +689,8 @@ int main() {
                  attachment_lookup_within_gate &&
                  note_attachment_refs_within_gate &&
                  attachment_referrers_within_gate &&
+                 pdf_source_refs_within_gate &&
+                 pdf_referrers_within_gate &&
                  all_kind_within_gate &&
                  ranked_title_within_gate &&
                  ranked_tag_boost_within_gate &&
