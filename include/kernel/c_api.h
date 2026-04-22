@@ -82,6 +82,16 @@ kernel_status kernel_query_pdf_referrers(
     const char* attachment_rel_path,
     size_t limit,
     kernel_pdf_referrers* out_referrers);
+kernel_status kernel_query_attachment_domain_metadata(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    size_t limit,
+    kernel_domain_metadata_list* out_entries);
+kernel_status kernel_query_pdf_domain_metadata(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    size_t limit,
+    kernel_domain_metadata_list* out_entries);
 kernel_status kernel_list_note_attachments(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -105,6 +115,7 @@ void kernel_free_attachment_refs(kernel_attachment_refs* refs);
 void kernel_free_pdf_metadata_record(kernel_pdf_metadata_record* metadata);
 void kernel_free_pdf_source_refs(kernel_pdf_source_refs* refs);
 void kernel_free_pdf_referrers(kernel_pdf_referrers* referrers);
+void kernel_free_domain_metadata_list(kernel_domain_metadata_list* entries);
 
 #ifdef __cplusplus
 }

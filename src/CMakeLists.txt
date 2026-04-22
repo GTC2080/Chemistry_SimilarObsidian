@@ -19,6 +19,10 @@ add_library(
   impl/core/kernel_attachment_legacy_api.cpp
   impl/core/kernel_pdf_query_shared.cpp
   impl/core/kernel_pdf_api.cpp
+  impl/core/kernel_domain_api_reset.cpp
+  impl/core/kernel_domain_api_fill.cpp
+  impl/core/kernel_domain_query_shared.cpp
+  impl/core/kernel_domain_public_api.cpp
   impl/core/kernel_pdf_reference_resolution.cpp
   impl/core/kernel_pdf_reference_query_shared.cpp
   impl/core/kernel_pdf_reference_api_reset.cpp

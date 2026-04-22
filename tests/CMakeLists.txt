@@ -20,6 +20,9 @@ add_executable(
   src/api/kernel_api_tests_attachment_public_surface.cpp
   src/api/kernel_api_tests_attachment_public_surface_catalog.cpp
   src/api/kernel_api_tests_attachment_public_surface_refs.cpp
+  src/api/kernel_api_tests_domain_surface.cpp
+  src/api/kernel_api_tests_domain_surface_attachment.cpp
+  src/api/kernel_api_tests_domain_surface_pdf.cpp
   src/api/kernel_api_tests_pdf_surface.cpp
   src/api/kernel_api_tests_pdf_surface_metadata.cpp
   src/api/kernel_api_tests_pdf_surface_anchor.cpp

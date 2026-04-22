@@ -272,6 +272,40 @@ typedef struct kernel_pdf_referrers {
   size_t count;
 } kernel_pdf_referrers;
 
+typedef enum kernel_domain_carrier_kind {
+  KERNEL_DOMAIN_CARRIER_ATTACHMENT = 0,
+  KERNEL_DOMAIN_CARRIER_PDF = 1
+} kernel_domain_carrier_kind;
+
+typedef enum kernel_domain_value_kind {
+  KERNEL_DOMAIN_VALUE_TOKEN = 0,
+  KERNEL_DOMAIN_VALUE_BOOL = 1,
+  KERNEL_DOMAIN_VALUE_UINT64 = 2,
+  KERNEL_DOMAIN_VALUE_STRING = 3
+} kernel_domain_value_kind;
+
+typedef enum kernel_domain_metadata_flags {
+  KERNEL_DOMAIN_METADATA_FLAG_NONE = 0
+} kernel_domain_metadata_flags;
+
+typedef struct kernel_domain_metadata_entry {
+  kernel_domain_carrier_kind carrier_kind;
+  char* carrier_key;
+  char* namespace_name;
+  uint32_t public_schema_revision;
+  char* key_name;
+  kernel_domain_value_kind value_kind;
+  uint8_t bool_value;
+  uint64_t uint64_value;
+  char* string_value;
+  uint32_t flags;
+} kernel_domain_metadata_entry;
+
+typedef struct kernel_domain_metadata_list {
+  kernel_domain_metadata_entry* entries;
+  size_t count;
+} kernel_domain_metadata_list;
+
 #ifdef __cplusplus
 }
 #endif

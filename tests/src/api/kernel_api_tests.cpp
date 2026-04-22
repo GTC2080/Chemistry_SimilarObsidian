@@ -99,6 +99,7 @@ int main() {
     run_runtime_recovery_tests();
     run_attachment_public_surface_tests();
     run_attachment_lifecycle_tests();
+    run_domain_surface_tests();
     run_pdf_surface_tests();
     run_search_public_surface_tests();
     run_kernel_api_watcher_smoke_tests();
