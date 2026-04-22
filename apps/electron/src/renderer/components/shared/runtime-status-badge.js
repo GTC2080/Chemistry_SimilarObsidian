@@ -10,9 +10,13 @@ export function createRuntimeStatusBadge(runtimeEnvelope) {
   badge.style.cssText = `
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
     font-size: 12px;
-    color: #4b5563;
+    color: #ddd6fe;
     white-space: nowrap;
   `;
 
@@ -50,6 +54,7 @@ export function createRuntimeStatusBadge(runtimeEnvelope) {
     background: ${dotColor};
     display: inline-block;
     flex-shrink: 0;
+    box-shadow: 0 0 14px ${dotColor};
   `;
   badge.appendChild(dot);
 

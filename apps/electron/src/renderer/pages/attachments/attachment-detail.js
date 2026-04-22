@@ -18,23 +18,24 @@ export function createAttachmentDetail(relPath) {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   `;
 
   const backBtn = document.createElement("button");
   backBtn.textContent = "← Back";
   backBtn.style.cssText = `
-    padding: 5px 10px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-    background: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #ede9fe;
     cursor: pointer;
     font-size: 12px;
   `;
   header.appendChild(backBtn);
 
   const title = document.createElement("h3");
-  title.style.cssText = "margin: 0; font-size: 16px;";
+  title.style.cssText = "margin: 0; font-size: 16px; color: #f5f3ff;";
   title.textContent = relPath;
   header.appendChild(title);
 
@@ -75,12 +76,13 @@ export function createAttachmentDetail(relPath) {
     // Metadata card
     const metaCard = document.createElement("div");
     metaCard.style.cssText = `
-      padding: 14px;
-      border-radius: 8px;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      margin-bottom: 12px;
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(29, 28, 35, 0.94);
+      border: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 14px;
       font-size: 13px;
+      color: #ece7ff;
     `;
 
     const metaRows = [
@@ -94,9 +96,9 @@ export function createAttachmentDetail(relPath) {
 
     for (const row of metaRows) {
       const wrap = document.createElement("div");
-      wrap.style.cssText = "display: flex; gap: 8px; padding: 3px 0;";
+      wrap.style.cssText = "display: flex; gap: 8px; padding: 5px 0;";
       const lbl = document.createElement("span");
-      lbl.style.cssText = "color: #6b7280; min-width: 80px;";
+      lbl.style.cssText = "color: #968ead; min-width: 80px;";
       lbl.textContent = row.label;
       wrap.appendChild(lbl);
       const val = document.createElement("span");
@@ -114,24 +116,24 @@ export function createAttachmentDetail(relPath) {
 
     // Referrers
     const refsSection = document.createElement("div");
-    refsSection.style.cssText = "margin-top: 16px;";
+    refsSection.style.cssText = "margin-top: 18px;";
     const refsHeading = document.createElement("div");
-    refsHeading.style.cssText = "font-weight: 600; font-size: 13px; margin-bottom: 8px;";
-    refsHeading.textContent = "Referrers";
+    refsHeading.style.cssText = "font-weight: 600; font-size: 13px; margin-bottom: 10px; color:#f5f3ff;";
+    refsHeading.textContent = "引用该附件的笔记";
     refsSection.appendChild(refsHeading);
 
     const refsEnv = await attachments.queryReferrers({ attachmentRelPath: relPath, limit: 64 }, "app-attachment-refs");
     if (refsEnv.ok && refsEnv.data?.items?.length > 0) {
       for (const ref of refsEnv.data.items) {
         const row = document.createElement("div");
-        row.style.cssText = "padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6;";
+        row.style.cssText = "padding: 9px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.06); color:#d8d1ec;";
         row.textContent = ref.noteRelPath ?? ref.note_rel_path ?? JSON.stringify(ref);
         refsSection.appendChild(row);
       }
     } else {
       const none = document.createElement("div");
-      none.style.cssText = "font-size: 13px; color: #6b7280;";
-      none.textContent = "No referring notes.";
+      none.style.cssText = "font-size: 13px; color: #968ead;";
+      none.textContent = "暂无引用该附件的笔记。";
       refsSection.appendChild(none);
     }
     content.appendChild(refsSection);
@@ -145,11 +147,12 @@ export function createAttachmentDetail(relPath) {
 function banner(text, bg, color) {
   const el = document.createElement("div");
   el.style.cssText = `
-    padding: 10px 14px;
+    padding: 12px 14px;
     margin-bottom: 12px;
-    border-radius: 6px;
-    background: ${bg};
-    color: ${color};
+    border-radius: 14px;
+    background: ${bg === "#fee2e2" ? "rgba(127, 29, 29, 0.36)" : "rgba(120, 53, 15, 0.34)"};
+    border: 1px solid ${bg === "#fee2e2" ? "rgba(248,113,113,0.22)" : "rgba(250,204,21,0.2)"};
+    color: ${bg === "#fee2e2" ? "#fca5a5" : "#fde68a"};
     font-size: 13px;
   `;
   el.textContent = text;

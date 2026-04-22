@@ -8,7 +8,7 @@
 import { addRecentVault } from "./recent-vaults-list.js";
 
 export function createLauncherPage(opts = {}) {
-  const { onOpenVault, lastError, isOpening, hostVersion } = opts;
+  const { onOpenVault, lastError, isOpening, hostVersion, launcherState = "no_vault_open" } = opts;
 
   const page = document.createElement("div");
   page.className = "launcher-page";
@@ -59,6 +59,24 @@ export function createLauncherPage(opts = {}) {
   `;
   page.appendChild(actionCard);
 
+  const semanticState = document.createElement("div");
+  semanticState.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: ${launcherState === "opening_vault" ? "#ddd6fe" : "#b8bad0"};
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  `;
+  semanticState.textContent = launcherState === "opening_vault" ? "Opening vault" : "No vault open";
+  actionCard.appendChild(semanticState);
+
   const statusArea = document.createElement("div");
   statusArea.style.cssText = "margin-top: 12px;";
 
@@ -68,9 +86,9 @@ export function createLauncherPage(opts = {}) {
   const createRow = buildActionRow({
     title: "新建仓库",
     description: "在指定文件夹下创建一个新的仓库。",
-    actionLabel: "创建",
-    accent: "primary",
-    disabled: isOpening
+    actionLabel: "即将提供",
+    accent: "ghost",
+    disabled: true
   });
   actionCard.appendChild(createRow.row);
 
@@ -83,15 +101,7 @@ export function createLauncherPage(opts = {}) {
   });
   actionCard.appendChild(openRow.row);
 
-  const hostRow = buildActionRow({
-    title: "宿主桥接层",
-    description: "当前只启动 Host Shell；打开仓库后进入完整工作区。",
-    actionLabel: "就绪",
-    accent: "ghost",
-    staticAction: true
-  });
-  hostRow.row.style.borderBottom = "none";
-  actionCard.appendChild(hostRow.row);
+  openRow.row.style.borderBottom = "none";
 
   const footer = document.createElement("div");
   footer.style.cssText = `
@@ -107,7 +117,7 @@ export function createLauncherPage(opts = {}) {
   `;
 
   const footerHint = document.createElement("div");
-  footerHint.textContent = "左侧可直接打开最近仓库；右侧用于打开新的本地仓库。";
+  footerHint.textContent = "左侧管理 Recent Vaults；右侧只负责 Open Vault / Create New Vault。";
   footer.appendChild(footerHint);
 
   const footerMode = document.createElement("div");
@@ -204,15 +214,6 @@ export function createLauncherPage(opts = {}) {
     }
   }
 
-  createRow.action.addEventListener("click", () => {
-    localNotice = {
-      tone: "info",
-      title: "创建仓库尚未接线",
-      message: "当前 baseline 先支持打开本地 vault；创建流程会在后续 host integration 中接入。"
-    };
-    renderNotice(localNotice);
-  });
-
   openRow.action.addEventListener("click", () => {
     if (!inputExpanded) {
       expandInput();
@@ -252,7 +253,7 @@ export function createLauncherPage(opts = {}) {
       color: #f5f5f5;
       z-index: 1;
     `;
-    overlay.textContent = "Opening vault...";
+    overlay.textContent = "Opening vault…";
     actionCard.style.position = "relative";
     actionCard.appendChild(overlay);
   }

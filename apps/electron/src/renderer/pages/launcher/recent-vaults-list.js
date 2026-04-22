@@ -39,7 +39,7 @@ function extractVaultName(path) {
 }
 
 export function createRecentVaultsList(opts = {}) {
-  const { onOpen } = opts;
+  const { onOpen, disabled = false } = opts;
   const vaults = readRecentVaults();
 
   const container = document.createElement("div");
@@ -92,31 +92,39 @@ export function createRecentVaultsList(opts = {}) {
       border-radius: 16px;
       border: 1px solid rgba(255,255,255,0.08);
       background: rgba(255,255,255,0.03);
-      cursor: pointer;
+      cursor: ${disabled ? "not-allowed" : "pointer"};
       font-size: 13px;
       text-align: left;
       color: #f5f5f5;
       width: 100%;
       transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+      opacity: ${disabled ? "0.58" : "1"};
     `;
 
     row.addEventListener("mouseenter", () => {
+      if (disabled) return;
       row.style.background = "rgba(255,255,255,0.06)";
       row.style.borderColor = "rgba(144, 116, 255, 0.45)";
       row.style.transform = "translateX(2px)";
     });
     row.addEventListener("mouseleave", () => {
+      if (disabled) return;
       row.style.background = "rgba(255,255,255,0.03)";
       row.style.borderColor = "rgba(255,255,255,0.08)";
       row.style.transform = "translateX(0)";
     });
     row.addEventListener("mousedown", () => {
+      if (disabled) return;
       row.style.background = "rgba(255,255,255,0.08)";
     });
     row.addEventListener("mouseup", () => {
+      if (disabled) return;
       row.style.background = "rgba(255,255,255,0.06)";
     });
-    row.addEventListener("click", () => onOpen?.(path));
+    row.addEventListener("click", () => {
+      if (disabled) return;
+      onOpen?.(path);
+    });
 
     const content = document.createElement("div");
     content.style.cssText = "min-width: 0; flex: 1;";
@@ -149,10 +157,10 @@ export function createRecentVaultsList(opts = {}) {
 
     row.appendChild(content);
 
-    const menuHint = document.createElement("span");
-    menuHint.textContent = "⋮";
-    menuHint.style.cssText = "color: #7f8191; font-size: 18px; line-height: 1; padding-top: 2px;";
-    row.appendChild(menuHint);
+    const actionHint = document.createElement("span");
+    actionHint.textContent = "Open";
+    actionHint.style.cssText = "color: #a89dce; font-size: 11px; line-height: 1; padding-top: 5px; letter-spacing: 0.12em; text-transform: uppercase;";
+    row.appendChild(actionHint);
 
     list.appendChild(row);
   }

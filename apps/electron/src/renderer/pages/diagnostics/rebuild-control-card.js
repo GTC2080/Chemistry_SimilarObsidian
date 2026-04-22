@@ -11,16 +11,16 @@ export function createRebuildControlCard() {
   const card = document.createElement("div");
   card.className = "rebuild-control-card";
   card.style.cssText = `
-    padding: 16px;
-    border-radius: 8px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(29, 28, 35, 0.94);
+    border: 1px solid rgba(255,255,255,0.06);
     margin-bottom: 16px;
   `;
 
   const heading = document.createElement("div");
-  heading.style.cssText = "font-weight: 600; font-size: 14px; margin-bottom: 12px;";
-  heading.textContent = "Rebuild Index";
+  heading.style.cssText = "font-weight: 600; font-size: 14px; margin-bottom: 12px; color:#f5f3ff;";
+  heading.textContent = "重建索引";
   card.appendChild(heading);
 
   const statusArea = document.createElement("div");
@@ -47,15 +47,18 @@ export function createRebuildControlCard() {
   timeoutInput.step = "1000";
   timeoutInput.style.cssText = `
     width: 100px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
     font-size: 13px;
+    background: rgba(255,255,255,0.04);
+    color: #f5f3ff;
   `;
   controls.appendChild(timeoutInput);
 
   const timeoutLabel = document.createElement("span");
   timeoutLabel.style.cssText = "font-size: 12px; color: #6b7280;";
+  timeoutLabel.style.color = "#968ead";
   timeoutLabel.textContent = "ms";
   controls.appendChild(timeoutLabel);
 
@@ -69,7 +72,7 @@ export function createRebuildControlCard() {
     const env = await rebuild.getStatus("app-rebuild-status");
     if (!env.ok) {
       statusArea.textContent = "Unable to read rebuild status.";
-      statusArea.style.color = "#7f1d1d";
+      statusArea.style.color = "#fca5a5";
       return;
     }
 
@@ -90,7 +93,7 @@ export function createRebuildControlCard() {
     }
 
     statusArea.textContent = parts.join(" | ");
-    statusArea.style.color = inFlight ? "#92400e" : "#166534";
+    statusArea.style.color = inFlight ? "#fde68a" : "#86efac";
   }
 
   startBtn.addEventListener("click", async () => {
@@ -135,8 +138,8 @@ export function createRebuildControlCard() {
 
 function buttonStyle(bg) {
   return `
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 10px 18px;
+    border-radius: 12px;
     border: none;
     background: ${bg};
     color: #fff;
@@ -148,10 +151,11 @@ function buttonStyle(bg) {
 function banner(text, bg, color) {
   const el = document.createElement("div");
   el.style.cssText = `
-    padding: 10px 14px;
-    border-radius: 6px;
-    background: ${bg};
-    color: ${color};
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: ${bg === "#dcfce7" ? "rgba(22, 101, 52, 0.32)" : "rgba(120, 53, 15, 0.34)"};
+    border: 1px solid ${bg === "#dcfce7" ? "rgba(34,197,94,0.22)" : "rgba(250,204,21,0.2)"};
+    color: ${bg === "#dcfce7" ? "#86efac" : "#fde68a"};
     font-size: 13px;
   `;
   el.textContent = text;

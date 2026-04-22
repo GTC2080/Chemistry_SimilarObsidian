@@ -13,16 +13,21 @@ const STYLES = {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    min-height: 220px;
     padding: 32px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, rgba(35, 34, 41, 0.96), rgba(26, 25, 31, 0.96));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     text-align: center;
-    color: #4b5563;
+    color: #c4bddc;
     font-family: inherit;
   `,
   spinner: `
-    width: 24px;
-    height: 24px;
-    border: 3px solid #e5e7eb;
-    border-top-color: #3b82f6;
+    width: 26px;
+    height: 26px;
+    border: 3px solid rgba(255,255,255,0.12);
+    border-top-color: #8b5cf6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 12px;
@@ -34,7 +39,7 @@ const STYLES = {
   icon: `
     font-size: 32px;
     margin-bottom: 8px;
-    opacity: 0.6;
+    opacity: 0.72;
   `
 };
 
@@ -102,11 +107,11 @@ export function createUnavailableSurface(opts = {}) {
     const btn = document.createElement("button");
     btn.textContent = "Retry";
     btn.style.cssText = `
-      padding: 8px 18px;
-      border-radius: 6px;
-      border: 1px solid #6b7280;
-      background: #fff;
-      color: #374151;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      background: rgba(124, 58, 237, 0.18);
+      color: #e9ddff;
       cursor: pointer;
       font-size: 13px;
     `;
@@ -120,7 +125,7 @@ export function createUnavailableSurface(opts = {}) {
 export function createErrorSurface(error, opts = {}) {
   const el = document.createElement("div");
   el.className = "state-surface state-surface--error";
-  el.style.cssText = STYLES.surface + " align-items: stretch;";
+  el.style.cssText = STYLES.surface + " align-items: stretch; background: transparent; border: none; padding: 0; min-height: auto; box-shadow: none;";
 
   const card = createHostErrorCard(error, opts);
   el.appendChild(card);

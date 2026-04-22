@@ -9,12 +9,13 @@ export function createHostErrorCard(error, opts = {}) {
   const card = document.createElement("div");
   card.className = "host-error-card";
   card.style.cssText = `
-    padding: 16px;
-    border-radius: 8px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #7f1d1d;
+    padding: 18px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(61, 19, 32, 0.92), rgba(42, 15, 25, 0.92));
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    color: #fecaca;
     font-family: inherit;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   `;
 
   const code = document.createElement("div");
@@ -33,11 +34,13 @@ export function createHostErrorCard(error, opts = {}) {
     const details = document.createElement("pre");
     details.style.cssText = `
       font-size: 12px;
-      background: rgba(0,0,0,0.04);
-      padding: 8px;
-      border-radius: 4px;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 10px;
+      border-radius: 10px;
       overflow: auto;
       margin: 0;
+      color: #fde68a;
     `;
     details.textContent = JSON.stringify(error.details, null, 2);
     card.appendChild(details);
@@ -48,11 +51,11 @@ export function createHostErrorCard(error, opts = {}) {
     btn.textContent = "Retry";
     btn.style.cssText = `
       margin-top: 12px;
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: 1px solid #ef4444;
-      background: #ef4444;
-      color: #fff;
+      padding: 9px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(248, 113, 113, 0.55);
+      background: linear-gradient(180deg, #ef4444, #dc2626);
+      color: #fff7f7;
       cursor: pointer;
       font-size: 13px;
     `;

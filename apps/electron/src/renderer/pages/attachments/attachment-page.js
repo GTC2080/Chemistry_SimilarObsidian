@@ -19,16 +19,16 @@ export function createAttachmentPage() {
   const tabs = document.createElement("div");
   tabs.style.cssText = `
     display: flex;
-    gap: 4px;
-    margin-bottom: 12px;
+    gap: 8px;
+    margin-bottom: 16px;
   `;
 
   const listTabBtn = document.createElement("button");
-  listTabBtn.textContent = "List";
+  listTabBtn.textContent = "列表";
   listTabBtn.style.cssText = tabButtonStyle(true);
 
   const detailTabBtn = document.createElement("button");
-  detailTabBtn.textContent = "Detail";
+  detailTabBtn.textContent = "详情";
   detailTabBtn.style.cssText = tabButtonStyle(false);
   detailTabBtn.disabled = true;
 
@@ -86,15 +86,16 @@ export function createAttachmentPage() {
 
 function tabButtonStyle(active) {
   const base = `
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-    background: #fff;
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
     cursor: pointer;
     font-size: 13px;
+    color: #cabff7;
   `;
   if (active) {
-    return base + " background: #111827; color: #fff; border-color: #111827;";
+    return base + " background: linear-gradient(180deg, rgba(124,58,237,0.28), rgba(124,58,237,0.12)); color: #fff; border-color: rgba(139,92,246,0.4);";
   }
   return base;
 }

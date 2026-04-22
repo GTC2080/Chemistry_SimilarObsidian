@@ -8,28 +8,28 @@ export function createSearchResultItem(item) {
   const el = document.createElement("div");
   el.className = "search-result-item";
   el.style.cssText = `
-    padding: 12px 14px;
-    border-radius: 6px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    margin-bottom: 8px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: rgba(29, 28, 35, 0.94);
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 10px;
     cursor: default;
   `;
 
   const title = document.createElement("div");
-  title.style.cssText = "font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #111827;";
+  title.style.cssText = "font-weight: 600; font-size: 15px; margin-bottom: 6px; color: #f5f3ff;";
   title.textContent = item.title || "Untitled";
   el.appendChild(title);
 
   if (item.snippet) {
     const snippet = document.createElement("div");
-    snippet.style.cssText = "font-size: 13px; color: #4b5563; margin-bottom: 4px;";
+    snippet.style.cssText = "font-size: 13px; color: #c2bbd8; margin-bottom: 6px;";
     snippet.textContent = item.snippet;
     el.appendChild(snippet);
   }
 
   const meta = document.createElement("div");
-  meta.style.cssText = "display: flex; gap: 10px; align-items: center; font-size: 12px; color: #6b7280;";
+  meta.style.cssText = "display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 12px; color: #968ead;";
 
   const path = document.createElement("span");
   path.textContent = item.rel_path;
@@ -37,9 +37,11 @@ export function createSearchResultItem(item) {
 
   const kind = document.createElement("span");
   kind.style.cssText = `
-    padding: 1px 6px;
-    border-radius: 4px;
-    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(139,92,246,0.18);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #ddd6fe;
     text-transform: capitalize;
   `;
   kind.textContent = item.kind || "unknown";

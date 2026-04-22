@@ -12,7 +12,7 @@ import { store } from "../../state/host-store.js";
 export function createDiagnosticsPage() {
   const page = document.createElement("div");
   page.className = "diagnostics-page";
-  page.style.cssText = "max-width: 720px;";
+  page.style.cssText = "max-width: 900px;";
 
   const exportCard = createDiagnosticsExportCard();
   page.appendChild(exportCard);
@@ -21,7 +21,7 @@ export function createDiagnosticsPage() {
   page.appendChild(rebuildCard);
 
   const runtimeHeading = document.createElement("div");
-  runtimeHeading.style.cssText = "font-weight: 600; font-size: 14px; margin-bottom: 10px;";
+  runtimeHeading.style.cssText = "font-weight: 600; font-size: 14px; margin: 10px 0 12px; color:#f5f3ff;";
   runtimeHeading.textContent = "Runtime Summary";
   page.appendChild(runtimeHeading);
 

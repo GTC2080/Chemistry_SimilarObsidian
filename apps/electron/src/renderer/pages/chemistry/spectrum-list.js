@@ -21,14 +21,15 @@ export function createSpectrumList(viewModel, opts = {}) {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    background: rgba(29, 28, 35, 0.94);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px;
     overflow: hidden;
+    color: #ece7ff;
   `;
 
   const thead = document.createElement("thead");
-  thead.style.cssText = "background: #f9fafb; color: #6b7280; text-align: left;";
+  thead.style.cssText = "background: rgba(255,255,255,0.03); color: #938bab; text-align: left;";
   const headerRow = document.createElement("tr");
   const headers = ["Title", "Data Type", "X Units", "Y Units", "Source"];
   for (const h of headers) {
@@ -43,8 +44,8 @@ export function createSpectrumList(viewModel, opts = {}) {
   const tbody = document.createElement("tbody");
   for (const item of viewModel.items) {
     const tr = document.createElement("tr");
-    tr.style.cssText = "border-top: 1px solid #f3f4f6; cursor: pointer;";
-    tr.addEventListener("mouseenter", () => { tr.style.background = "#f9fafb"; });
+    tr.style.cssText = "border-top: 1px solid rgba(255,255,255,0.06); cursor: pointer;";
+    tr.addEventListener("mouseenter", () => { tr.style.background = "rgba(255,255,255,0.04)"; });
     tr.addEventListener("mouseleave", () => { tr.style.background = "transparent"; });
     tr.addEventListener("click", () => onSelect?.(item.attachmentRelPath));
 
@@ -58,7 +59,7 @@ export function createSpectrumList(viewModel, opts = {}) {
 
     for (const text of cells) {
       const td = document.createElement("td");
-      td.style.cssText = "padding: 10px 12px; color: #111827;";
+      td.style.cssText = "padding: 12px 14px; color: #ece7ff;";
       td.textContent = text;
       tr.appendChild(td);
     }

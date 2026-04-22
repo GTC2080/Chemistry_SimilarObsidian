@@ -34,14 +34,14 @@ export function createRuntimePage(runtimeEnvelope) {
     const block = document.createElement("div");
     block.style.cssText = `
       margin-bottom: 12px;
-      padding: 12px;
-      border-radius: 6px;
-      background: #fff;
-      border: 1px solid #e5e7eb;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(29, 28, 35, 0.94);
+      border: 1px solid rgba(255,255,255,0.06);
     `;
 
     const title = document.createElement("div");
-    title.style.cssText = "font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151;";
+    title.style.cssText = "font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #f5f3ff;";
     title.textContent = section.label;
     block.appendChild(title);
 
@@ -49,11 +49,12 @@ export function createRuntimePage(runtimeEnvelope) {
     pre.style.cssText = `
       margin: 0;
       font-size: 12px;
-      background: #f9fafb;
-      padding: 8px;
-      border-radius: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.05);
+      padding: 10px;
+      border-radius: 12px;
       overflow: auto;
-      color: #4b5563;
+      color: #c8c1df;
     `;
     pre.textContent = JSON.stringify(data[section.key] ?? null, null, 2);
     block.appendChild(pre);

@@ -14,17 +14,17 @@ export function createSearchFilterBar(currentRequest, opts = {}) {
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
-    padding: 10px 12px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    margin-bottom: 12px;
+    padding: 14px;
+    background: rgba(29, 28, 35, 0.94);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    margin-bottom: 16px;
   `;
 
   // Query input
   const queryInput = document.createElement("input");
   queryInput.type = "text";
-  queryInput.placeholder = "Search...";
+  queryInput.placeholder = "输入关键词...";
   queryInput.value = currentRequest.query || "";
   queryInput.style.cssText = inputStyle();
   queryInput.style.flex = "1 1 240px";
@@ -65,15 +65,16 @@ export function createSearchFilterBar(currentRequest, opts = {}) {
 
   // Search button
   const searchBtn = document.createElement("button");
-  searchBtn.textContent = "Search";
+  searchBtn.textContent = "搜索";
   searchBtn.style.cssText = `
-    padding: 6px 16px;
-    border-radius: 6px;
+    padding: 10px 18px;
+    border-radius: 12px;
     border: none;
-    background: #2563eb;
+    background: linear-gradient(180deg, #8b5cf6, #6d28d9);
     color: #fff;
     cursor: pointer;
     font-size: 13px;
+    box-shadow: 0 14px 30px rgba(109,40,217,0.24);
   `;
   bar.appendChild(searchBtn);
 
@@ -97,19 +98,22 @@ export function createSearchFilterBar(currentRequest, opts = {}) {
 
 function inputStyle() {
   return `
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
     font-size: 13px;
+    background: rgba(255,255,255,0.04);
+    color: #f5f3ff;
   `;
 }
 
 function selectStyle() {
   return `
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
     font-size: 13px;
-    background: #fff;
+    background: rgba(255,255,255,0.04);
+    color: #f5f3ff;
   `;
 }

@@ -13,16 +13,16 @@ export function createDiagnosticsExportCard() {
   const card = document.createElement("div");
   card.className = "diagnostics-export-card";
   card.style.cssText = `
-    padding: 16px;
-    border-radius: 8px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(29, 28, 35, 0.94);
+    border: 1px solid rgba(255,255,255,0.06);
     margin-bottom: 16px;
   `;
 
   const heading = document.createElement("div");
-  heading.style.cssText = "font-weight: 600; font-size: 14px; margin-bottom: 12px;";
-  heading.textContent = "Export Support Bundle";
+  heading.style.cssText = "font-weight: 600; font-size: 14px; margin-bottom: 12px; color:#f5f3ff;";
+  heading.textContent = "导出 Support Bundle";
   card.appendChild(heading);
 
   const inputWrap = document.createElement("div");
@@ -33,20 +33,22 @@ export function createDiagnosticsExportCard() {
   input.placeholder = "/path/to/support-bundle.zip";
   input.style.cssText = `
     flex: 1;
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
     font-size: 13px;
+    background: rgba(255,255,255,0.04);
+    color: #f5f3ff;
   `;
   inputWrap.appendChild(input);
 
   const btn = document.createElement("button");
   btn.textContent = "Export";
   btn.style.cssText = `
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 10px 18px;
+    border-radius: 12px;
     border: none;
-    background: #2563eb;
+    background: linear-gradient(180deg, #8b5cf6, #6d28d9);
     color: #fff;
     cursor: pointer;
     font-size: 13px;
@@ -84,10 +86,11 @@ export function createDiagnosticsExportCard() {
     const result = env.data;
     const success = document.createElement("div");
     success.style.cssText = `
-      padding: 10px;
-      border-radius: 6px;
-      background: #dcfce7;
-      color: #166534;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(22, 101, 52, 0.32);
+      border: 1px solid rgba(34,197,94,0.22);
+      color: #86efac;
       font-size: 13px;
     `;
     const path = result?.outputPath ?? outputPath;

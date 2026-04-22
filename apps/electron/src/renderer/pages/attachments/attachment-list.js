@@ -21,14 +21,15 @@ export function createAttachmentList(viewModel, opts = {}) {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    background: rgba(29, 28, 35, 0.94);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px;
     overflow: hidden;
+    color: #ece7ff;
   `;
 
   const thead = document.createElement("thead");
-  thead.style.cssText = "background: #f9fafb; color: #6b7280; text-align: left;";
+  thead.style.cssText = "background: rgba(255,255,255,0.03); color: #938bab; text-align: left;";
   const headerRow = document.createElement("tr");
   const headers = ["Path", "Kind", "Size", "State"];
   for (const h of headers) {
@@ -43,28 +44,28 @@ export function createAttachmentList(viewModel, opts = {}) {
   const tbody = document.createElement("tbody");
   for (const item of viewModel.items) {
     const tr = document.createElement("tr");
-    tr.style.cssText = "border-top: 1px solid #f3f4f6; cursor: pointer;";
-    tr.addEventListener("mouseenter", () => { tr.style.background = "#f9fafb"; });
+    tr.style.cssText = "border-top: 1px solid rgba(255,255,255,0.06); cursor: pointer;";
+    tr.addEventListener("mouseenter", () => { tr.style.background = "rgba(255,255,255,0.04)"; });
     tr.addEventListener("mouseleave", () => { tr.style.background = "transparent"; });
     tr.addEventListener("click", () => onSelect?.(item.relPath));
 
     const tdPath = document.createElement("td");
-    tdPath.style.cssText = "padding: 10px 12px; color: #111827;";
+    tdPath.style.cssText = "padding: 12px 14px; color: #f5f3ff;";
     tdPath.textContent = item.relPath;
     tr.appendChild(tdPath);
 
     const tdKind = document.createElement("td");
-    tdKind.style.cssText = "padding: 10px 12px; text-transform: uppercase; font-size: 11px; color: #6b7280;";
+    tdKind.style.cssText = "padding: 12px 14px; text-transform: uppercase; font-size: 11px; color: #968ead;";
     tdKind.textContent = item.extension || "—";
     tr.appendChild(tdKind);
 
     const tdSize = document.createElement("td");
-    tdSize.style.cssText = "padding: 10px 12px; color: #6b7280;";
+    tdSize.style.cssText = "padding: 12px 14px; color: #968ead;";
     tdSize.textContent = item.sizeBytes != null ? formatBytes(item.sizeBytes) : "—";
     tr.appendChild(tdSize);
 
     const tdState = document.createElement("td");
-    tdState.style.cssText = "padding: 10px 12px;";
+    tdState.style.cssText = "padding: 12px 14px;";
     tdState.appendChild(stateBadge(item.state));
     tr.appendChild(tdState);
 
@@ -79,10 +80,10 @@ export function createAttachmentList(viewModel, opts = {}) {
 function stateBadge(state) {
   const span = document.createElement("span");
   const colors = {
-    present: { bg: "#dcfce7", text: "#166534", label: "Present" },
-    missing: { bg: "#fee2e2", text: "#991b1b", label: "Missing" },
-    stale: { bg: "#fef9c3", text: "#854d0e", label: "Stale" },
-    unresolved: { bg: "#f3f4f6", text: "#4b5563", label: "Unresolved" }
+    present: { bg: "rgba(34,197,94,0.18)", text: "#86efac", label: "Present" },
+    missing: { bg: "rgba(248,113,113,0.18)", text: "#fca5a5", label: "Missing" },
+    stale: { bg: "rgba(250,204,21,0.18)", text: "#fde68a", label: "Stale" },
+    unresolved: { bg: "rgba(148,163,184,0.18)", text: "#cbd5e1", label: "Unresolved" }
   };
   const style = colors[state] || colors.unresolved;
   span.style.cssText = `
@@ -92,6 +93,7 @@ function stateBadge(state) {
     font-size: 11px;
     background: ${style.bg};
     color: ${style.text};
+    border: 1px solid rgba(255,255,255,0.06);
   `;
   span.textContent = style.label;
   return span;

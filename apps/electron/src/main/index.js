@@ -7,6 +7,10 @@ const { HostRuntime } = require("./host-runtime");
 const { SECURITY_BASELINE } = require("../shared/host-contract");
 
 const isSmokeRun = process.env.CHEM_OBSIDIAN_HOST_SMOKE === "1";
+const startupVaultPath = typeof process.env.CHEM_OBSIDIAN_STARTUP_VAULT === "string" &&
+  process.env.CHEM_OBSIDIAN_STARTUP_VAULT.trim()
+  ? process.env.CHEM_OBSIDIAN_STARTUP_VAULT.trim()
+  : "";
 const smokeRunId = typeof process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID === "string" &&
   process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID.trim()
   ? process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID.trim().replace(/[^a-zA-Z0-9_-]/g, "_")
@@ -110,7 +114,7 @@ if (isSmokeRun) {
 
 registerHostIpc(hostRuntime, hostApi);
 
-function createMainWindow() {
+async function createMainWindow() {
   const mainWindow = new BrowserWindow({
     width: 960,
     height: 640,
@@ -143,8 +147,6 @@ function createMainWindow() {
       exitCode: details.exitCode
     });
   });
-
-  mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 
   if (isSmokeRun) {
     const smokePaths = getSmokePaths();
@@ -335,16 +337,30 @@ function createMainWindow() {
       }
     });
   }
+
+  if (startupVaultPath && !isSmokeRun) {
+    const startupOpen = await hostRuntime.openVault({
+      vaultPath: startupVaultPath,
+      request_id: "startup-open-vault"
+    });
+
+    if (!startupOpen.ok) {
+      // eslint-disable-next-line no-console
+      console.error(`STARTUP_VAULT_OPEN_FAIL ${JSON.stringify(startupOpen.error)}`);
+    }
+  }
+
+  await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logSmokeStage("app_when_ready");
   hostRuntime.markReady();
-  createMainWindow();
+  await createMainWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+      void createMainWindow();
     }
   });
 });

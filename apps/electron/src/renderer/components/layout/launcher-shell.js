@@ -7,7 +7,7 @@
  */
 
 export function createLauncherShell(opts = {}) {
-  const { hostVersion } = opts;
+  const { hostVersion, launcherState = "no_vault_open" } = opts;
 
   const shell = document.createElement("div");
   shell.className = "launcher-shell";
@@ -61,7 +61,9 @@ export function createLauncherShell(opts = {}) {
 
   const statusText = document.createElement("span");
   statusText.style.cssText = "font-size: 12px; color: #8f92a4; text-transform: uppercase; letter-spacing: 0.08em;";
-  statusText.textContent = "No vault open";
+  statusText.textContent = launcherState === "opening_vault"
+    ? "Opening vault"
+    : "No vault open";
   rightWrap.appendChild(statusText);
 
   topBar.appendChild(rightWrap);

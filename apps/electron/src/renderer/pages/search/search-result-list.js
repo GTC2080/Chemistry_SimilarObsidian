@@ -30,7 +30,7 @@ export function createSearchResultList(viewModel, opts = {}) {
     margin-top: 12px;
     padding: 10px 0;
     font-size: 13px;
-    color: #4b5563;
+    color: #968ead;
   `;
 
   const info = document.createElement("span");
@@ -64,10 +64,11 @@ export function createSearchResultList(viewModel, opts = {}) {
 
 function buttonStyle(disabled) {
   const base = `
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-    background: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #efe8ff;
     cursor: pointer;
     font-size: 13px;
   `;

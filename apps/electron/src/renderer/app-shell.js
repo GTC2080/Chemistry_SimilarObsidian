@@ -145,20 +145,24 @@ class AppShell {
     const hostVersion = bootstrapEnv && bootstrapEnv.ok
       ? bootstrapEnv.data?.host_version ?? null
       : null;
+    const launcherState = this._sessionTransitioning ? "opening_vault" : "no_vault_open";
 
     const { element, rail, stage } = createLauncherShell({
-      hostVersion
+      hostVersion,
+      launcherState
     });
 
     const recentList = createRecentVaultsList({
-      onOpen: (path) => this._openVault(path)
+      onOpen: (path) => this._openVault(path),
+      disabled: this._sessionTransitioning
     });
 
     const launcherPage = createLauncherPage({
       onOpenVault: (path) => this._openVault(path),
       lastError: store.getLastSessionError(),
       isOpening: this._sessionTransitioning,
-      hostVersion
+      hostVersion,
+      launcherState
     });
 
     rail.appendChild(recentList);
@@ -205,7 +209,10 @@ class AppShell {
     } else if (currentPage === "diagnostics") {
       container.appendChild(createDiagnosticsPage());
     } else {
-      container.appendChild(createWorkspaceHomePage({ vaultPath: store.getActiveVaultPath() }));
+      container.appendChild(createWorkspaceHomePage({
+        vaultPath: store.getActiveVaultPath(),
+        runtimeEnvelope: store.getRuntimeSummary()
+      }));
     }
 
     return container;
@@ -231,12 +238,12 @@ class AppShell {
 
     const banner = document.createElement("div");
     banner.style.cssText = `
-      padding: 10px 14px;
-      margin-bottom: 12px;
-      border-radius: 6px;
-      background: #fffbeb;
-      border: 1px solid #fcd34d;
-      color: #92400e;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(71, 45, 16, 0.88), rgba(56, 36, 14, 0.88));
+      border: 1px solid rgba(250, 204, 21, 0.24);
+      color: #fcd34d;
       font-size: 13px;
     `;
     banner.textContent = messages.join(" ");
