@@ -87,6 +87,11 @@ kernel_status kernel_query_attachment_domain_metadata(
     const char* attachment_rel_path,
     size_t limit,
     kernel_domain_metadata_list* out_entries);
+kernel_status kernel_query_chem_spectrum_metadata(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    size_t limit,
+    kernel_domain_metadata_list* out_entries);
 kernel_status kernel_query_pdf_domain_metadata(
     kernel_handle* handle,
     const char* attachment_rel_path,

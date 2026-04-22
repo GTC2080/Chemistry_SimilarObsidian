@@ -43,7 +43,7 @@ kernel_attachment_kind classify_attachment_kind(const std::string_view extension
   if (extension == ".mol" || extension == ".mol2" || extension == ".sdf" ||
       extension == ".sd" || extension == ".pdb" || extension == ".cif" ||
       extension == ".xyz" || extension == ".cdx" || extension == ".cdxml" ||
-      extension == ".rxn") {
+      extension == ".rxn" || extension == ".jdx") {
     return KERNEL_ATTACHMENT_KIND_CHEM_LIKE;
   }
   return KERNEL_ATTACHMENT_KIND_GENERIC_FILE;

@@ -17,6 +17,8 @@ add_library(
   impl/core/kernel_attachment_query_shared.cpp
   impl/core/kernel_attachment_public_api.cpp
   impl/core/kernel_attachment_legacy_api.cpp
+  impl/core/kernel_chemistry_query_shared.cpp
+  impl/core/kernel_chemistry_public_api.cpp
   impl/core/kernel_pdf_query_shared.cpp
   impl/core/kernel_pdf_api.cpp
   impl/core/kernel_domain_api_reset.cpp
@@ -45,6 +47,7 @@ add_library(
   impl/index/refresh_paths.cpp
   impl/index/refresh_rescan.cpp
   impl/parser/parser.cpp
+  impl/chemistry/chemistry_spectrum_metadata.cpp
   impl/pdf/pdf_anchor.cpp
   impl/pdf/pdf_metadata.cpp
   impl/recovery/journal_format.cpp
