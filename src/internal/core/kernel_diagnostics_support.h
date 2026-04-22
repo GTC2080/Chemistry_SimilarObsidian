@@ -109,4 +109,8 @@ std::string build_diagnostics_json(
     const PdfDiagnosticsSnapshot& pdf_snapshot,
     const DomainDiagnosticsSnapshot& domain_snapshot);
 
+std::string build_domain_diagnostics_json_fragment(
+    const RuntimeDiagnosticsSnapshot& runtime_snapshot,
+    const DomainDiagnosticsSnapshot& domain_snapshot);
+
 }  // namespace kernel::core::diagnostics_export

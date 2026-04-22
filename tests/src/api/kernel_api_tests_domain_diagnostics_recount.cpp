@@ -4,9 +4,9 @@
 #include "kernel/c_api.h"
 
 #include "api/kernel_api_domain_diagnostics_suites.h"
+#include "api/kernel_api_pdf_test_helpers.h"
 #include "api/kernel_api_test_support.h"
 #include "core/kernel_internal.h"
-#include "core/kernel_pdf_query_shared.h"
 #include "support/test_support.h"
 #include "watcher/session.h"
 
@@ -16,35 +16,11 @@
 
 namespace {
 
-std::string make_pdf_bytes(std::string_view page_text) {
-  std::string bytes = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n";
-  bytes += "2 0 obj\n<< /Type /Page >>\n";
-  if (!page_text.empty()) {
-    bytes += "BT\n/F1 12 Tf\n(";
-    bytes += page_text;
-    bytes += ") Tj\nET\n";
-  }
-  bytes += "endobj\n%%EOF\n";
-  return bytes;
-}
-
-std::vector<kernel::storage::PdfAnchorRecord> query_pdf_anchors(
-    kernel_handle* handle,
-    const char* attachment_rel_path) {
-  std::vector<kernel::storage::PdfAnchorRecord> records;
-  expect_ok(
-      kernel::core::pdf_query::query_live_pdf_anchor_records(
-          handle,
-          attachment_rel_path,
-          records));
-  return records;
-}
-
 void test_export_diagnostics_reports_last_domain_recount_after_rebuild() {
   const auto vault = make_temp_vault();
   const auto export_path = vault / "domain-recount-rebuild.json";
   std::filesystem::create_directories(vault / "assets");
-  write_file_bytes(vault / "assets" / "rebuild.pdf", make_pdf_bytes("Rebuild Domain PDF Text"));
+  write_file_bytes(vault / "assets" / "rebuild.pdf", make_text_pdf_bytes("Rebuild Domain PDF Text"));
 
   kernel_handle* handle = nullptr;
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
@@ -61,7 +37,7 @@ void test_export_diagnostics_reports_last_domain_recount_after_rebuild() {
       &metadata,
       &disposition));
 
-  const auto anchor_records = query_pdf_anchors(handle, "assets/rebuild.pdf");
+  const auto anchor_records = query_pdf_anchor_records(handle, "assets/rebuild.pdf");
   require_true(anchor_records.size() == 1, "domain rebuild recount test should materialize one anchor");
   const std::string source_note =
       "# Domain Source Rebuild\n"
@@ -98,7 +74,9 @@ void test_export_diagnostics_reports_last_domain_recount_after_watcher_full_resc
   const auto vault = make_temp_vault();
   const auto export_path = vault / "domain-recount-watcher.json";
   std::filesystem::create_directories(vault / "assets");
-  write_file_bytes(vault / "assets" / "watcher.pdf", make_pdf_bytes("Original Domain Watcher Text"));
+  write_file_bytes(
+      vault / "assets" / "watcher.pdf",
+      make_text_pdf_bytes("Original Domain Watcher Text"));
 
   kernel_handle* handle = nullptr;
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
@@ -115,7 +93,7 @@ void test_export_diagnostics_reports_last_domain_recount_after_watcher_full_resc
       &metadata,
       &disposition));
 
-  const auto anchor_records = query_pdf_anchors(handle, "assets/watcher.pdf");
+  const auto anchor_records = query_pdf_anchor_records(handle, "assets/watcher.pdf");
   require_true(anchor_records.size() == 1, "domain watcher recount test should materialize one anchor");
   const std::string source_note =
       "# Domain Watcher Source\n"
@@ -129,7 +107,7 @@ void test_export_diagnostics_reports_last_domain_recount_after_watcher_full_resc
       &metadata,
       &disposition));
 
-  write_file_bytes(vault / "assets" / "watcher.pdf", make_pdf_bytes("Changed Domain Watcher Text"));
+  write_file_bytes(vault / "assets" / "watcher.pdf", make_text_pdf_bytes("Changed Domain Watcher Text"));
   kernel::watcher::inject_next_poll_overflow(handle->watcher_session);
   require_eventually(
       [&]() {

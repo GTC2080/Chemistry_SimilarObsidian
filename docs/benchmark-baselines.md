@@ -119,41 +119,41 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
 ## Fresh Verification Snapshot
 
 - startup
-  - `clean_observed_ms=1860`
-  - `recovery_observed_ms=2707`
+  - `clean_observed_ms=2410`
+  - `recovery_observed_ms=3068`
 - io
-  - `io_roundtrip_observed_ms=256`
-  - `external_create_observed_ms=245`
+  - `io_roundtrip_observed_ms=342`
+  - `external_create_observed_ms=316`
 - rebuild
-  - `rebuild_observed_ms=11911`
+  - `rebuild_observed_ms=15137`
 - query
-  - `tag_query_observed_ms=165`
-  - `title_query_observed_ms=60`
-  - `body_query_observed_ms=60`
-  - `body_snippet_query_observed_ms=62`
-  - `title_only_query_observed_ms=59`
-  - `shallow_page_query_observed_ms=141`
-  - `deep_offset_query_observed_ms=137`
-  - `filtered_note_query_observed_ms=129`
-  - `attachment_path_query_observed_ms=92`
-  - `attachment_catalog_query_observed_ms=55`
-  - `attachment_lookup_query_observed_ms=21`
-  - `note_attachment_refs_query_observed_ms=33`
-  - `attachment_referrers_query_observed_ms=16`
-  - `pdf_source_refs_query_observed_ms=113`
-  - `pdf_referrers_query_observed_ms=199`
-  - `domain_attachment_metadata_query_observed_ms=27`
-  - `domain_pdf_metadata_query_observed_ms=45`
-  - `domain_attachment_objects_query_observed_ms=24`
-  - `domain_pdf_objects_query_observed_ms=27`
-  - `domain_object_lookup_query_observed_ms=30`
-  - `domain_note_source_refs_query_observed_ms=124`
-  - `domain_object_referrers_query_observed_ms=218`
-  - `all_kind_query_observed_ms=184`
-  - `ranked_title_query_observed_ms=84`
-  - `ranked_tag_boost_query_observed_ms=86`
-  - `ranked_all_kind_query_observed_ms=228`
-  - `backlink_query_observed_ms=145`
+  - `tag_query_observed_ms=139`
+  - `title_query_observed_ms=43`
+  - `body_query_observed_ms=43`
+  - `body_snippet_query_observed_ms=47`
+  - `title_only_query_observed_ms=43`
+  - `shallow_page_query_observed_ms=100`
+  - `deep_offset_query_observed_ms=101`
+  - `filtered_note_query_observed_ms=92`
+  - `attachment_path_query_observed_ms=63`
+  - `attachment_catalog_query_observed_ms=37`
+  - `attachment_lookup_query_observed_ms=15`
+  - `note_attachment_refs_query_observed_ms=24`
+  - `attachment_referrers_query_observed_ms=13`
+  - `pdf_source_refs_query_observed_ms=82`
+  - `pdf_referrers_query_observed_ms=140`
+  - `domain_attachment_metadata_query_observed_ms=23`
+  - `domain_pdf_metadata_query_observed_ms=31`
+  - `domain_attachment_objects_query_observed_ms=28`
+  - `domain_pdf_objects_query_observed_ms=33`
+  - `domain_object_lookup_query_observed_ms=26`
+  - `domain_note_source_refs_query_observed_ms=98`
+  - `domain_object_referrers_query_observed_ms=165`
+  - `all_kind_query_observed_ms=142`
+  - `ranked_title_query_observed_ms=62`
+  - `ranked_tag_boost_query_observed_ms=53`
+  - `ranked_all_kind_query_observed_ms=239`
+  - `backlink_query_observed_ms=142`
 
 ## Update Rule
 

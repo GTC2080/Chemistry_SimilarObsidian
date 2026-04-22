@@ -3,7 +3,7 @@
 
 #include "api/kernel_api_domain_reference_suites.h"
 
-#include "core/kernel_pdf_query_shared.h"
+#include "api/kernel_api_pdf_test_helpers.h"
 #include "kernel/c_api.h"
 #include "support/test_support.h"
 
@@ -23,30 +23,6 @@ struct DomainReferrerSnapshot {
   std::string target_basis_revision;
   kernel_domain_ref_state state = KERNEL_DOMAIN_REF_UNRESOLVED;
 };
-
-std::string make_pdf_bytes(std::string_view page_text) {
-  std::string bytes = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n";
-  bytes += "2 0 obj\n<< /Type /Page >>\n";
-  if (!page_text.empty()) {
-    bytes += "BT\n/F1 12 Tf\n(";
-    bytes += page_text;
-    bytes += ") Tj\nET\n";
-  }
-  bytes += "endobj\n%%EOF\n";
-  return bytes;
-}
-
-std::vector<kernel::storage::PdfAnchorRecord> query_pdf_anchors(
-    kernel_handle* handle,
-    const char* attachment_rel_path) {
-  std::vector<kernel::storage::PdfAnchorRecord> records;
-  expect_ok(
-      kernel::core::pdf_query::query_live_pdf_anchor_records(
-          handle,
-          attachment_rel_path,
-          records));
-  return records;
-}
 
 bool try_snapshot_domain_referrers(
     kernel_handle* handle,
@@ -92,8 +68,8 @@ std::vector<DomainReferrerSnapshot> query_domain_referrers(
 void test_domain_object_referrers_surface_projects_pdf_referrers_into_generic_shape() {
   const auto vault = make_temp_vault();
   std::filesystem::create_directories(vault / "assets");
-  write_file_bytes(vault / "assets" / "shared.pdf", make_pdf_bytes("Shared Anchor Text"));
-  write_file_bytes(vault / "assets" / "attachment-only.pdf", make_pdf_bytes("Attachment Only Text"));
+  write_file_bytes(vault / "assets" / "shared.pdf", make_text_pdf_bytes("Shared Anchor Text"));
+  write_file_bytes(vault / "assets" / "attachment-only.pdf", make_text_pdf_bytes("Attachment Only Text"));
 
   kernel_handle* handle = nullptr;
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
@@ -111,7 +87,7 @@ void test_domain_object_referrers_surface_projects_pdf_referrers_into_generic_sh
       nullptr,
       &metadata,
       &disposition));
-  const auto anchor_records = query_pdf_anchors(handle, "assets/shared.pdf");
+  const auto anchor_records = query_pdf_anchor_records(handle, "assets/shared.pdf");
   require_true(anchor_records.size() == 1, "shared pdf fixture should materialize one anchor");
 
   const std::string shared_anchor = anchor_records[0].anchor_serialized;
@@ -176,7 +152,7 @@ void test_domain_object_referrers_surface_projects_pdf_referrers_into_generic_sh
       attachment_referrers.empty(),
       "attachment_resource objects should currently expose an empty generic referrer list");
 
-  write_file_bytes(vault / "assets" / "shared.pdf", make_pdf_bytes("Changed Shared Anchor Text"));
+  write_file_bytes(vault / "assets" / "shared.pdf", make_text_pdf_bytes("Changed Shared Anchor Text"));
   require_eventually(
       [&]() {
         std::vector<DomainReferrerSnapshot> updated_referrers;

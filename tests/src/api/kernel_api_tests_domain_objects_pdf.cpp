@@ -3,43 +3,21 @@
 
 #include "kernel/c_api.h"
 
+#include "api/kernel_api_pdf_test_helpers.h"
 #include "api/kernel_api_domain_object_suites.h"
 #include "support/test_support.h"
 
 #include <filesystem>
 #include <string>
-#include <string_view>
 
 namespace {
-
-std::string make_pdf_bytes(
-    const int page_count,
-    const bool has_outline,
-    const bool include_text_layer,
-    std::string_view title_clause) {
-  std::string bytes = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog ";
-  if (has_outline) {
-    bytes += "/Outlines 2 0 R ";
-  }
-  bytes += std::string(title_clause);
-  bytes += ">>\nendobj\n";
-  for (int page = 0; page < page_count; ++page) {
-    bytes += std::to_string(page + 2);
-    bytes += " 0 obj\n<< /Type /Page >>\nendobj\n";
-  }
-  if (include_text_layer) {
-    bytes += "BT\n/F1 12 Tf\n(hello) Tj\nET\n";
-  }
-  bytes += "%%EOF\n";
-  return bytes;
-}
 
 void test_pdf_domain_object_surface_exposes_canonical_pdf_subtype_states() {
   const auto vault = make_temp_vault();
   std::filesystem::create_directories(vault / "assets");
   write_file_bytes(
       vault / "assets" / "ready.pdf",
-      make_pdf_bytes(2, true, true, "/Title (Ready PDF) "));
+      make_metadata_pdf_bytes(2, true, true, "/Title (Ready PDF) "));
   write_file_bytes(vault / "assets" / "invalid.pdf", "not-a-pdf");
 
   kernel_handle* handle = nullptr;
@@ -130,7 +108,9 @@ void test_pdf_domain_object_surface_exposes_canonical_pdf_subtype_states() {
 void test_pdf_domain_object_surface_rejects_invalid_or_non_live_keys() {
   const auto vault = make_temp_vault();
   std::filesystem::create_directories(vault / "assets");
-  write_file_bytes(vault / "assets" / "unreferenced.pdf", make_pdf_bytes(1, false, true, "/Title (U) "));
+  write_file_bytes(
+      vault / "assets" / "unreferenced.pdf",
+      make_metadata_pdf_bytes(1, false, true, "/Title (U) "));
   write_file_bytes(vault / "assets" / "plain.png", "png-bytes");
 
   kernel_handle* handle = nullptr;

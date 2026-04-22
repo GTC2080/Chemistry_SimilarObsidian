@@ -4,8 +4,8 @@
 #include "kernel/c_api.h"
 
 #include "api/kernel_api_domain_diagnostics_suites.h"
+#include "api/kernel_api_pdf_test_helpers.h"
 #include "api/kernel_api_test_support.h"
-#include "core/kernel_pdf_query_shared.h"
 #include "support/test_support.h"
 
 #include <filesystem>
@@ -14,36 +14,12 @@
 
 namespace {
 
-std::string make_pdf_bytes(std::string_view page_text) {
-  std::string bytes = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n";
-  bytes += "2 0 obj\n<< /Type /Page >>\n";
-  if (!page_text.empty()) {
-    bytes += "BT\n/F1 12 Tf\n(";
-    bytes += page_text;
-    bytes += ") Tj\nET\n";
-  }
-  bytes += "endobj\n%%EOF\n";
-  return bytes;
-}
-
-std::vector<kernel::storage::PdfAnchorRecord> query_pdf_anchors(
-    kernel_handle* handle,
-    const char* attachment_rel_path) {
-  std::vector<kernel::storage::PdfAnchorRecord> records;
-  expect_ok(
-      kernel::core::pdf_query::query_live_pdf_anchor_records(
-          handle,
-          attachment_rel_path,
-          records));
-  return records;
-}
-
 void test_export_diagnostics_reports_domain_contract_snapshot() {
   const auto vault = make_temp_vault();
   const auto export_path = vault / "domain-diagnostics-snapshot.json";
   std::filesystem::create_directories(vault / "assets");
   write_file_bytes(vault / "assets" / "diagram.png", "png-bytes");
-  write_file_bytes(vault / "assets" / "ready.pdf", make_pdf_bytes("Ready PDF Text"));
+  write_file_bytes(vault / "assets" / "ready.pdf", make_text_pdf_bytes("Ready PDF Text"));
   write_file_bytes(vault / "assets" / "invalid.pdf", "not-a-pdf");
 
   kernel_handle* handle = nullptr;
@@ -67,7 +43,7 @@ void test_export_diagnostics_reports_domain_contract_snapshot() {
       &metadata,
       &disposition));
 
-  const auto anchor_records = query_pdf_anchors(handle, "assets/ready.pdf");
+  const auto anchor_records = query_pdf_anchor_records(handle, "assets/ready.pdf");
   require_true(anchor_records.size() == 1, "domain diagnostics snapshot should materialize one pdf anchor");
 
   const std::string missing_anchor =

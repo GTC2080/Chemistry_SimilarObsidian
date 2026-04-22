@@ -3,7 +3,7 @@
 
 #include "api/kernel_api_domain_reference_suites.h"
 
-#include "core/kernel_pdf_query_shared.h"
+#include "api/kernel_api_pdf_test_helpers.h"
 #include "kernel/c_api.h"
 #include "support/test_support.h"
 
@@ -21,30 +21,6 @@ struct DomainSourceRefSnapshot {
   std::string target_basis_revision;
   kernel_domain_ref_state state = KERNEL_DOMAIN_REF_UNRESOLVED;
 };
-
-std::string make_pdf_bytes(std::string_view page_text) {
-  std::string bytes = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n";
-  bytes += "2 0 obj\n<< /Type /Page >>\n";
-  if (!page_text.empty()) {
-    bytes += "BT\n/F1 12 Tf\n(";
-    bytes += page_text;
-    bytes += ") Tj\nET\n";
-  }
-  bytes += "endobj\n%%EOF\n";
-  return bytes;
-}
-
-std::vector<kernel::storage::PdfAnchorRecord> query_pdf_anchors(
-    kernel_handle* handle,
-    const char* attachment_rel_path) {
-  std::vector<kernel::storage::PdfAnchorRecord> records;
-  expect_ok(
-      kernel::core::pdf_query::query_live_pdf_anchor_records(
-          handle,
-          attachment_rel_path,
-          records));
-  return records;
-}
 
 bool try_snapshot_note_domain_source_refs(
     kernel_handle* handle,
@@ -88,8 +64,8 @@ std::vector<DomainSourceRefSnapshot> query_note_domain_source_refs(
 void test_note_domain_source_refs_surface_projects_pdf_source_refs_into_generic_shape() {
   const auto vault = make_temp_vault();
   std::filesystem::create_directories(vault / "assets");
-  write_file_bytes(vault / "assets" / "resolved.pdf", make_pdf_bytes("Resolved Page Text"));
-  write_file_bytes(vault / "assets" / "stale.pdf", make_pdf_bytes("Original Stale Text"));
+  write_file_bytes(vault / "assets" / "resolved.pdf", make_text_pdf_bytes("Resolved Page Text"));
+  write_file_bytes(vault / "assets" / "stale.pdf", make_text_pdf_bytes("Original Stale Text"));
 
   kernel_handle* handle = nullptr;
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
@@ -109,8 +85,8 @@ void test_note_domain_source_refs_surface_projects_pdf_source_refs_into_generic_
       &metadata,
       &disposition));
 
-  const auto resolved_anchor_records = query_pdf_anchors(handle, "assets/resolved.pdf");
-  const auto stale_anchor_records = query_pdf_anchors(handle, "assets/stale.pdf");
+  const auto resolved_anchor_records = query_pdf_anchor_records(handle, "assets/resolved.pdf");
+  const auto stale_anchor_records = query_pdf_anchor_records(handle, "assets/stale.pdf");
   require_true(
       resolved_anchor_records.size() == 1 && stale_anchor_records.size() == 1,
       "seed note should materialize one anchor for each single-page PDF");
@@ -163,7 +139,7 @@ void test_note_domain_source_refs_surface_projects_pdf_source_refs_into_generic_
           refs[3].state == KERNEL_DOMAIN_REF_UNRESOLVED,
       "malformed selectors should project as unresolved refs without synthetic basis data");
 
-  write_file_bytes(vault / "assets" / "stale.pdf", make_pdf_bytes("Changed Stale Text"));
+  write_file_bytes(vault / "assets" / "stale.pdf", make_text_pdf_bytes("Changed Stale Text"));
   require_eventually(
       [&]() {
         std::vector<DomainSourceRefSnapshot> updated_refs;
@@ -188,7 +164,7 @@ void test_note_domain_source_refs_surface_projects_pdf_source_refs_into_generic_
 void test_note_domain_source_refs_surface_applies_limit_and_argument_contract() {
   const auto vault = make_temp_vault();
   std::filesystem::create_directories(vault / "assets");
-  write_file_bytes(vault / "assets" / "limit.pdf", make_pdf_bytes("Limit Text"));
+  write_file_bytes(vault / "assets" / "limit.pdf", make_text_pdf_bytes("Limit Text"));
 
   kernel_handle* handle = nullptr;
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
@@ -206,7 +182,7 @@ void test_note_domain_source_refs_surface_applies_limit_and_argument_contract() 
       nullptr,
       &metadata,
       &disposition));
-  const auto limit_anchor_records = query_pdf_anchors(handle, "assets/limit.pdf");
+  const auto limit_anchor_records = query_pdf_anchor_records(handle, "assets/limit.pdf");
   require_true(limit_anchor_records.size() == 1, "limit fixture should materialize one anchor");
 
   const std::string anchored_note =

@@ -40,6 +40,7 @@ add_library(
   impl/core/kernel_diagnostics.cpp
   impl/core/kernel_diagnostics_storage.cpp
   impl/core/kernel_diagnostics_json.cpp
+  impl/core/kernel_diagnostics_domain_json.cpp
   impl/diagnostics/logger.cpp
   impl/index/refresh_paths.cpp
   impl/index/refresh_rescan.cpp

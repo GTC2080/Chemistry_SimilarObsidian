@@ -3,6 +3,7 @@
 
 #include "kernel/c_api.h"
 
+#include "api/kernel_api_pdf_test_helpers.h"
 #include "api/kernel_api_domain_surface_suites.h"
 #include "support/test_support.h"
 
@@ -11,28 +12,6 @@
 #include <string_view>
 
 namespace {
-
-std::string make_pdf_bytes(
-    const int page_count,
-    const bool has_outline,
-    const bool include_text_layer,
-    std::string_view title_clause) {
-  std::string bytes = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog ";
-  if (has_outline) {
-    bytes += "/Outlines 2 0 R ";
-  }
-  bytes += std::string(title_clause);
-  bytes += ">>\nendobj\n";
-  for (int page = 0; page < page_count; ++page) {
-    bytes += std::to_string(page + 2);
-    bytes += " 0 obj\n<< /Type /Page >>\nendobj\n";
-  }
-  if (include_text_layer) {
-    bytes += "BT\n/F1 12 Tf\n(hello) Tj\nET\n";
-  }
-  bytes += "%%EOF\n";
-  return bytes;
-}
 
 const kernel_domain_metadata_entry* find_entry(
     const kernel_domain_metadata_list& entries,
@@ -75,11 +54,11 @@ void test_pdf_domain_metadata_surface_projects_registered_generic_entries() {
   std::filesystem::create_directories(vault / "assets");
   write_file_bytes(
       vault / "assets" / "ready.pdf",
-      make_pdf_bytes(2, true, true, "/Title (Ready PDF) "));
+      make_metadata_pdf_bytes(2, true, true, "/Title (Ready PDF) "));
   write_file_bytes(vault / "assets" / "plain.png", "png-bytes");
   write_file_bytes(
       vault / "assets" / "unreferenced.pdf",
-      make_pdf_bytes(1, false, true, "/Title (Unreferenced PDF) "));
+      make_metadata_pdf_bytes(1, false, true, "/Title (Unreferenced PDF) "));
 
   kernel_handle* handle = nullptr;
   expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
@@ -157,7 +136,7 @@ void test_pdf_domain_metadata_surface_projects_registered_generic_entries() {
 
   write_file_bytes(
       vault / "assets" / "ready.pdf",
-      make_pdf_bytes(3, false, false, "/Title (Changed Ready PDF) "));
+      make_metadata_pdf_bytes(3, false, false, "/Title (Changed Ready PDF) "));
   expect_ok(kernel_rebuild_index(handle));
   expect_ok(kernel_query_pdf_domain_metadata(
       handle,
