@@ -3,6 +3,7 @@ import ResizeHandle from "../nexus/ResizeHandle";
 import ActivityBar from "../nexus/ActivityBar";
 import AppStatusBar from "../nexus/AppStatusBar";
 import EditorViewport from "./EditorViewport";
+import { useT } from "../../i18n";
 import type { NoteRecord, TreeNode } from "../../lib/files-tree";
 
 interface WorkspaceShellProps {

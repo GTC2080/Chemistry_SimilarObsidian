@@ -23,6 +23,20 @@ const smokeRunId = typeof process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID === "strin
 const smokeRendererPath = path.join(__dirname, "../smoke-renderer/index.html");
 const builtRendererPath = path.join(__dirname, "../../build/renderer-react/index.html");
 
+function appendHostDebug(label, payload = null) {
+  try {
+    const debugPath = path.join(app.getPath("userData"), "host-debug.log");
+    const line = JSON.stringify({
+      at_ms: Date.now(),
+      label,
+      ...(payload ?? {})
+    });
+    fs.appendFileSync(debugPath, `${line}\n`, "utf8");
+  } catch {
+    // Best-effort debug trace only.
+  }
+}
+
 function logSmokeStage(stage, details = null) {
   if (!isSmokeRun) {
     return;
@@ -125,6 +139,11 @@ registerHostIpc(hostRuntime, hostApi);
 registerDesktopIpc();
 
 async function createMainWindow() {
+  appendHostDebug("create_main_window.begin", {
+    isSmokeRun,
+    rendererDevUrl,
+    builtRendererPath
+  });
   const mainWindow = new BrowserWindow({
     width: 960,
     height: 640,
@@ -157,6 +176,61 @@ async function createMainWindow() {
     hostRuntime.noteWindowEvent("render_process_gone", {
       reason: details.reason,
       exitCode: details.exitCode
+    });
+    appendHostDebug("render_process_gone", {
+      reason: details.reason,
+      exitCode: details.exitCode
+    });
+  });
+
+  mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    // eslint-disable-next-line no-console
+    console.log(`RENDERER_CONSOLE ${JSON.stringify({ level, message, line, sourceId })}`);
+    appendHostDebug("renderer_console", {
+      level,
+      message,
+      line,
+      sourceId
+    });
+  });
+
+  mainWindow.webContents.on("preload-error", (_event, preloadPath, error) => {
+    // eslint-disable-next-line no-console
+    console.error(`PRELOAD_ERROR ${JSON.stringify({
+      preloadPath,
+      error: error && error.stack ? error.stack : String(error)
+    })}`);
+    appendHostDebug("preload_error", {
+      preloadPath,
+      error: error && error.stack ? error.stack : String(error)
+    });
+  });
+
+  mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    // eslint-disable-next-line no-console
+    console.error(`DID_FAIL_LOAD ${JSON.stringify({
+      errorCode,
+      errorDescription,
+      validatedURL,
+      isMainFrame
+    })}`);
+    appendHostDebug("did_fail_load", {
+      errorCode,
+      errorDescription,
+      validatedURL,
+      isMainFrame
+    });
+  });
+
+  mainWindow.webContents.on("did-finish-load", () => {
+    // eslint-disable-next-line no-console
+    console.log(`DID_FINISH_LOAD ${JSON.stringify({
+      url: mainWindow.webContents.getURL(),
+      isSmokeRun
+    })}`);
+    appendHostDebug("did_finish_load", {
+      url: mainWindow.webContents.getURL(),
+      isSmokeRun
     });
   });
 
@@ -389,11 +463,15 @@ async function createMainWindow() {
 
   if (isSmokeRun) {
     await mainWindow.loadFile(smokeRendererPath);
+    appendHostDebug("create_main_window.loaded_smoke");
     return;
   }
 
   if (rendererDevUrl) {
     await mainWindow.loadURL(rendererDevUrl);
+    appendHostDebug("create_main_window.loaded_dev_url", {
+      url: rendererDevUrl
+    });
     return;
   }
 
@@ -402,12 +480,15 @@ async function createMainWindow() {
   }
 
   await mainWindow.loadFile(builtRendererPath);
+  appendHostDebug("create_main_window.loaded_built_renderer");
 }
 
 app.whenReady().then(async () => {
+  appendHostDebug("app_when_ready.begin");
   logSmokeStage("app_when_ready");
   hostRuntime.markReady();
   await createMainWindow();
+  appendHostDebug("app_when_ready.done");
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -417,10 +498,12 @@ app.whenReady().then(async () => {
 });
 
 app.on("before-quit", async () => {
+  appendHostDebug("before_quit");
   await hostRuntime.prepareForShutdown();
 });
 
 app.on("window-all-closed", () => {
+  appendHostDebug("window_all_closed");
   if (process.platform !== "darwin") {
     app.quit();
   }
