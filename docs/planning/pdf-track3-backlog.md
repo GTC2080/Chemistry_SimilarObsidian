@@ -66,7 +66,7 @@ Required work:
 
 Required documents:
 
-- `pdf-query-contract.md`
+- `contracts/pdf-query-contract.md`
 
 Acceptance:
 
@@ -92,7 +92,7 @@ Required work:
 
 Required documents:
 
-- `pdf-query-contract.md`
+- `contracts/pdf-query-contract.md`
 
 Acceptance:
 
@@ -116,8 +116,8 @@ Required work:
 
 Required documents:
 
-- `pdf-query-contract.md`
-- `pdf-regression-matrix.md`
+- `contracts/pdf-query-contract.md`
+- `regression/pdf-regression-matrix.md`
 
 Acceptance:
 
@@ -139,7 +139,7 @@ Required work:
 
 Required documents:
 
-- `pdf-regression-matrix.md`
+- `regression/pdf-regression-matrix.md`
 
 Acceptance:
 

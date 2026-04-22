@@ -130,11 +130,11 @@ Green checks:
 
 The current benchmark baselines, thresholds, and latest observed timings are frozen in:
 
-- [benchmark-baselines.md](/E:/测试/Chemistry_Obsidian/docs/benchmark-baselines.md)
+- [benchmark-baselines.md](/E:/测试/Chemistry_Obsidian/docs/governance/benchmark-baselines.md)
 
 The current release-ready command set is frozen in:
 
-- [release-checklist.md](/E:/测试/Chemistry_Obsidian/docs/release-checklist.md)
+- [release-checklist.md](/E:/测试/Chemistry_Obsidian/docs/governance/release-checklist.md)
 
 ## Governance Surfaces Present
 

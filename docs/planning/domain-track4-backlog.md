@@ -85,8 +85,8 @@ Required work:
 
 Required documents:
 
-- `domain-track4-backlog.md`
-- `domain-extension-contract.md`
+- `planning/domain-track4-backlog.md`
+- `contracts/domain-extension-contract.md`
 
 Acceptance:
 
@@ -112,8 +112,8 @@ Required work:
 
 Required documents:
 
-- `domain-extension-contract.md`
-- `domain-regression-matrix.md`
+- `contracts/domain-extension-contract.md`
+- `regression/domain-regression-matrix.md`
 
 Acceptance:
 
@@ -142,8 +142,8 @@ Required work:
 
 Required documents:
 
-- `domain-extension-contract.md`
-- `domain-regression-matrix.md`
+- `contracts/domain-extension-contract.md`
+- `regression/domain-regression-matrix.md`
 
 Acceptance:
 
@@ -166,8 +166,8 @@ Required work:
 
 Required documents:
 
-- `domain-extension-contract.md`
-- `domain-regression-matrix.md`
+- `contracts/domain-extension-contract.md`
+- `regression/domain-regression-matrix.md`
 
 Acceptance:
 

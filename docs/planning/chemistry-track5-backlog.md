@@ -107,8 +107,8 @@ Required work:
 
 Required documents:
 
-- `chemistry-track5-backlog.md`
-- `chemistry-capability-contract.md`
+- `planning/chemistry-track5-backlog.md`
+- `contracts/chemistry-capability-contract.md`
 
 Acceptance:
 
@@ -136,8 +136,8 @@ Required work:
 
 Required documents:
 
-- `chemistry-capability-contract.md`
-- `chemistry-regression-matrix.md`
+- `contracts/chemistry-capability-contract.md`
+- `regression/chemistry-regression-matrix.md`
 
 Acceptance:
 
@@ -161,8 +161,8 @@ Required work:
 
 Required documents:
 
-- `chemistry-capability-contract.md`
-- `chemistry-regression-matrix.md`
+- `contracts/chemistry-capability-contract.md`
+- `regression/chemistry-regression-matrix.md`
 
 Acceptance:
 
@@ -184,8 +184,8 @@ Required work:
 
 Required documents:
 
-- `chemistry-capability-contract.md`
-- `chemistry-regression-matrix.md`
+- `contracts/chemistry-capability-contract.md`
+- `regression/chemistry-regression-matrix.md`
 
 Acceptance:
 

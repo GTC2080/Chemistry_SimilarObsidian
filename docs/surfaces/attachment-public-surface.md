@@ -4,7 +4,7 @@
 
 This document now describes the legacy minimal attachment ABI only.
 The formal Track 2 live-catalog contract lives at
-[attachment-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/attachment-query-contract.md).
+[attachment-query-contract.md](/E:/测试/Chemistry_Obsidian/docs/contracts/attachment-query-contract.md).
 
 Last updated: `2026-04-20`
 

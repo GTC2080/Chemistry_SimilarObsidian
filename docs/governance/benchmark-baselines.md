@@ -22,7 +22,7 @@ The repository now exposes named build targets for this verification:
 
 The full release flow is frozen in:
 
-- [release-checklist.md](/E:/测试/Chemistry_Obsidian/docs/release-checklist.md)
+- [release-checklist.md](/E:/测试/Chemistry_Obsidian/docs/governance/release-checklist.md)
 
 The goal is not micro-optimization.
 The goal is to keep the current stable kernel line from silently regressing startup, watcher, rebuild, or query paths.

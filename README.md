@@ -54,8 +54,9 @@ cmake --build --preset build-debug --target kernel_api_tests
 
 ## Key Docs
 
-- Runtime and Phase 1 snapshot: `docs/kernel-phase1-status.md`
-- Public query ABI contract: `docs/query-public-surface.md`
+- Docs index: `docs/README.md`
+- Runtime and Phase 1 snapshot: `docs/status/kernel-phase1-status.md`
+- Public query ABI contract: `docs/surfaces/query-public-surface.md`
 
 ## Local Overrides
 
