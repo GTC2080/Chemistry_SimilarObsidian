@@ -3,7 +3,7 @@ const { assertSmokePayload } = require("./smoke-assertions");
 
 const env = {
   ...process.env,
-  ELECTRON_SMOKE: "1"
+  CHEM_OBSIDIAN_HOST_SMOKE: "1"
 };
 
 delete env.ELECTRON_RUN_AS_NODE;

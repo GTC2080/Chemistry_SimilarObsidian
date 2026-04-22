@@ -1,9 +1,10 @@
 const fs = require("node:fs");
 const { resolveBindingCandidates } = require("./native-binding-resolution");
 
-function tryLoadNativeBinding() {
-  const resolution = resolveBindingCandidates();
-  const existingPath = resolution.candidates.find((candidate) => fs.existsSync(candidate));
+function tryLoadNativeBindingFromResolution(resolution, options = {}) {
+  const fileExists = options.fileExists ?? ((candidate) => fs.existsSync(candidate));
+  const loadModule = options.loadModule ?? ((candidate) => require(candidate));
+  const existingPath = resolution.candidates.find((candidate) => fileExists(candidate));
 
   if (!existingPath) {
     return {
@@ -22,7 +23,7 @@ function tryLoadNativeBinding() {
   }
 
   try {
-    const binding = require(existingPath);
+    const binding = loadModule(existingPath);
     const bindingInfo = typeof binding.getBindingInfo === "function"
       ? binding.getBindingInfo()
       : {};
@@ -58,6 +59,11 @@ function tryLoadNativeBinding() {
   }
 }
 
+function tryLoadNativeBinding() {
+  return tryLoadNativeBindingFromResolution(resolveBindingCandidates());
+}
+
 module.exports = {
+  tryLoadNativeBindingFromResolution,
   tryLoadNativeBinding
 };

@@ -6,11 +6,29 @@ const { registerHostIpc } = require("./register-host-ipc");
 const { HostRuntime } = require("./host-runtime");
 const { SECURITY_BASELINE } = require("../shared/host-contract");
 
-const isSmokeRun = process.env.ELECTRON_SMOKE === "1";
-const hostApi = new HostApi();
-const hostRuntime = new HostRuntime({
-  kernelAdapter: hostApi.getKernelAdapter()
-});
+const isSmokeRun = process.env.CHEM_OBSIDIAN_HOST_SMOKE === "1";
+
+let hostApi;
+let hostRuntime;
+
+try {
+  hostApi = new HostApi();
+  hostRuntime = new HostRuntime({
+    kernelAdapter: hostApi.getKernelAdapter()
+  });
+} catch (error) {
+  throw error;
+}
+
+function getSmokePaths() {
+  const smokeRoot = path.join(app.getPath("userData"), "smoke");
+
+  return {
+    root: smokeRoot,
+    vaultRoot: path.join(smokeRoot, "vault"),
+    supportBundlePath: path.join(smokeRoot, "support-bundle.json")
+  };
+}
 
 function makeSmokePdfBytes(pageText) {
   return "%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Title (Smoke PDF) >>\nendobj\n" +
@@ -26,8 +44,8 @@ function makeSmokeJcampBytes(title) {
     "##NPOINTS=4\n";
 }
 
-function ensureSmokeVault() {
-  const vaultRoot = path.resolve(__dirname, "../../out/smoke-vault");
+function ensureSmokeVault(smokePaths) {
+  const vaultRoot = smokePaths.vaultRoot;
   const notesDir = path.join(vaultRoot, "notes");
   const assetsDir = path.join(vaultRoot, "assets");
 
@@ -92,7 +110,8 @@ function createMainWindow() {
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 
   if (isSmokeRun) {
-    const smokeVaultPath = ensureSmokeVault();
+    const smokePaths = getSmokePaths();
+    const smokeVaultPath = ensureSmokeVault(smokePaths);
 
     mainWindow.webContents.once("did-finish-load", async () => {
       try {
@@ -141,7 +160,7 @@ function createMainWindow() {
             ]);
             const [diagnosticsExport, rebuildStatus, rebuildStart, rebuildWait] = await Promise.all([
               window.hostShell.diagnostics.exportSupportBundle(
-                { outputPath: "E:/测试/Chemistry_Obsidian/apps/electron/out/support-bundle.json" },
+                { outputPath: ${JSON.stringify(smokePaths.supportBundlePath)} },
                 "smoke-diagnostics-export"
               ),
               window.hostShell.rebuild.getStatus("smoke-rebuild-status"),
@@ -175,7 +194,7 @@ function createMainWindow() {
               window.hostShell.chemistry.queryReferrers({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-referrers-after-open")
             ]);
             const diagnosticsExportAfterOpen = await window.hostShell.diagnostics.exportSupportBundle(
-              { outputPath: "E:/测试/Chemistry_Obsidian/apps/electron/out/support-bundle.json" },
+              { outputPath: ${JSON.stringify(smokePaths.supportBundlePath)} },
               "smoke-diagnostics-export-after-open"
             );
             const rebuildStartAfterOpen = await window.hostShell.rebuild.start("smoke-rebuild-start-after-open");
