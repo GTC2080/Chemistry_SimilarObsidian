@@ -7,8 +7,8 @@
 import { store } from "./state/host-store.js";
 import { bootstrap, runtime, session } from "./services/host-api-client.js";
 import { createStateSurface } from "./components/shared/state-surface.js";
-import { createRuntimeStatusBadge } from "./components/shared/runtime-status-badge.js";
 import { createLauncherShell } from "./components/layout/launcher-shell.js";
+import { createRecentVaultsList } from "./pages/launcher/recent-vaults-list.js";
 import { createLauncherPage } from "./pages/launcher/launcher-page.js";
 import { createWorkspaceShell } from "./components/layout/workspace-shell.js";
 import { createWorkspaceHomePage } from "./pages/workspace/workspace-home-page.js";
@@ -141,15 +141,28 @@ class AppShell {
     if (!this._root) return;
     this._root.innerHTML = "";
 
-    const { element, card } = createLauncherShell({});
+    const bootstrapEnv = store.getBootstrapInfo();
+    const hostVersion = bootstrapEnv && bootstrapEnv.ok
+      ? bootstrapEnv.data?.host_version ?? null
+      : null;
+
+    const { element, rail, stage } = createLauncherShell({
+      hostVersion
+    });
+
+    const recentList = createRecentVaultsList({
+      onOpen: (path) => this._openVault(path)
+    });
 
     const launcherPage = createLauncherPage({
       onOpenVault: (path) => this._openVault(path),
       lastError: store.getLastSessionError(),
-      isOpening: this._sessionTransitioning
+      isOpening: this._sessionTransitioning,
+      hostVersion
     });
 
-    card.appendChild(launcherPage);
+    rail.appendChild(recentList);
+    stage.appendChild(launcherPage);
     this._root.appendChild(element);
   }
 
@@ -253,6 +266,8 @@ class AppShell {
       const runtimeEnv = await runtime.getSummary("app-post-open");
       store.setEnvelope("runtime", runtimeEnv);
     }
+
+    return result;
   }
 
   async _closeVault() {

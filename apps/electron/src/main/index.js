@@ -115,6 +115,7 @@ function createMainWindow() {
     width: 960,
     height: 640,
     show: !isSmokeRun,
+    autoHideMenuBar: true,
     title: "Chemistry_Obsidian Host Shell",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
@@ -124,6 +125,10 @@ function createMainWindow() {
       enableRemoteModule: SECURITY_BASELINE.enableRemoteModule
     }
   });
+
+  if (typeof mainWindow.removeMenu === "function") {
+    mainWindow.removeMenu();
+  }
 
   hostRuntime.bindMainWindow(mainWindow);
   hostRuntime.noteWindowEvent("window_created");

@@ -24,7 +24,7 @@ class HostStore {
     this._state = Object.fromEntries(STORE_KEYS.map((k) => [k, null]));
     this._listeners = new Set();
     this._hostAvailable = false;
-    this._currentPage = "welcome";
+    this._currentPage = "launcher";
   }
 
   subscribe(listener) {
@@ -72,7 +72,7 @@ class HostStore {
   }
 
   setCurrentPage(pageId) {
-    const validPages = ["welcome", "vault", "search", "attachments", "chemistry", "diagnostics"];
+    const validPages = ["launcher", "files", "search", "attachments", "chemistry", "diagnostics"];
     if (!validPages.includes(pageId)) {
       // eslint-disable-next-line no-console
       console.warn(`HostStore: invalid page id '${pageId}'`);
