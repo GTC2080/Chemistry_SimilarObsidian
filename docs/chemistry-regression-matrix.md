@@ -1,0 +1,100 @@
+<!-- Reason: This file freezes the Track 5 regression obligations so chemistry spectra grow as the first formal domain capability track through explicit repository rules instead of one-off chemistry exceptions. -->
+
+# Chemistry Regression Matrix
+
+Last updated: `2026-04-22`
+
+## Frozen Cross-Batch Invariants
+
+The repository must retain regression coverage for:
+
+- all chemistry-facing public surfaces using normalized live attachment `rel_path` as the only document key
+- `chem.spectrum.*` keys entering the public surface only through the formal namespace registry
+- `sample_label` following the frozen normalization and length rules
+- `spectrum_csv_v1` accepting only the strict Track 5 v1 CSV contract
+- `domain_object_key` for chemistry spectra remaining:
+  - `dom:v1/attachment/<encoded_rel_path>/chem/spectrum`
+- chemistry state remaining derived from attachment truth instead of becoming a new truth source
+- chemistry refs remaining outside the existing backlinks public surface
+- chemistry refs not creating new search-hit kinds in the existing search surface
+- metadata-only changes not staling chemistry selectors unless `normalized_spectrum_basis` changes
+
+## [Batch 1] Chemistry Metadata Namespace v1
+
+The repository must retain regression coverage for:
+
+- `kernel_query_chem_spectrum_metadata(...)` succeeds for live supported spectrum carriers
+- only registered `chem.spectrum.*` keys appear in the public surface
+- unsupported chemistry attachments do not leak `chem.spectrum.*` public keys
+- `sample_label` normalization trims, folds whitespace, and drops empty results
+- oversized `sample_label` values are excluded and reported as anomalies
+- `family` and `source_format` use only frozen token sets
+- required metadata conflicts degrade to non-`present` behavior
+- rebuild reconstitutes the same public metadata for the same live spectrum truth
+- recovery reconstitutes the same public metadata for the same live spectrum truth
+- watcher refresh realigns chemistry metadata to the same truth as rebuild
+
+## [Batch 2] Chemistry Spectra Subtype Contract v1
+
+The repository must retain regression coverage for:
+
+- `kernel_query_chem_spectra(...)` succeeds for live chemistry spectrum carriers
+- `kernel_get_chem_spectrum(...)` succeeds for supported live spectrum carriers
+- `jcamp_dx` can enter `present`
+- strict `spectrum_csv_v1` can enter `present`
+- non-conforming CSV degrades to `unresolved`
+- unsupported chemistry-like attachments degrade to `unsupported`
+- missing live spectrum carriers degrade to `missing`
+- chemistry spectrum `domain_object_key` roundtrips canonically
+- subtype state does not alter attachment truth identity
+- rebuild reconstitutes the same subtype surface for the same live truth
+- recovery realigns subtype state to the same truth as rebuild
+- watcher overflow / full rescan realigns subtype state to the same truth as rebuild
+
+## [Batch 3] Chemistry Spectra Source Reference Public Surface v1
+
+The repository must retain regression coverage for:
+
+- `kernel_query_note_chem_spectrum_refs(...)` succeeds for live notes
+- `kernel_query_chem_spectrum_referrers(...)` succeeds for live spectrum objects
+- whole-spectrum refs serialize canonically
+- x-range refs serialize canonically with the frozen decimal/unit grammar
+- `normalized_decimal` rejects scientific notation and non-canonical forms
+- `normalized_unit` rejects undeclared aliases
+- chemistry ref states distinguish:
+  - `resolved`
+  - `missing`
+  - `stale`
+  - `unresolved`
+  - `unsupported`
+- metadata-only changes do not stale refs unless `normalized_spectrum_basis` changes
+- rebuild reconstitutes the same chemistry ref surface for the same vault truth
+- recovery realigns chemistry refs to the same truth as rebuild
+- watcher overflow / full rescan realigns chemistry refs to the same truth as rebuild
+- chemistry refs do not enter the existing backlinks surface
+- chemistry refs do not create new search-hit kinds
+- chemistry refs do not alter PDF reference public behavior
+
+## [Batch 4] Chemistry Diagnostics / Rebuild / Gates v1
+
+The repository must retain regression coverage for:
+
+- diagnostics export exposes:
+  - `chemistry_contract_revision`
+  - `chemistry_diagnostics_revision`
+  - `chemistry_benchmark_gate_revision`
+- diagnostics export exposes chemistry namespace, subtype, and source-reference summaries
+- diagnostics export exposes chemistry unresolved / stale / unsupported counts
+- diagnostics export exposes `last_chemistry_recount_reason` and `last_chemistry_recount_at_ns`
+- rebuild updates chemistry recount summaries using the same normalized live keys as chemistry query surfaces
+- recovery updates chemistry recount summaries using the same normalized live keys as chemistry query surfaces
+- watcher overflow / full rescan updates chemistry recount summaries using the same normalized live keys as chemistry query surfaces
+- benchmark gates cover:
+  - `chemistry_metadata_query`
+  - `chemistry_spectrum_catalog_query`
+  - `chemistry_spectrum_lookup_query`
+  - `chemistry_note_spectrum_refs_query`
+  - `chemistry_spectrum_referrers_query`
+  - `chemistry_rebuild_mixed_spectra_dataset`
+- release checklist requires chemistry contract review, chemistry regression matrix review, chemistry diagnostics smoke, and chemistry benchmark gates before Track 5 can be called formal
+- chemistry capability status is `gated` only when all required governance surfaces are present and green
