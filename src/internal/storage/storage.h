@@ -49,12 +49,25 @@ struct NotePdfSourceRefRecord {
   std::uint64_t page = 0;
 };
 
+struct NoteChemSpectrumSourceRefRecord {
+  std::string attachment_rel_path;
+  std::string selector_serialized;
+  std::string preview_text;
+};
+
 struct PdfSourceReferrerRecord {
   std::string note_rel_path;
   std::string note_title;
   std::string anchor_serialized;
   std::string excerpt_text;
   std::uint64_t page = 0;
+};
+
+struct ChemSpectrumReferrerRecord {
+  std::string note_rel_path;
+  std::string note_title;
+  std::string selector_serialized;
+  std::string preview_text;
 };
 
 struct PdfSourceRefDiagnosticsRecord {
@@ -182,11 +195,21 @@ std::error_code list_note_pdf_source_ref_records(
     std::string_view note_rel_path,
     std::size_t limit,
     std::vector<NotePdfSourceRefRecord>& out_records);
+std::error_code list_note_chem_spectrum_source_ref_records(
+    Database& db,
+    std::string_view note_rel_path,
+    std::size_t limit,
+    std::vector<NoteChemSpectrumSourceRefRecord>& out_records);
 std::error_code list_pdf_source_referrer_records(
     Database& db,
     std::string_view pdf_rel_path,
     std::size_t limit,
     std::vector<PdfSourceReferrerRecord>& out_records);
+std::error_code list_chem_spectrum_referrer_records(
+    Database& db,
+    std::string_view attachment_rel_path,
+    std::size_t limit,
+    std::vector<ChemSpectrumReferrerRecord>& out_records);
 std::error_code count_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_missing_attachments(Database& db, std::uint64_t& out_count);
 std::error_code count_orphaned_attachments(Database& db, std::uint64_t& out_count);

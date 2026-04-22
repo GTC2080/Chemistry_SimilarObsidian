@@ -57,6 +57,12 @@ std::error_code mark_note_deleted(Database& db, std::string_view rel_path) {
     return ec;
   }
 
+  ec = detail::clear_note_chem_spectrum_source_ref_rows(db.connection, note_id);
+  if (ec) {
+    detail::rollback_transaction(db.connection);
+    return ec;
+  }
+
   ec = detail::mark_note_fts_deleted(db.connection, note_id);
   if (ec) {
     detail::rollback_transaction(db.connection);

@@ -84,6 +84,32 @@ bool looks_like_local_attachment_target(std::string_view target) {
   return !extension.empty() && extension != ".md";
 }
 
+std::string_view strip_supported_attachment_fragment(std::string_view target) {
+  const std::size_t anchor_fragment = target.find("#anchor=");
+  const std::size_t chem_selector_fragment = target.find("#chemsel=");
+
+  std::size_t fragment_offset = std::string_view::npos;
+  if (anchor_fragment != std::string_view::npos) {
+    fragment_offset = anchor_fragment;
+  }
+  if (chem_selector_fragment != std::string_view::npos &&
+      (fragment_offset == std::string_view::npos || chem_selector_fragment < fragment_offset)) {
+    fragment_offset = chem_selector_fragment;
+  }
+
+  return fragment_offset == std::string_view::npos
+             ? target
+             : trim_ascii_whitespace(target.substr(0, fragment_offset));
+}
+
+bool is_chem_spectrum_candidate_extension(std::string_view extension) {
+  return extension == ".jdx" || extension == ".dx" || extension == ".csv" ||
+         extension == ".mol" || extension == ".mol2" || extension == ".sdf" ||
+         extension == ".sd" || extension == ".pdb" || extension == ".cif" ||
+         extension == ".xyz" || extension == ".cdx" || extension == ".cdxml" ||
+         extension == ".rxn";
+}
+
 std::string normalized_local_attachment_target(std::string_view target) {
   target = trim_ascii_whitespace(target);
   if (target.empty() || target[0] == '#') {
@@ -99,10 +125,7 @@ std::string normalized_local_attachment_target(std::string_view target) {
     return {};
   }
 
-  const std::size_t anchor_fragment = target.find("#anchor=");
-  if (anchor_fragment != std::string_view::npos) {
-    target = trim_ascii_whitespace(target.substr(0, anchor_fragment));
-  }
+  target = strip_supported_attachment_fragment(target);
 
   const std::filesystem::path path{std::string(target)};
   std::string extension = path.extension().string();
@@ -162,6 +185,55 @@ bool extract_pdf_source_ref_target(
 
   out_source_ref.pdf_rel_path = normalized_attachment;
   out_source_ref.anchor_serialized = std::string(anchor_serialized);
+  return true;
+}
+
+bool extract_chem_spectrum_source_ref_target(
+    std::string_view target,
+    ChemSpectrumSourceRef& out_source_ref) {
+  out_source_ref = ChemSpectrumSourceRef{};
+  target = trim_ascii_whitespace(target);
+  if (target.empty()) {
+    return false;
+  }
+
+  if (target.size() >= 2 && target.front() == '<' && target.back() == '>') {
+    target.remove_prefix(1);
+    target.remove_suffix(1);
+    target = trim_ascii_whitespace(target);
+  }
+  if (target.find("://") != std::string_view::npos) {
+    return false;
+  }
+
+  const std::size_t selector_fragment = target.find("#chemsel=");
+  if (selector_fragment == std::string_view::npos) {
+    return false;
+  }
+
+  const std::string normalized_attachment =
+      normalized_local_attachment_target(target);
+  if (normalized_attachment.empty()) {
+    return false;
+  }
+
+  std::filesystem::path path{normalized_attachment};
+  std::string extension = path.extension().string();
+  for (char& ch : extension) {
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  }
+  if (!is_chem_spectrum_candidate_extension(extension)) {
+    return false;
+  }
+
+  const std::string_view selector_serialized =
+      trim_ascii_whitespace(target.substr(selector_fragment + 9));
+  if (selector_serialized.empty()) {
+    return false;
+  }
+
+  out_source_ref.attachment_rel_path = normalized_attachment;
+  out_source_ref.selector_serialized = std::string(selector_serialized);
   return true;
 }
 
@@ -267,6 +339,11 @@ void scan_markdown_attachment_links(std::string_view markdown, ParseResult& resu
     PdfSourceRef source_ref;
     if (extract_pdf_source_ref_target(target, source_ref)) {
       result.pdf_source_refs.push_back(std::move(source_ref));
+    }
+
+    ChemSpectrumSourceRef chem_source_ref;
+    if (extract_chem_spectrum_source_ref_target(target, chem_source_ref)) {
+      result.chem_spectrum_source_refs.push_back(std::move(chem_source_ref));
     }
 
     cursor = close_paren + 1;

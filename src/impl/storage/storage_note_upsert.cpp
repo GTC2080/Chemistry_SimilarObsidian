@@ -2,6 +2,7 @@
 
 #include "storage/storage_note_lifecycle_internal.h"
 
+#include "chemistry/chemistry_spectrum_selector.h"
 #include "pdf/pdf_anchor.h"
 
 #include <unordered_map>
@@ -91,6 +92,22 @@ std::error_code materialize_note_pdf_source_ref_row(
   return {};
 }
 
+std::error_code materialize_note_chem_spectrum_source_ref_row(
+    const kernel::parser::ChemSpectrumSourceRef& source_ref,
+    std::string& out_preview_text) {
+  out_preview_text.clear();
+
+  kernel::chemistry::ParsedChemSpectrumSelector selector;
+  if (!kernel::chemistry::parse_chem_spectrum_selector(
+          source_ref.selector_serialized,
+          selector)) {
+    return {};
+  }
+
+  out_preview_text = kernel::chemistry::build_chem_spectrum_selector_preview(selector);
+  return {};
+}
+
 }  // namespace
 
 std::error_code replace_note_derived_rows(
@@ -120,6 +137,11 @@ std::error_code replace_note_derived_rows(
   }
 
   ec = clear_note_pdf_source_ref_rows(db, note_id);
+  if (ec) {
+    return ec;
+  }
+
+  ec = clear_note_chem_spectrum_source_ref_rows(db, note_id);
   if (ec) {
     return ec;
   }
@@ -170,6 +192,27 @@ std::error_code replace_note_derived_rows(
         parse_result.pdf_source_refs[index].anchor_serialized,
         page,
         excerpt_text);
+    if (ec) {
+      return ec;
+    }
+  }
+
+  for (std::size_t index = 0; index < parse_result.chem_spectrum_source_refs.size(); ++index) {
+    std::string preview_text;
+    ec = materialize_note_chem_spectrum_source_ref_row(
+        parse_result.chem_spectrum_source_refs[index],
+        preview_text);
+    if (ec) {
+      return ec;
+    }
+
+    ec = insert_note_chem_spectrum_source_ref(
+        db,
+        note_id,
+        static_cast<std::int64_t>(index),
+        parse_result.chem_spectrum_source_refs[index].attachment_rel_path,
+        parse_result.chem_spectrum_source_refs[index].selector_serialized,
+        preview_text);
     if (ec) {
       return ec;
     }

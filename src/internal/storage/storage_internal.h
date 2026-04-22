@@ -49,6 +49,7 @@ std::error_code lookup_active_note_id_by_rel_path(
 std::error_code clear_note_parse_rows(sqlite3* db, sqlite3_int64 note_id);
 std::error_code clear_note_attachment_rows(sqlite3* db, sqlite3_int64 note_id);
 std::error_code clear_note_pdf_source_ref_rows(sqlite3* db, sqlite3_int64 note_id);
+std::error_code clear_note_chem_spectrum_source_ref_rows(sqlite3* db, sqlite3_int64 note_id);
 std::error_code mark_note_fts_deleted(sqlite3* db, sqlite3_int64 note_id);
 std::error_code insert_note_tag(sqlite3* db, sqlite3_int64 note_id, std::string_view tag);
 std::error_code insert_note_link(sqlite3* db, sqlite3_int64 note_id, std::string_view target);
@@ -64,6 +65,13 @@ std::error_code insert_note_pdf_source_ref(
     std::string_view anchor_serialized,
     std::uint64_t page,
     std::string_view excerpt_text);
+std::error_code insert_note_chem_spectrum_source_ref(
+    sqlite3* db,
+    sqlite3_int64 note_id,
+    std::int64_t ordinal,
+    std::string_view attachment_rel_path,
+    std::string_view selector_serialized,
+    std::string_view preview_text);
 std::error_code replace_note_fts_row(
     sqlite3* db,
     sqlite3_int64 note_id,

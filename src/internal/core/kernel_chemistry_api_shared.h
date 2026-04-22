@@ -19,6 +19,7 @@ struct ChemSpectrumView {
   std::string domain_object_key;
   std::uint32_t subtype_revision = kChemSpectrumSubtypeRevision;
   kernel_chem_spectrum_format source_format = KERNEL_CHEM_SPECTRUM_FORMAT_UNKNOWN;
+  std::string selector_basis_revision;
   kernel_attachment_kind coarse_kind = KERNEL_ATTACHMENT_KIND_UNKNOWN;
   kernel_attachment_presence presence = KERNEL_ATTACHMENT_PRESENCE_PRESENT;
   kernel_domain_object_state state = KERNEL_DOMAIN_OBJECT_UNRESOLVED;

@@ -25,6 +25,7 @@ enum class SpectrumParseStatus : std::uint8_t {
 };
 
 struct SpectrumMetadata {
+  std::string attachment_content_revision;
   std::string source_format;
   std::string family;
   std::string x_axis_unit;

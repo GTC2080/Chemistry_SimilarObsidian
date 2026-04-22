@@ -298,6 +298,7 @@ SpectrumParseResult extract_jcamp_metadata(
   }
 
   result.status = SpectrumParseStatus::Ready;
+  result.metadata.attachment_content_revision = std::string(attachment_content_revision);
   result.metadata.source_format = "jcamp_dx";
   result.metadata.family = family;
   result.metadata.x_axis_unit = x_axis_unit;
@@ -391,6 +392,7 @@ SpectrumParseResult extract_csv_metadata(
   }
 
   result.status = SpectrumParseStatus::Ready;
+  result.metadata.attachment_content_revision = std::string(attachment_content_revision);
   result.metadata.source_format = "spectrum_csv_v1";
   result.metadata.family = family;
   result.metadata.x_axis_unit = x_axis_unit;

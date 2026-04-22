@@ -85,6 +85,14 @@ std::error_code ensure_schema_v1(Database& db) {
       "  excerpt_text TEXT NOT NULL,"
       "  PRIMARY KEY(note_id, ordinal)"
       ");"
+      "CREATE TABLE IF NOT EXISTS note_chem_spectrum_refs("
+      "  note_id INTEGER NOT NULL,"
+      "  ordinal INTEGER NOT NULL,"
+      "  attachment_rel_path TEXT NOT NULL,"
+      "  selector_serialized TEXT NOT NULL,"
+      "  preview_text TEXT NOT NULL,"
+      "  PRIMARY KEY(note_id, ordinal)"
+      ");"
       "CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(title, body, tokenize='unicode61');"
       "CREATE INDEX IF NOT EXISTS idx_notes_is_deleted_rel_path ON notes(is_deleted, rel_path);"
       "CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);"
@@ -93,7 +101,9 @@ std::error_code ensure_schema_v1(Database& db) {
       "CREATE INDEX IF NOT EXISTS idx_pdf_metadata_state_rel_path ON pdf_metadata(metadata_state, rel_path);"
       "CREATE INDEX IF NOT EXISTS idx_pdf_anchors_rel_path_page ON pdf_anchors(rel_path, page);"
       "CREATE INDEX IF NOT EXISTS idx_note_pdf_source_refs_pdf_rel_path_note_ordinal "
-      "ON note_pdf_source_refs(pdf_rel_path, note_id, ordinal);");
+      "ON note_pdf_source_refs(pdf_rel_path, note_id, ordinal);"
+      "CREATE INDEX IF NOT EXISTS idx_note_chem_spectrum_refs_attachment_note_ordinal "
+      "ON note_chem_spectrum_refs(attachment_rel_path, note_id, ordinal);");
   if (ec) {
     return ec;
   }
@@ -101,7 +111,7 @@ std::error_code ensure_schema_v1(Database& db) {
   sqlite3_stmt* stmt = nullptr;
   ec = detail::prepare(
       db.connection,
-      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '7');",
+      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '8');",
       &stmt);
   if (ec) {
     return ec;
@@ -111,7 +121,7 @@ std::error_code ensure_schema_v1(Database& db) {
     return ec;
   }
 
-  return detail::exec(db.connection, "PRAGMA user_version=7;");
+  return detail::exec(db.connection, "PRAGMA user_version=8;");
 }
 
 }  // namespace kernel::storage

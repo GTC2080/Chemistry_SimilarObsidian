@@ -357,6 +357,11 @@ typedef struct kernel_chem_spectrum_list {
   size_t count;
 } kernel_chem_spectrum_list;
 
+typedef enum kernel_chem_spectrum_selector_kind {
+  KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
+  KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1
+} kernel_chem_spectrum_selector_kind;
+
 typedef enum kernel_domain_selector_kind {
   KERNEL_DOMAIN_SELECTOR_PAGE = 0,
   KERNEL_DOMAIN_SELECTOR_TEXT_EXCERPT = 1,
@@ -407,6 +412,40 @@ typedef struct kernel_domain_referrers {
   kernel_domain_referrer* referrers;
   size_t count;
 } kernel_domain_referrers;
+
+typedef struct kernel_chem_spectrum_source_ref {
+  char* attachment_rel_path;
+  char* domain_object_key;
+  kernel_chem_spectrum_selector_kind selector_kind;
+  char* selector_serialized;
+  char* preview_text;
+  char* target_basis_revision;
+  kernel_domain_ref_state state;
+  uint32_t flags;
+} kernel_chem_spectrum_source_ref;
+
+typedef struct kernel_chem_spectrum_source_refs {
+  kernel_chem_spectrum_source_ref* refs;
+  size_t count;
+} kernel_chem_spectrum_source_refs;
+
+typedef struct kernel_chem_spectrum_referrer {
+  char* note_rel_path;
+  char* note_title;
+  char* attachment_rel_path;
+  char* domain_object_key;
+  kernel_chem_spectrum_selector_kind selector_kind;
+  char* selector_serialized;
+  char* preview_text;
+  char* target_basis_revision;
+  kernel_domain_ref_state state;
+  uint32_t flags;
+} kernel_chem_spectrum_referrer;
+
+typedef struct kernel_chem_spectrum_referrers {
+  kernel_chem_spectrum_referrer* referrers;
+  size_t count;
+} kernel_chem_spectrum_referrers;
 
 #ifdef __cplusplus
 }

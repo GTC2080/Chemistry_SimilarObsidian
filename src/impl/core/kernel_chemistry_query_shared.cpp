@@ -5,6 +5,7 @@
 #include "core/kernel_chemistry_query_shared.h"
 
 #include "chemistry/chemistry_spectrum_metadata.h"
+#include "chemistry/chemistry_spectrum_selector.h"
 #include "core/kernel_attachment_path_shape.h"
 #include "core/kernel_attachment_query_shared.h"
 #include "core/kernel_domain_object_key.h"
@@ -192,6 +193,12 @@ kernel_status build_chem_spectrum_view(
       parse_result.status == kernel::chemistry::SpectrumParseStatus::Ready
           ? KERNEL_DOMAIN_OBJECT_PRESENT
           : KERNEL_DOMAIN_OBJECT_UNRESOLVED;
+  if (out_spectrum.state == KERNEL_DOMAIN_OBJECT_PRESENT) {
+    out_spectrum.selector_basis_revision =
+        kernel::chemistry::build_chemistry_selector_basis_revision(
+            parse_result.metadata.attachment_content_revision,
+            kernel::chemistry::build_normalized_spectrum_basis(parse_result.metadata));
+  }
   return kernel::core::make_status(KERNEL_OK);
 }
 
