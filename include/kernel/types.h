@@ -335,6 +335,28 @@ typedef struct kernel_domain_object_list {
   size_t count;
 } kernel_domain_object_list;
 
+typedef enum kernel_chem_spectrum_format {
+  KERNEL_CHEM_SPECTRUM_FORMAT_UNKNOWN = 0,
+  KERNEL_CHEM_SPECTRUM_FORMAT_JCAMP_DX = 1,
+  KERNEL_CHEM_SPECTRUM_FORMAT_SPECTRUM_CSV_V1 = 2
+} kernel_chem_spectrum_format;
+
+typedef struct kernel_chem_spectrum_record {
+  char* attachment_rel_path;
+  char* domain_object_key;
+  uint32_t subtype_revision;
+  kernel_chem_spectrum_format source_format;
+  kernel_attachment_kind coarse_kind;
+  kernel_attachment_presence presence;
+  kernel_domain_object_state state;
+  uint32_t flags;
+} kernel_chem_spectrum_record;
+
+typedef struct kernel_chem_spectrum_list {
+  kernel_chem_spectrum_record* spectra;
+  size_t count;
+} kernel_chem_spectrum_list;
+
 typedef enum kernel_domain_selector_kind {
   KERNEL_DOMAIN_SELECTOR_PAGE = 0,
   KERNEL_DOMAIN_SELECTOR_TEXT_EXCERPT = 1,

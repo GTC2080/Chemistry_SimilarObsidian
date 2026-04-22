@@ -92,6 +92,14 @@ kernel_status kernel_query_chem_spectrum_metadata(
     const char* attachment_rel_path,
     size_t limit,
     kernel_domain_metadata_list* out_entries);
+kernel_status kernel_query_chem_spectra(
+    kernel_handle* handle,
+    size_t limit,
+    kernel_chem_spectrum_list* out_spectra);
+kernel_status kernel_get_chem_spectrum(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    kernel_chem_spectrum_record* out_spectrum);
 kernel_status kernel_query_pdf_domain_metadata(
     kernel_handle* handle,
     const char* attachment_rel_path,
@@ -147,6 +155,8 @@ void kernel_free_pdf_referrers(kernel_pdf_referrers* referrers);
 void kernel_free_domain_metadata_list(kernel_domain_metadata_list* entries);
 void kernel_free_domain_object_descriptor(kernel_domain_object_descriptor* object);
 void kernel_free_domain_object_list(kernel_domain_object_list* objects);
+void kernel_free_chem_spectrum_record(kernel_chem_spectrum_record* spectrum);
+void kernel_free_chem_spectrum_list(kernel_chem_spectrum_list* spectra);
 void kernel_free_domain_source_refs(kernel_domain_source_refs* refs);
 void kernel_free_domain_referrers(kernel_domain_referrers* referrers);
 

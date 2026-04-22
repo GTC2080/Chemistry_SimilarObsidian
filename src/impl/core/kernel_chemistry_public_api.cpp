@@ -4,6 +4,7 @@
 
 #include "kernel/c_api.h"
 
+#include "core/kernel_chemistry_api_shared.h"
 #include "core/kernel_chemistry_query_shared.h"
 #include "core/kernel_domain_api_shared.h"
 #include "core/kernel_shared.h"
@@ -32,4 +33,48 @@ extern "C" kernel_status kernel_query_chem_spectrum_metadata(
   }
 
   return kernel::core::domain_api::fill_domain_metadata_list(entries, out_entries);
+}
+
+extern "C" kernel_status kernel_query_chem_spectra(
+    kernel_handle* handle,
+    const size_t limit,
+    kernel_chem_spectrum_list* out_spectra) {
+  kernel::core::chemistry_api::reset_chem_spectrum_list(out_spectra);
+  if (handle == nullptr || out_spectra == nullptr || limit == 0) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<kernel::core::chemistry_api::ChemSpectrumView> spectra;
+  const kernel_status query_status =
+      kernel::core::chemistry_query::query_chem_spectra(
+          handle,
+          limit,
+          spectra);
+  if (query_status.code != KERNEL_OK) {
+    return query_status;
+  }
+
+  return kernel::core::chemistry_api::fill_chem_spectrum_list(spectra, out_spectra);
+}
+
+extern "C" kernel_status kernel_get_chem_spectrum(
+    kernel_handle* handle,
+    const char* attachment_rel_path,
+    kernel_chem_spectrum_record* out_spectrum) {
+  kernel::core::chemistry_api::reset_chem_spectrum_record(out_spectrum);
+  if (handle == nullptr || out_spectrum == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel::core::chemistry_api::ChemSpectrumView spectrum;
+  const kernel_status query_status =
+      kernel::core::chemistry_query::query_chem_spectrum(
+          handle,
+          attachment_rel_path,
+          spectrum);
+  if (query_status.code != KERNEL_OK) {
+    return query_status;
+  }
+
+  return kernel::core::chemistry_api::fill_chem_spectrum_record(spectrum, out_spectrum);
 }

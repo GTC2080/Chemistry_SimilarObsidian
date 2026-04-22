@@ -5,4 +5,5 @@
 
 void run_chemistry_tests() {
   run_chemistry_metadata_tests();
+  run_chemistry_subtype_tests();
 }

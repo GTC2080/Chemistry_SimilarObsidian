@@ -135,6 +135,39 @@ Batch 2 lands:
 - `kernel_free_chem_spectrum_record(out_spectrum)`
 - `kernel_free_chem_spectrum_list(out_spectra)`
 
+Frozen list / lookup rules:
+
+- `kernel_query_chem_spectra(...)` returns the chemistry spectrum candidate catalog sorted by normalized live attachment `rel_path`
+- the chemistry spectrum candidate catalog includes:
+  - supported `jcamp_dx` carriers
+  - supported `spectrum_csv_v1` carriers
+  - chemistry-like live carriers outside the Track 5 v1 support set
+- non-candidate live attachments do not enter `kernel_query_chem_spectra(...)`
+- `kernel_get_chem_spectrum(...)` returns `NOT_FOUND` for:
+  - non-live attachment paths
+  - non-candidate attachment paths
+
+Frozen `kernel_chem_spectrum_record` fields:
+
+- `attachment_rel_path`
+  - normalized live attachment `rel_path`
+- `domain_object_key`
+  - canonical `dom:v1/attachment/<encoded_rel_path>/chem/spectrum`
+- `subtype_revision`
+  - `1`
+- `source_format`
+  - `jcamp_dx`
+  - `spectrum_csv_v1`
+  - `unknown` for unsupported chemistry-like carriers
+- `coarse_kind`
+  - copied from the stable attachment truth surface
+- `presence`
+  - copied from the stable attachment truth surface
+- `state`
+  - derived chemistry subtype state
+- `flags`
+  - `none` in Track 5 v1
+
 ### Supported Formats
 
 Frozen Track 5 v1 support set:
@@ -187,6 +220,12 @@ Frozen state rules:
 - live attachment ref with missing file -> `missing`
 - supported format with unstable parse / required-field conflict -> `unresolved`
 - live attachment outside Track 5 v1 support set -> `unsupported`
+
+Frozen `source_format` mapping:
+
+- `.jdx` / `.dx` -> `jcamp_dx`
+- strict Track 5 CSV contract -> `spectrum_csv_v1`
+- unsupported chemistry-like carriers -> `unknown`
 
 ## Batch 3 Surface
 

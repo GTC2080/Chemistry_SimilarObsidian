@@ -5,6 +5,7 @@
 
 #include "core/kernel_attachment_path_shape.h"
 #include "core/kernel_attachment_query_shared.h"
+#include "core/kernel_chemistry_query_shared.h"
 #include "core/kernel_domain_object_key.h"
 #include "core/kernel_pdf_query_shared.h"
 #include "core/kernel_shared.h"
@@ -95,6 +96,22 @@ kernel::core::domain_object_api::DomainObjectView make_pdf_object_view(
   return object;
 }
 
+kernel::core::domain_object_api::DomainObjectView make_chem_spectrum_object_view(
+    const kernel::core::chemistry_api::ChemSpectrumView& spectrum) {
+  kernel::core::domain_object_api::DomainObjectView object;
+  object.domain_object_key = spectrum.domain_object_key;
+  object.carrier_kind = KERNEL_DOMAIN_CARRIER_ATTACHMENT;
+  object.carrier_key = spectrum.attachment_rel_path;
+  object.subtype_namespace = "chem";
+  object.subtype_name = "spectrum";
+  object.subtype_revision = spectrum.subtype_revision;
+  object.coarse_kind = spectrum.coarse_kind;
+  object.presence = spectrum.presence;
+  object.state = spectrum.state;
+  object.flags = spectrum.flags;
+  return object;
+}
+
 }  // namespace
 
 namespace kernel::core::domain_object_query {
@@ -167,6 +184,24 @@ kernel_status query_domain_object(
 
   std::vector<kernel::core::domain_object_api::DomainObjectView> objects;
   kernel_status query_status = kernel::core::make_status(KERNEL_ERROR_NOT_FOUND);
+  if (parsed_key.carrier_kind == KERNEL_DOMAIN_CARRIER_ATTACHMENT &&
+      parsed_key.subtype_namespace == "chem" &&
+      parsed_key.subtype_name == "spectrum") {
+    kernel::core::chemistry_api::ChemSpectrumView spectrum;
+    query_status = kernel::core::chemistry_query::query_chem_spectrum(
+        handle,
+        parsed_key.carrier_key.c_str(),
+        spectrum);
+    if (query_status.code != KERNEL_OK) {
+      return query_status;
+    }
+    out_object = make_chem_spectrum_object_view(spectrum);
+    if (out_object.domain_object_key == domain_object_key) {
+      return kernel::core::make_status(KERNEL_OK);
+    }
+    return kernel::core::make_status(KERNEL_ERROR_NOT_FOUND);
+  }
+
   switch (parsed_key.carrier_kind) {
     case KERNEL_DOMAIN_CARRIER_ATTACHMENT:
       query_status = query_attachment_domain_objects(
