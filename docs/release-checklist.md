@@ -45,6 +45,8 @@ Before release, confirm these repository documents still match the shipped behav
 - [search-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/search-regression-matrix.md)
 - [domain-extension-contract.md](/E:/测试/Chemistry_Obsidian/docs/domain-extension-contract.md)
 - [domain-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/domain-regression-matrix.md)
+- [chemistry-capability-contract.md](/E:/测试/Chemistry_Obsidian/docs/chemistry-capability-contract.md)
+- [chemistry-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/chemistry-regression-matrix.md)
 - [benchmark-baselines.md](/E:/测试/Chemistry_Obsidian/docs/benchmark-baselines.md)
 
 ## Baseline Update Rule
@@ -73,6 +75,9 @@ Diagnostics smoke is considered satisfied when `kernel_api_tests.exe` passes the
 - search ranking export
 - domain contract export
 - domain recount export
+- chemistry contract export
+- chemistry recount export
+- chemistry capability-track export
 - startup recovery outcome export
 - watcher fault and recovery export
 - rebuild in-flight and completed-result export

@@ -2,6 +2,7 @@
 
 #include "kernel/c_api.h"
 #include "benchmarks/benchmark_thresholds.h"
+#include "benchmarks/query/query_benchmark_chemistry.h"
 #include "benchmarks/query/query_benchmark_domain.h"
 #include "core/kernel_pdf_query_shared.h"
 
@@ -90,6 +91,19 @@ bool query_pdf_anchors(
           attachment_rel_path,
           out_records),
       "pdf anchor query");
+}
+
+const kernel_attachment_record* find_attachment_record(
+    const kernel_attachment_list& attachments,
+    const char* rel_path) {
+  for (std::size_t i = 0; i < attachments.count; ++i) {
+    const kernel_attachment_record& attachment = attachments.attachments[i];
+    if (attachment.rel_path != nullptr &&
+        std::string_view(attachment.rel_path) == rel_path) {
+      return &attachment;
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace
@@ -228,6 +242,14 @@ int main() {
           "[Third](pdf/bench-source.pdf#anchor=" + pdf_anchor + ")\n",
           metadata,
           disposition)) {
+      return 1;
+  }
+
+  kernel::benchmarks::query::ChemistryBenchmarkConfig chemistry_benchmark_config{};
+  if (!kernel::benchmarks::query::prepare_chemistry_query_benchmark_fixture(
+          vault,
+          handle,
+          chemistry_benchmark_config)) {
     return 1;
   }
 
@@ -386,10 +408,12 @@ int main() {
     if (!expect_ok(kernel_query_attachments(handle, 8, &attachments), "attachment catalog query")) {
       return 1;
     }
+    const kernel_attachment_record* bench_attachment =
+        find_attachment_record(attachments, kBenchAttachmentRelPath);
     if (attachments.count != 8 ||
-        std::string(attachments.attachments[0].rel_path) != kBenchAttachmentRelPath ||
-        attachments.attachments[0].presence != KERNEL_ATTACHMENT_PRESENCE_PRESENT ||
-        attachments.attachments[0].ref_count != 1) {
+        bench_attachment == nullptr ||
+        bench_attachment->presence != KERNEL_ATTACHMENT_PRESENCE_PRESENT ||
+        bench_attachment->ref_count != 1) {
       std::cerr << "attachment catalog query returned unexpected attachment state\n";
       return 1;
     }
@@ -494,6 +518,11 @@ int main() {
       handle,
       domain_benchmark_config,
       iterations);
+  const bool chemistry_within_gates =
+      kernel::benchmarks::query::run_chemistry_query_benchmarks(
+          handle,
+          chemistry_benchmark_config,
+          iterations);
 
   const auto all_kind_start = std::chrono::steady_clock::now();
   for (int i = 0; i < iterations; ++i) {
@@ -687,6 +716,7 @@ int main() {
                                         pdf_source_refs_within_gate &&
                                         pdf_referrers_within_gate &&
                                         domain_within_gates &&
+                                        chemistry_within_gates &&
                                         all_kind_within_gate &&
                                         ranked_title_within_gate &&
                                         ranked_tag_boost_within_gate &&
@@ -709,6 +739,7 @@ int main() {
                  pdf_source_refs_within_gate &&
                  pdf_referrers_within_gate &&
                  domain_within_gates &&
+                 chemistry_within_gates &&
                  all_kind_within_gate &&
                  ranked_title_within_gate &&
                  ranked_tag_boost_within_gate &&

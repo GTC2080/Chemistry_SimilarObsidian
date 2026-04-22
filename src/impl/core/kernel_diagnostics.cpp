@@ -50,6 +50,10 @@ kernel::core::diagnostics_export::RuntimeDiagnosticsSnapshot capture_runtime_sna
     snapshot.last_pdf_recount_at_ns = handle->runtime.last_pdf_recount.at_ns;
     snapshot.last_domain_recount_reason = handle->runtime.last_domain_recount.reason;
     snapshot.last_domain_recount_at_ns = handle->runtime.last_domain_recount.at_ns;
+    snapshot.last_chemistry_recount_reason =
+        handle->runtime.last_chemistry_recount.reason;
+    snapshot.last_chemistry_recount_at_ns =
+        handle->runtime.last_chemistry_recount.at_ns;
     snapshot.last_continuity_fallback_reason =
         handle->runtime.last_continuity_fallback.reason;
     snapshot.last_continuity_fallback_at_ns =
@@ -145,6 +149,16 @@ extern "C" kernel_status kernel_export_diagnostics(
     return pdf_status;
   }
 
+  kernel::core::diagnostics_export::ChemistryDiagnosticsSnapshot chemistry_snapshot{};
+  const kernel_status chemistry_status =
+      kernel::core::diagnostics_export::collect_chemistry_diagnostics_snapshot(
+          handle,
+          runtime_snapshot.index_state,
+          chemistry_snapshot);
+  if (chemistry_status.code != KERNEL_OK) {
+    return chemistry_status;
+  }
+
   kernel::core::diagnostics_export::DomainDiagnosticsSnapshot domain_snapshot{};
   kernel::core::diagnostics_export::collect_domain_diagnostics_snapshot(
       attachment_snapshot,
@@ -156,6 +170,7 @@ extern "C" kernel_status kernel_export_diagnostics(
           runtime_snapshot,
           attachment_snapshot,
           pdf_snapshot,
+          chemistry_snapshot,
           domain_snapshot);
   const std::filesystem::path target_path =
       std::filesystem::path(output_path).lexically_normal();

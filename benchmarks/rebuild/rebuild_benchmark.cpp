@@ -2,6 +2,7 @@
 
 #include "kernel/c_api.h"
 #include "benchmarks/benchmark_thresholds.h"
+#include "benchmarks/rebuild/rebuild_benchmark_chemistry.h"
 
 #include <chrono>
 #include <filesystem>
@@ -69,9 +70,15 @@ int main() {
   const auto vault = std::filesystem::temp_directory_path() / "chem_kernel_rebuild_bench";
   constexpr int note_count = 64;
   constexpr int attachment_count = 64;
+  constexpr int chemistry_spectrum_count = 16;
   constexpr int rebuild_iterations = 25;
 
   if (!seed_vault(vault, note_count, attachment_count)) {
+    return 1;
+  }
+  if (!kernel::benchmarks::rebuild::seed_chemistry_rebuild_fixture(
+          vault,
+          chemistry_spectrum_count)) {
     return 1;
   }
 
@@ -96,14 +103,20 @@ int main() {
 
   const bool rebuild_within_gate =
       kernel::benchmarks::report_gate(kernel::benchmarks::kRebuildGate, rebuild_elapsed_ms);
+  const bool chemistry_rebuild_within_gate =
+      kernel::benchmarks::report_gate(
+          kernel::benchmarks::kChemistryRebuildMixedSpectraDatasetGate,
+          rebuild_elapsed_ms);
 
   std::cout << " rebuild_benchmark note_count=" << note_count
             << " attachment_count=" << attachment_count
+            << " chemistry_spectrum_count=" << chemistry_spectrum_count
             << " rebuild_iterations=" << rebuild_iterations
-            << " gate_passed=" << (rebuild_within_gate ? "true" : "false")
+            << " gate_passed="
+            << (rebuild_within_gate && chemistry_rebuild_within_gate ? "true" : "false")
             << "\n";
 
   kernel_close(handle);
   std::filesystem::remove_all(vault);
-  return rebuild_within_gate ? 0 : 1;
+  return rebuild_within_gate && chemistry_rebuild_within_gate ? 0 : 1;
 }

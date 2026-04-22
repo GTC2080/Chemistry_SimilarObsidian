@@ -139,6 +139,7 @@ std::string build_diagnostics_json(
     const RuntimeDiagnosticsSnapshot& runtime_snapshot,
     const AttachmentDiagnosticsSnapshot& attachment_snapshot,
     const PdfDiagnosticsSnapshot& pdf_snapshot,
+    const ChemistryDiagnosticsSnapshot& chemistry_snapshot,
     const DomainDiagnosticsSnapshot& domain_snapshot) {
   std::ostringstream output;
   const auto generated_at_ns = kernel::core::now_ns();
@@ -205,6 +206,9 @@ std::string build_diagnostics_json(
          << "\",\n"
          << "  \"last_pdf_recount_at_ns\":"
          << runtime_snapshot.last_pdf_recount_at_ns << ",\n"
+         << build_chemistry_diagnostics_json_fragment(
+                runtime_snapshot,
+                chemistry_snapshot)
          << build_domain_diagnostics_json_fragment(runtime_snapshot, domain_snapshot)
          << "  \"attachment_public_surface_revision\":\""
          << kernel::core::json_escape(

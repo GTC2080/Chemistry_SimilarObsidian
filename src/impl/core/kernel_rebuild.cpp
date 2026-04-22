@@ -96,6 +96,7 @@ kernel_error_code run_rebuild(kernel_handle* handle, const std::uint64_t rebuild
   record_attachment_recount(handle, "rebuild", rebuild_completed_at_ns);
   record_pdf_recount(handle, "rebuild", rebuild_completed_at_ns);
   record_domain_recount(handle, "rebuild", rebuild_completed_at_ns);
+  record_chemistry_recount(handle, "rebuild", rebuild_completed_at_ns);
   record_rebuild_result(
       handle,
       "succeeded",

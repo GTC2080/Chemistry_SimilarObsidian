@@ -52,6 +52,20 @@ struct DomainDiagnosticsSnapshot {
   std::uint64_t unsupported_domain_source_ref_count = 0;
 };
 
+struct ChemistryDiagnosticsSnapshot {
+  std::uint64_t chemistry_spectra_count = 0;
+  std::uint64_t chemistry_spectra_present_count = 0;
+  std::uint64_t chemistry_spectra_missing_count = 0;
+  std::uint64_t chemistry_spectra_unresolved_count = 0;
+  std::uint64_t chemistry_spectra_unsupported_count = 0;
+  std::uint64_t chemistry_source_ref_count = 0;
+  std::uint64_t chemistry_source_ref_resolved_count = 0;
+  std::uint64_t chemistry_source_ref_missing_count = 0;
+  std::uint64_t chemistry_source_ref_stale_count = 0;
+  std::uint64_t chemistry_source_ref_unresolved_count = 0;
+  std::uint64_t chemistry_source_ref_unsupported_count = 0;
+};
+
 struct RuntimeDiagnosticsSnapshot {
   kernel_session_state session_state = KERNEL_SESSION_OPEN;
   kernel_index_state index_state = KERNEL_INDEX_UNAVAILABLE;
@@ -79,6 +93,8 @@ struct RuntimeDiagnosticsSnapshot {
   std::uint64_t last_pdf_recount_at_ns = 0;
   std::string last_domain_recount_reason;
   std::uint64_t last_domain_recount_at_ns = 0;
+  std::string last_chemistry_recount_reason;
+  std::uint64_t last_chemistry_recount_at_ns = 0;
   std::string last_continuity_fallback_reason;
   std::uint64_t last_continuity_fallback_at_ns = 0;
   std::uint64_t pending_recovery_ops = 0;
@@ -98,6 +114,10 @@ kernel_status collect_pdf_diagnostics_snapshot(
     kernel_handle* handle,
     kernel_index_state index_state,
     PdfDiagnosticsSnapshot& out_snapshot);
+kernel_status collect_chemistry_diagnostics_snapshot(
+    kernel_handle* handle,
+    kernel_index_state index_state,
+    ChemistryDiagnosticsSnapshot& out_snapshot);
 void collect_domain_diagnostics_snapshot(
     const AttachmentDiagnosticsSnapshot& attachment_snapshot,
     const PdfDiagnosticsSnapshot& pdf_snapshot,
@@ -107,10 +127,14 @@ std::string build_diagnostics_json(
     const RuntimeDiagnosticsSnapshot& runtime_snapshot,
     const AttachmentDiagnosticsSnapshot& attachment_snapshot,
     const PdfDiagnosticsSnapshot& pdf_snapshot,
+    const ChemistryDiagnosticsSnapshot& chemistry_snapshot,
     const DomainDiagnosticsSnapshot& domain_snapshot);
 
 std::string build_domain_diagnostics_json_fragment(
     const RuntimeDiagnosticsSnapshot& runtime_snapshot,
     const DomainDiagnosticsSnapshot& domain_snapshot);
+std::string build_chemistry_diagnostics_json_fragment(
+    const RuntimeDiagnosticsSnapshot& runtime_snapshot,
+    const ChemistryDiagnosticsSnapshot& chemistry_snapshot);
 
 }  // namespace kernel::core::diagnostics_export

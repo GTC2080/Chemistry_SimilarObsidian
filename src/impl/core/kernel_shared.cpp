@@ -171,6 +171,15 @@ void record_domain_recount(
   handle->runtime.last_domain_recount.at_ns = at_ns != 0 ? at_ns : now_ns();
 }
 
+void record_chemistry_recount(
+    kernel_handle* handle,
+    std::string_view reason,
+    const std::uint64_t at_ns) {
+  std::lock_guard lock(handle->runtime_mutex);
+  handle->runtime.last_chemistry_recount.reason = std::string(reason);
+  handle->runtime.last_chemistry_recount.at_ns = at_ns != 0 ? at_ns : now_ns();
+}
+
 void record_continuity_fallback(kernel_handle* handle, std::string_view reason) {
   std::lock_guard lock(handle->runtime_mutex);
   handle->runtime.last_continuity_fallback.reason = std::string(reason);

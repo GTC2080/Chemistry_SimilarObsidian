@@ -48,7 +48,9 @@ add_library(
   impl/core/kernel_pdf_reference_public_api.cpp
   impl/core/kernel_diagnostics.cpp
   impl/core/kernel_diagnostics_storage.cpp
+  impl/core/kernel_diagnostics_chemistry_storage.cpp
   impl/core/kernel_diagnostics_json.cpp
+  impl/core/kernel_diagnostics_chemistry_json.cpp
   impl/core/kernel_diagnostics_domain_json.cpp
   impl/diagnostics/logger.cpp
   impl/index/refresh_paths.cpp
@@ -78,6 +80,7 @@ add_library(
   impl/storage/storage_pdf_queries.cpp
   impl/storage/storage_pdf_reference_queries.cpp
   impl/storage/storage_chem_reference_queries.cpp
+  impl/storage/storage_chem_diagnostics_queries.cpp
   impl/storage/storage_pdf_diagnostics_queries.cpp
   impl/storage/storage_attachment_diagnostics_queries.cpp
   impl/storage/storage_note_queries.cpp

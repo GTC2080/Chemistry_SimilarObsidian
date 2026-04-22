@@ -38,12 +38,13 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
 - `rebuild_benchmark`
   - `note_count=64`
   - `attachment_count=64`
+  - `chemistry_spectrum_count=16`
   - `rebuild_iterations=25`
 - `query_benchmark`
   - `note_count=64`
   - `filter_note_count=16`
   - `iterations=200`
-  - includes attachment catalog, single attachment lookup, note attachment refs, attachment referrers, PDF source-ref/referrer, and Track 4 domain query smoke loops
+  - includes attachment catalog, single attachment lookup, note attachment refs, attachment referrers, PDF source-ref/referrer, Track 4 domain query smoke loops, and Track 5 chemistry query smoke loops
 
 ## Current Gates
 
@@ -60,6 +61,8 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
 - rebuild
   - `rebuild_baseline_ms=15885`
   - `rebuild_threshold_ms=22000`
+  - `chemistry_rebuild_mixed_spectra_dataset_baseline_ms=19612`
+  - `chemistry_rebuild_mixed_spectra_dataset_threshold_ms=26000`
 - query
   - `tag_query_baseline_ms=143`
   - `tag_query_threshold_ms=250`
@@ -105,6 +108,16 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
   - `domain_note_source_refs_query_threshold_ms=220`
   - `domain_object_referrers_query_baseline_ms=256`
   - `domain_object_referrers_query_threshold_ms=340`
+  - `chemistry_metadata_query_baseline_ms=99`
+  - `chemistry_metadata_query_threshold_ms=180`
+  - `chemistry_spectrum_catalog_query_baseline_ms=264`
+  - `chemistry_spectrum_catalog_query_threshold_ms=380`
+  - `chemistry_spectrum_lookup_query_baseline_ms=93`
+  - `chemistry_spectrum_lookup_query_threshold_ms=160`
+  - `chemistry_note_spectrum_refs_query_baseline_ms=233`
+  - `chemistry_note_spectrum_refs_query_threshold_ms=320`
+  - `chemistry_spectrum_referrers_query_baseline_ms=438`
+  - `chemistry_spectrum_referrers_query_threshold_ms=620`
   - `all_kind_query_baseline_ms=167`
   - `all_kind_query_threshold_ms=240`
   - `ranked_title_query_baseline_ms=51`
@@ -119,41 +132,47 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
 ## Fresh Verification Snapshot
 
 - startup
-  - `clean_observed_ms=2410`
-  - `recovery_observed_ms=3068`
+  - `clean_observed_ms=1736`
+  - `recovery_observed_ms=2641`
 - io
-  - `io_roundtrip_observed_ms=342`
-  - `external_create_observed_ms=316`
+  - `io_roundtrip_observed_ms=248`
+  - `external_create_observed_ms=206`
 - rebuild
-  - `rebuild_observed_ms=15137`
+  - `rebuild_observed_ms=15275`
+  - `chemistry_rebuild_mixed_spectra_dataset_observed_ms=15275`
 - query
-  - `tag_query_observed_ms=139`
-  - `title_query_observed_ms=43`
-  - `body_query_observed_ms=43`
-  - `body_snippet_query_observed_ms=47`
-  - `title_only_query_observed_ms=43`
-  - `shallow_page_query_observed_ms=100`
-  - `deep_offset_query_observed_ms=101`
-  - `filtered_note_query_observed_ms=92`
-  - `attachment_path_query_observed_ms=63`
-  - `attachment_catalog_query_observed_ms=37`
-  - `attachment_lookup_query_observed_ms=15`
-  - `note_attachment_refs_query_observed_ms=24`
-  - `attachment_referrers_query_observed_ms=13`
-  - `pdf_source_refs_query_observed_ms=82`
-  - `pdf_referrers_query_observed_ms=140`
-  - `domain_attachment_metadata_query_observed_ms=23`
-  - `domain_pdf_metadata_query_observed_ms=31`
-  - `domain_attachment_objects_query_observed_ms=28`
-  - `domain_pdf_objects_query_observed_ms=33`
-  - `domain_object_lookup_query_observed_ms=26`
-  - `domain_note_source_refs_query_observed_ms=98`
-  - `domain_object_referrers_query_observed_ms=165`
-  - `all_kind_query_observed_ms=142`
-  - `ranked_title_query_observed_ms=62`
-  - `ranked_tag_boost_query_observed_ms=53`
-  - `ranked_all_kind_query_observed_ms=239`
-  - `backlink_query_observed_ms=142`
+  - `tag_query_observed_ms=135`
+  - `title_query_observed_ms=34`
+  - `body_query_observed_ms=33`
+  - `body_snippet_query_observed_ms=30`
+  - `title_only_query_observed_ms=33`
+  - `shallow_page_query_observed_ms=75`
+  - `deep_offset_query_observed_ms=69`
+  - `filtered_note_query_observed_ms=63`
+  - `attachment_path_query_observed_ms=52`
+  - `attachment_catalog_query_observed_ms=34`
+  - `attachment_lookup_query_observed_ms=11`
+  - `note_attachment_refs_query_observed_ms=19`
+  - `attachment_referrers_query_observed_ms=10`
+  - `pdf_source_refs_query_observed_ms=68`
+  - `pdf_referrers_query_observed_ms=110`
+  - `domain_attachment_metadata_query_observed_ms=15`
+  - `domain_pdf_metadata_query_observed_ms=23`
+  - `domain_attachment_objects_query_observed_ms=13`
+  - `domain_pdf_objects_query_observed_ms=16`
+  - `domain_object_lookup_query_observed_ms=16`
+  - `domain_note_source_refs_query_observed_ms=77`
+  - `domain_object_referrers_query_observed_ms=133`
+  - `chemistry_metadata_query_observed_ms=58`
+  - `chemistry_spectrum_catalog_query_observed_ms=206`
+  - `chemistry_spectrum_lookup_query_observed_ms=56`
+  - `chemistry_note_spectrum_refs_query_observed_ms=140`
+  - `chemistry_spectrum_referrers_query_observed_ms=321`
+  - `all_kind_query_observed_ms=106`
+  - `ranked_title_query_observed_ms=70`
+  - `ranked_tag_boost_query_observed_ms=76`
+  - `ranked_all_kind_query_observed_ms=146`
+  - `backlink_query_observed_ms=103`
 
 ## Update Rule
 

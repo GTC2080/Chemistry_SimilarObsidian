@@ -44,6 +44,10 @@ inline constexpr BenchmarkGate kRebuildGate{
     "rebuild",
     15885,
     22000};
+inline constexpr BenchmarkGate kChemistryRebuildMixedSpectraDatasetGate{
+    "chemistry_rebuild_mixed_spectra_dataset",
+    19612,
+    26000};
 inline constexpr BenchmarkGate kTagQueryGate{
     "tag_query",
     143,
@@ -132,6 +136,26 @@ inline constexpr BenchmarkGate kDomainObjectReferrersQueryGate{
     "domain_object_referrers_query",
     256,
     340};
+inline constexpr BenchmarkGate kChemistryMetadataQueryGate{
+    "chemistry_metadata_query",
+    99,
+    180};
+inline constexpr BenchmarkGate kChemistrySpectrumCatalogQueryGate{
+    "chemistry_spectrum_catalog_query",
+    264,
+    380};
+inline constexpr BenchmarkGate kChemistrySpectrumLookupQueryGate{
+    "chemistry_spectrum_lookup_query",
+    93,
+    160};
+inline constexpr BenchmarkGate kChemistryNoteSpectrumRefsQueryGate{
+    "chemistry_note_spectrum_refs_query",
+    233,
+    320};
+inline constexpr BenchmarkGate kChemistrySpectrumReferrersQueryGate{
+    "chemistry_spectrum_referrers_query",
+    438,
+    620};
 inline constexpr BenchmarkGate kAllKindQueryGate{
     "all_kind_query",
     167,
