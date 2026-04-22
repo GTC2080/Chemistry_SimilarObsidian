@@ -11,13 +11,15 @@
     "start": "node ./scripts/run-electron.js",
     "smoke": "node ./scripts/smoke.js",
     "test": "node --test ./tests/host/*.test.js",
-    "check:packaged-resolution": "node ./scripts/check-packaged-resolution.js"
+    "check:packaged-resolution": "node ./scripts/check-packaged-resolution.js",
+    "package:smoke": "node ./scripts/package-smoke.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@electron/packager": "^20.0.0",
     "electron": "^41.2.2",
     "node-addon-api": "^8.7.0"
   }

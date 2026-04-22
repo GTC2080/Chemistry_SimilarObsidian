@@ -7,6 +7,22 @@ const { HostRuntime } = require("./host-runtime");
 const { SECURITY_BASELINE } = require("../shared/host-contract");
 
 const isSmokeRun = process.env.CHEM_OBSIDIAN_HOST_SMOKE === "1";
+const smokeRunId = typeof process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID === "string" &&
+  process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID.trim()
+  ? process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID.trim().replace(/[^a-zA-Z0-9_-]/g, "_")
+  : "default";
+
+function logSmokeStage(stage, details = null) {
+  if (!isSmokeRun) {
+    return;
+  }
+
+  console.log(`ELECTRON_SMOKE_STAGE ${JSON.stringify({
+    runId: smokeRunId,
+    stage,
+    ...(details ?? {})
+  })}`);
+}
 
 let hostApi;
 let hostRuntime;
@@ -26,7 +42,9 @@ function getSmokePaths() {
   return {
     root: smokeRoot,
     vaultRoot: path.join(smokeRoot, "vault"),
-    supportBundlePath: path.join(smokeRoot, "support-bundle.json")
+    supportBundlePath: path.join(smokeRoot, "support-bundle.json"),
+    resultPath: path.join(smokeRoot, `result-${smokeRunId}.json`),
+    progressPath: path.join(smokeRoot, `progress-${smokeRunId}.log`)
   };
 }
 
@@ -72,6 +90,20 @@ function ensureSmokeVault(smokePaths) {
   return vaultRoot;
 }
 
+function writeSmokeResult(smokePaths, result) {
+  fs.mkdirSync(smokePaths.root, { recursive: true });
+  fs.writeFileSync(smokePaths.resultPath, JSON.stringify(result, null, 2), "utf8");
+}
+
+function appendSmokeProgress(smokePaths, stage, details = null) {
+  fs.mkdirSync(smokePaths.root, { recursive: true });
+  fs.appendFileSync(smokePaths.progressPath, `${JSON.stringify({
+    at_ms: Date.now(),
+    stage,
+    ...(details ?? {})
+  })}\n`, "utf8");
+}
+
 if (isSmokeRun) {
   app.disableHardwareAcceleration();
 }
@@ -112,9 +144,20 @@ function createMainWindow() {
   if (isSmokeRun) {
     const smokePaths = getSmokePaths();
     const smokeVaultPath = ensureSmokeVault(smokePaths);
+    logSmokeStage("window_created", {
+      smokeVaultPath
+    });
+    appendSmokeProgress(smokePaths, "smoke_window_created", {
+      smoke_vault_path: smokeVaultPath,
+      run_id: smokeRunId
+    });
 
     mainWindow.webContents.once("did-finish-load", async () => {
+      logSmokeStage("did_finish_load");
+      appendSmokeProgress(smokePaths, "did_finish_load");
+
       try {
+        logSmokeStage("execute_javascript_begin");
         const smokePayload = await mainWindow.webContents.executeJavaScript(`
           (async () => {
             const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -255,11 +298,30 @@ function createMainWindow() {
           })()
         `);
 
+        logSmokeStage("execute_javascript_success");
+        appendSmokeProgress(smokePaths, "execute_javascript_success");
+        writeSmokeResult(smokePaths, {
+          ok: true,
+          runId: smokeRunId,
+          payload: smokePayload
+        });
         console.log(`ELECTRON_SMOKE_OK ${JSON.stringify(smokePayload)}`);
       } catch (error) {
+        logSmokeStage("execute_javascript_failure", {
+          error: error && error.message ? error.message : String(error)
+        });
+        appendSmokeProgress(smokePaths, "execute_javascript_failure", {
+          error: error && error.stack ? error.stack : String(error)
+        });
+        writeSmokeResult(smokePaths, {
+          ok: false,
+          runId: smokeRunId,
+          error: error && error.stack ? error.stack : String(error)
+        });
         console.error(`ELECTRON_SMOKE_FAIL ${error && error.stack ? error.stack : error}`);
         process.exitCode = 1;
       } finally {
+        appendSmokeProgress(smokePaths, "smoke_window_close_requested");
         setTimeout(() => {
           if (!mainWindow.isDestroyed()) {
             mainWindow.close();
@@ -271,6 +333,7 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
+  logSmokeStage("app_when_ready");
   hostRuntime.markReady();
   createMainWindow();
 
