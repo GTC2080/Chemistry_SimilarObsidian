@@ -44,6 +44,21 @@ function createStubKernelAdapter(overrides = {}) {
   };
 }
 
+function createStubFilesSurface(overrides = {}) {
+  return {
+    async listEntries() {
+      throw new Error("listEntries was not stubbed");
+    },
+    async readNote() {
+      throw new Error("readNote was not stubbed");
+    },
+    async listRecentNotes() {
+      throw new Error("listRecentNotes was not stubbed");
+    },
+    ...overrides
+  };
+}
+
 test("HostApi querySearch rejects an empty query with the frozen error envelope", async () => {
   const api = new HostApi({
     kernelAdapter: createStubKernelAdapter()
@@ -229,5 +244,185 @@ test("HostApi exportSupportBundle preserves request id and mapped output path", 
     },
     error: null,
     request_id: "req-diagnostics"
+  });
+});
+
+test("HostApi files.listEntries rejects access when no active vault session exists", async () => {
+  const api = new HostApi({
+    kernelAdapter: createStubKernelAdapter(),
+    getActiveVaultPath: () => null,
+    filesSurface: createStubFilesSurface()
+  });
+
+  const result = await api.listFilesEntries({
+    request_id: "req-files-session"
+  });
+
+  assert.deepEqual(result, {
+    ok: false,
+    data: null,
+    error: {
+      code: HOST_ERROR_CODES.sessionNotOpen,
+      message: "Open a vault session before using this host surface.",
+      details: {
+        operation: "files.list_entries",
+        run_mode: "dev"
+      }
+    },
+    request_id: "req-files-session"
+  });
+});
+
+test("HostApi files.listEntries maps entry records into the host model", async () => {
+  let capturedRequest = null;
+  const api = new HostApi({
+    kernelAdapter: createStubKernelAdapter(),
+    getActiveVaultPath: () => "E:/vault",
+    filesSurface: createStubFilesSurface({
+      async listEntries(request) {
+        capturedRequest = request;
+        return {
+          entries: [
+            {
+              rel_path: "notes/example.md",
+              name: "example.md",
+              title: "example",
+              kind: "note",
+              is_directory: false,
+              size_bytes: 42,
+              mtime_ms: 1000
+            }
+          ]
+        };
+      }
+    })
+  });
+
+  const result = await api.listFilesEntries({
+    parentRelPath: "notes",
+    limit: 10,
+    request_id: "req-files-list"
+  });
+
+  assert.deepEqual(capturedRequest, {
+    vaultPath: "E:/vault",
+    parentRelPath: "notes",
+    limit: 10
+  });
+  assert.deepEqual(result, {
+    ok: true,
+    data: {
+      parentRelPath: "notes",
+      count: 1,
+      items: [
+        {
+          relPath: "notes/example.md",
+          name: "example.md",
+          title: "example",
+          kind: "note",
+          isDirectory: false,
+          sizeBytes: 42,
+          mtimeMs: 1000
+        }
+      ]
+    },
+    error: null,
+    request_id: "req-files-list"
+  });
+});
+
+test("HostApi files.readNote maps a note record into the host model", async () => {
+  let capturedRequest = null;
+  const api = new HostApi({
+    kernelAdapter: createStubKernelAdapter(),
+    getActiveVaultPath: () => "E:/vault",
+    filesSurface: createStubFilesSurface({
+      async readNote(request) {
+        capturedRequest = request;
+        return {
+          rel_path: "notes/example.md",
+          name: "example.md",
+          title: "Example",
+          kind: "note",
+          body_text: "# Example\n\nbody",
+          size_bytes: 16,
+          mtime_ms: 2000
+        };
+      }
+    })
+  });
+
+  const result = await api.readNoteFile({
+    relPath: "notes/example.md",
+    request_id: "req-files-read"
+  });
+
+  assert.deepEqual(capturedRequest, {
+    vaultPath: "E:/vault",
+    relPath: "notes/example.md"
+  });
+  assert.deepEqual(result, {
+    ok: true,
+    data: {
+      relPath: "notes/example.md",
+      name: "example.md",
+      title: "Example",
+      kind: "note",
+      bodyText: "# Example\n\nbody",
+      sizeBytes: 16,
+      mtimeMs: 2000
+    },
+    error: null,
+    request_id: "req-files-read"
+  });
+});
+
+test("HostApi files.listRecent maps recent note records into the host model", async () => {
+  const api = new HostApi({
+    kernelAdapter: createStubKernelAdapter(),
+    getActiveVaultPath: () => "E:/vault",
+    filesSurface: createStubFilesSurface({
+      async listRecentNotes() {
+        return {
+          entries: [
+            {
+              rel_path: "notes/recent.md",
+              name: "recent.md",
+              title: "recent",
+              kind: "note",
+              is_directory: false,
+              size_bytes: 12,
+              mtime_ms: 5000
+            }
+          ]
+        };
+      }
+    })
+  });
+
+  const result = await api.listRecentFiles({
+    limit: 5,
+    request_id: "req-files-recent"
+  });
+
+  assert.deepEqual(result, {
+    ok: true,
+    data: {
+      parentRelPath: null,
+      count: 1,
+      items: [
+        {
+          relPath: "notes/recent.md",
+          name: "recent.md",
+          title: "recent",
+          kind: "note",
+          isDirectory: false,
+          sizeBytes: 12,
+          mtimeMs: 5000
+        }
+      ]
+    },
+    error: null,
+    request_id: "req-files-recent"
   });
 });

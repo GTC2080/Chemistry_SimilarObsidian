@@ -114,6 +114,7 @@ class HostRuntime {
         "bootstrap",
         "runtime",
         "session",
+        "files",
         "search",
         "attachments",
         "pdf",
@@ -156,6 +157,10 @@ class HostRuntime {
       adapter_attached: this.kernelAdapter.getBindingInfo().attached,
       last_error: this.lastSessionError
     };
+  }
+
+  getActiveVaultPath() {
+    return this.activeSession ? this.activeSession.vaultPath : null;
   }
 
   async getSessionStatus(payload = {}) {

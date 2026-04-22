@@ -84,6 +84,20 @@ export const session = {
   }
 };
 
+export const files = {
+  async listEntries(request = {}, requestId) {
+    return invoke("files", "listEntries", request, requestId);
+  },
+
+  async readNote(request = {}, requestId) {
+    return invoke("files", "readNote", request, requestId);
+  },
+
+  async listRecent(request = {}, requestId) {
+    return invoke("files", "listRecent", request, requestId);
+  }
+};
+
 export const search = {
   async query(request = {}, requestId) {
     return invoke("search", "query", request, requestId);

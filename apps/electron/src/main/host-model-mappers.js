@@ -56,6 +56,38 @@ function mapSearchPage(page = {}, request = {}) {
   };
 }
 
+function mapFilesEntry(entry = {}) {
+  return {
+    relPath: entry.rel_path ?? "",
+    name: entry.name ?? "",
+    title: entry.title ?? "",
+    kind: entry.kind ?? "unknown",
+    isDirectory: Boolean(entry.is_directory),
+    sizeBytes: Number(entry.size_bytes ?? 0),
+    mtimeMs: Number(entry.mtime_ms ?? 0)
+  };
+}
+
+function mapFilesList(list = {}, request = {}) {
+  return {
+    parentRelPath: request.parentRelPath ?? null,
+    count: Array.isArray(list.entries) ? list.entries.length : Number(list.count ?? 0),
+    items: Array.isArray(list.entries) ? list.entries.map(mapFilesEntry) : []
+  };
+}
+
+function mapFileNoteRecord(record = {}) {
+  return {
+    relPath: record.rel_path ?? "",
+    name: record.name ?? "",
+    title: record.title ?? "",
+    kind: record.kind ?? "note",
+    bodyText: record.body_text ?? "",
+    sizeBytes: Number(record.size_bytes ?? 0),
+    mtimeMs: Number(record.mtime_ms ?? 0)
+  };
+}
+
 function mapAttachmentRecord(record = {}) {
   return {
     relPath: record.rel_path ?? "",
@@ -241,6 +273,8 @@ module.exports = {
   mapChemSpectrumSourceRefs,
   mapDiagnosticsExport,
   mapDomainMetadataList,
+  mapFileNoteRecord,
+  mapFilesList,
   mapKernelRebuildStatus,
   mapKernelRuntimeSummary,
   mapPdfMetadata,

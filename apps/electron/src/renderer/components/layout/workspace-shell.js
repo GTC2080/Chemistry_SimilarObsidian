@@ -17,7 +17,17 @@ const PAGE_META = {
 };
 
 export function createWorkspaceShell(opts = {}) {
-  const { currentPage, vaultName, runtimeEnvelope, onNavigate, onCloseVault, children } = opts;
+  const {
+    currentPage,
+    vaultName,
+    runtimeEnvelope,
+    filesSurfaceState,
+    onNavigate,
+    onCloseVault,
+    currentFilesContentId,
+    onSelectFilesContent,
+    children
+  } = opts;
   const currentMeta = PAGE_META[currentPage] ?? PAGE_META.files;
 
   const shell = document.createElement("div");
@@ -42,7 +52,10 @@ export function createWorkspaceShell(opts = {}) {
   const sidebar = createSidebar(currentPage, {
     onNavigate,
     onCloseVault,
-    vaultPath: vaultName
+    vaultPath: vaultName,
+    filesSurfaceState,
+    currentFilesContentId,
+    onSelectFilesContent
   });
   body.appendChild(sidebar);
 

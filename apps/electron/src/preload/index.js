@@ -6,6 +6,9 @@ const HOST_IPC_CHANNELS = Object.freeze({
   sessionGetStatus: "host/session/get-status",
   sessionOpenVault: "host/session/open-vault",
   sessionCloseVault: "host/session/close-vault",
+  filesListEntries: "host/files/list-entries",
+  filesReadNote: "host/files/read-note",
+  filesListRecent: "host/files/list-recent",
   searchQuery: "host/search/query",
   attachmentsList: "host/attachments/list",
   attachmentsGet: "host/attachments/get",
@@ -99,6 +102,28 @@ const hostShell = Object.freeze({
 
     async closeVault(requestId) {
       return invokeHost(HOST_IPC_CHANNELS.sessionCloseVault, {
+        ...(requestId ? { request_id: requestId } : {})
+      });
+    }
+  }),
+  files: Object.freeze({
+    async listEntries(request = {}, requestId) {
+      return invokeHost(HOST_IPC_CHANNELS.filesListEntries, {
+        ...request,
+        ...(requestId ? { request_id: requestId } : {})
+      });
+    },
+
+    async readNote(request = {}, requestId) {
+      return invokeHost(HOST_IPC_CHANNELS.filesReadNote, {
+        ...request,
+        ...(requestId ? { request_id: requestId } : {})
+      });
+    },
+
+    async listRecent(request = {}, requestId) {
+      return invokeHost(HOST_IPC_CHANNELS.filesListRecent, {
+        ...request,
         ...(requestId ? { request_id: requestId } : {})
       });
     }

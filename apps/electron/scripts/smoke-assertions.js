@@ -51,6 +51,9 @@ function assertSmokePayload(payload) {
   expectSuccessEnvelope(payload.runtimeAfterOpen, "runtimeAfterOpen");
   expectSuccessEnvelope(payload.rebuildStatusAfterOpen, "rebuildStatusAfterOpen");
   expectSuccessEnvelope(payload.postOpenSession, "postOpenSession");
+  expectSuccessEnvelope(payload.filesListAfterOpen, "filesListAfterOpen");
+  expectSuccessEnvelope(payload.filesReadAfterOpen, "filesReadAfterOpen");
+  expectSuccessEnvelope(payload.filesRecentAfterOpen, "filesRecentAfterOpen");
   expectSuccessEnvelope(payload.searchAfterOpen, "searchAfterOpen");
   expectSuccessEnvelope(payload.attachmentsAfterOpen, "attachmentsAfterOpen");
   expectSuccessEnvelope(payload.attachmentGetAfterOpen, "attachmentGetAfterOpen");
@@ -73,6 +76,9 @@ function assertSmokePayload(payload) {
   const expectedPreOpenReadFailureCode = getExpectedPreOpenReadFailureCode(payload);
 
   expectFailureEnvelope(payload.search, "search", expectedPreOpenReadFailureCode);
+  expectFailureEnvelope(payload.filesList, "filesList", expectedPreOpenReadFailureCode);
+  expectFailureEnvelope(payload.filesRead, "filesRead", expectedPreOpenReadFailureCode);
+  expectFailureEnvelope(payload.filesRecent, "filesRecent", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.attachments, "attachments", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.attachmentGet, "attachmentGet", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.attachmentRefs, "attachmentRefs", expectedPreOpenReadFailureCode);
@@ -111,6 +117,16 @@ function assertSmokePayload(payload) {
   expect(payload.postOpenSession.data.state === "open", "postOpenSession should report an open host session.");
   expect(payload.postOpenSession.data.active_vault_path, "postOpenSession should expose the active vault path.");
   expect(payload.postOpenSession.data.last_error === null, "postOpenSession should clear the last error after a successful open.");
+  expect(payload.filesListAfterOpen.data.parentRelPath === "", "filesListAfterOpen should enumerate the vault root.");
+  expectArrayIncludes(
+    payload.filesListAfterOpen.data.items.map((item) => item.relPath),
+    ["assets", "notes"],
+    "filesListAfterOpen item relPaths"
+  );
+  expect(payload.filesReadAfterOpen.data.relPath === "notes/example.md", "filesReadAfterOpen should resolve the seeded note.");
+  expect(payload.filesReadAfterOpen.data.title === "Baseline Smoke Note", "filesReadAfterOpen should derive the note title from the heading.");
+  expect(payload.filesRecentAfterOpen.data.count >= 1, "filesRecentAfterOpen should list at least one recent note.");
+  expect(payload.filesRecentAfterOpen.data.items[0].relPath === "notes/example.md", "filesRecentAfterOpen should expose the seeded note.");
   expect(payload.searchAfterOpen.data.totalHits >= 1, "searchAfterOpen should return at least one hit.");
   expect(payload.searchAfterOpen.data.items[0].relPath === "notes/example.md", "searchAfterOpen should return the seeded note.");
   expect(payload.attachmentsAfterOpen.data.count >= 2, "attachmentsAfterOpen should project the seeded attachment catalog.");
@@ -149,6 +165,12 @@ function assertSmokePayload(payload) {
   expect(payload.rebuildStatusAfterWait.data.status.indexState === "ready", "rebuildStatusAfterWait should return the host to READY.");
   expect(payload.closeAttempt.data.result === "closed", "closeAttempt should close the smoke vault.");
   expect(payload.rebuildStatus.data.adapterAttached === payload.runtime.data.kernel_binding.attached, "rebuild status should reflect the adapter attachment flag.");
+  expect(payload.filesList.request_id === "smoke-files-list", "filesList request_id should round-trip.");
+  expect(payload.filesRead.request_id === "smoke-files-read", "filesRead request_id should round-trip.");
+  expect(payload.filesRecent.request_id === "smoke-files-recent", "filesRecent request_id should round-trip.");
+  expect(payload.filesListAfterOpen.request_id === "smoke-files-list-after-open", "filesListAfterOpen request_id should round-trip.");
+  expect(payload.filesReadAfterOpen.request_id === "smoke-files-read-after-open", "filesReadAfterOpen request_id should round-trip.");
+  expect(payload.filesRecentAfterOpen.request_id === "smoke-files-recent-after-open", "filesRecentAfterOpen request_id should round-trip.");
   expect(payload.search.request_id === "smoke-search", "search request_id should round-trip.");
   expect(payload.searchAfterOpen.request_id === "smoke-search-after-open", "searchAfterOpen request_id should round-trip.");
 }

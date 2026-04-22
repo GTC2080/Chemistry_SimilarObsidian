@@ -1,4 +1,11 @@
 const { app } = require("electron");
+const {
+  FilesSurfaceError,
+  FILES_LIST_LIMIT_MAX,
+  listEntries,
+  listRecentNotes,
+  readNote
+} = require("./files-host-surface");
 const { createKernelAdapterBoundary } = require("./kernel-adapter/kernel-adapter-boundary");
 const {
   mapAttachmentList,
@@ -10,6 +17,8 @@ const {
   mapChemSpectrumSourceRefs,
   mapDiagnosticsExport,
   mapDomainMetadataList,
+  mapFileNoteRecord,
+  mapFilesList,
   mapKernelRebuildStatus,
   mapPdfMetadata,
   mapPdfReferrers,
@@ -22,6 +31,10 @@ const { HOST_ERROR_CODES } = require("../shared/host-contract");
 const SEARCH_LIMIT_MAX = 128;
 const LIST_LIMIT_DEFAULT = 64;
 const REBUILD_WAIT_DEFAULT_MS = 30000;
+
+function getRunMode() {
+  return app && app.isPackaged ? "packaged" : "dev";
+}
 
 function sanitizeRequestId(payload) {
   return payload && typeof payload.request_id === "string" && payload.request_id.trim()
@@ -99,6 +112,12 @@ function finalizeAdapterResult(adapterResult, mapper, requestId, requestShape = 
 class HostApi {
   constructor(options = {}) {
     this.kernelAdapter = options.kernelAdapter ?? createKernelAdapterBoundary();
+    this.getActiveVaultPath = options.getActiveVaultPath ?? (() => null);
+    this.filesSurface = options.filesSurface ?? {
+      listEntries,
+      readNote,
+      listRecentNotes
+    };
   }
 
   getKernelAdapter() {
@@ -147,6 +166,109 @@ class HostApi {
 
     const adapterResult = await this.kernelAdapter.querySearch(requestShape);
     return finalizeAdapterResult(adapterResult, mapSearchPage, requestId, requestShape);
+  }
+
+  async listFilesEntries(payload = {}) {
+    const requestId = sanitizeRequestId(payload);
+    const limit = ensureLimit(payload.limit, requestId, "limit", 64, FILES_LIST_LIMIT_MAX);
+    if (typeof limit !== "number") {
+      return limit;
+    }
+
+    const parentRelPath = payload.parentRelPath == null
+      ? ""
+      : ensureOptionalString(payload.parentRelPath, "parentRelPath", requestId);
+    if (typeof parentRelPath !== "string") {
+      return parentRelPath;
+    }
+
+    const vaultPath = this.getActiveVaultPath();
+    if (!vaultPath) {
+      return fail(
+        HOST_ERROR_CODES.sessionNotOpen,
+        "Open a vault session before using this host surface.",
+        {
+          operation: "files.list_entries",
+          run_mode: getRunMode()
+        },
+        requestId
+      );
+    }
+
+    try {
+      const requestShape = { parentRelPath, limit };
+      const result = await this.filesSurface.listEntries({
+        vaultPath,
+        parentRelPath,
+        limit
+      });
+      return ok(mapFilesList(result, requestShape), requestId);
+    } catch (error) {
+      return mapFilesSurfaceFailure(error, requestId);
+    }
+  }
+
+  async readNoteFile(payload = {}) {
+    const requestId = sanitizeRequestId(payload);
+    const relPath = ensureNonEmptyString(payload.relPath, "relPath", requestId);
+    if (typeof relPath !== "string") {
+      return relPath;
+    }
+
+    const vaultPath = this.getActiveVaultPath();
+    if (!vaultPath) {
+      return fail(
+        HOST_ERROR_CODES.sessionNotOpen,
+        "Open a vault session before using this host surface.",
+        {
+          operation: "files.read_note",
+          run_mode: getRunMode()
+        },
+        requestId
+      );
+    }
+
+    try {
+      const result = await this.filesSurface.readNote({
+        vaultPath,
+        relPath
+      });
+      return ok(mapFileNoteRecord(result), requestId);
+    } catch (error) {
+      return mapFilesSurfaceFailure(error, requestId);
+    }
+  }
+
+  async listRecentFiles(payload = {}) {
+    const requestId = sanitizeRequestId(payload);
+    const limit = ensureLimit(payload.limit, requestId, "limit", 16, FILES_LIST_LIMIT_MAX);
+    if (typeof limit !== "number") {
+      return limit;
+    }
+
+    const vaultPath = this.getActiveVaultPath();
+    if (!vaultPath) {
+      return fail(
+        HOST_ERROR_CODES.sessionNotOpen,
+        "Open a vault session before using this host surface.",
+        {
+          operation: "files.list_recent",
+          run_mode: getRunMode()
+        },
+        requestId
+      );
+    }
+
+    try {
+      const requestShape = { limit };
+      const result = await this.filesSurface.listRecentNotes({
+        vaultPath,
+        limit
+      });
+      return ok(mapFilesList(result, requestShape), requestId);
+    } catch (error) {
+      return mapFilesSurfaceFailure(error, requestId);
+    }
   }
 
   async listAttachments(payload = {}) {
@@ -341,7 +463,7 @@ class HostApi {
     const requestId = sanitizeRequestId(payload);
     return ok(
       {
-        runMode: app.isPackaged ? "packaged" : "dev",
+        runMode: getRunMode(),
         adapterAttached: this.kernelAdapter.getBindingInfo().attached,
         status: mapKernelRebuildStatus(this.kernelAdapter.getRebuildStatusSummary())
       },
@@ -385,6 +507,39 @@ class HostApi {
       requestId
     );
   }
+}
+
+function ensureOptionalString(value, fieldName, requestId) {
+  if (typeof value !== "string") {
+    return fail(
+      HOST_ERROR_CODES.invalidArgument,
+      `${fieldName} must be a string when provided.`,
+      {
+        field: fieldName
+      },
+      requestId
+    );
+  }
+
+  return value.trim();
+}
+
+function mapFilesSurfaceFailure(error, requestId) {
+  if (error instanceof FilesSurfaceError) {
+    return fail(
+      error.code,
+      error.message,
+      error.details,
+      requestId
+    );
+  }
+
+  return fail(
+    HOST_ERROR_CODES.internalError,
+    "Files surface failed unexpectedly.",
+    null,
+    requestId
+  );
 }
 
 module.exports = {

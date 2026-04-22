@@ -32,7 +32,9 @@ let hostApi;
 let hostRuntime;
 
 try {
-  hostApi = new HostApi();
+  hostApi = new HostApi({
+    getActiveVaultPath: () => hostRuntime ? hostRuntime.getActiveVaultPath() : null
+  });
   hostRuntime = new HostRuntime({
     kernelAdapter: hostApi.getKernelAdapter()
   });
@@ -189,7 +191,10 @@ async function createMainWindow() {
               window.hostShell.runtime.getSummary(),
               window.hostShell.session.getStatus()
             ]);
-            const [search, attachments, attachmentGet, attachmentRefs, attachmentReferrers] = await Promise.all([
+            const [filesList, filesRead, filesRecent, search, attachments, attachmentGet, attachmentRefs, attachmentReferrers] = await Promise.all([
+              window.hostShell.files.listEntries({ limit: 5 }, "smoke-files-list"),
+              window.hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read"),
+              window.hostShell.files.listRecent({ limit: 5 }, "smoke-files-recent"),
               window.hostShell.search.query({ query: "baseline", limit: 5 }, "smoke-search"),
               window.hostShell.attachments.list({ limit: 5 }, "smoke-attachments-list"),
               window.hostShell.attachments.get({ attachmentRelPath: "assets/sample.pdf" }, "smoke-attachments-get"),
@@ -224,7 +229,10 @@ async function createMainWindow() {
             const runtimeAfterOpen = await waitForIndexReady();
             const rebuildStatusAfterOpen = await window.hostShell.rebuild.getStatus("smoke-rebuild-status-after-open");
             const postOpenSession = await window.hostShell.session.getStatus("smoke-post-open");
-            const [searchAfterOpen, attachmentsAfterOpen, attachmentGetAfterOpen, attachmentRefsAfterOpen, attachmentReferrersAfterOpen] = await Promise.all([
+            const [filesListAfterOpen, filesReadAfterOpen, filesRecentAfterOpen, searchAfterOpen, attachmentsAfterOpen, attachmentGetAfterOpen, attachmentRefsAfterOpen, attachmentReferrersAfterOpen] = await Promise.all([
+              window.hostShell.files.listEntries({ limit: 5 }, "smoke-files-list-after-open"),
+              window.hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read-after-open"),
+              window.hostShell.files.listRecent({ limit: 5 }, "smoke-files-recent-after-open"),
               window.hostShell.search.query({ query: "baseline", limit: 5 }, "smoke-search-after-open"),
               window.hostShell.attachments.list({ limit: 5 }, "smoke-attachments-list-after-open"),
               window.hostShell.attachments.get({ attachmentRelPath: "assets/sample.pdf" }, "smoke-attachments-get-after-open"),
@@ -262,6 +270,9 @@ async function createMainWindow() {
               bootstrap,
               runtime,
               session,
+              filesList,
+              filesRead,
+              filesRecent,
               search,
               attachments,
               attachmentGet,
@@ -283,6 +294,9 @@ async function createMainWindow() {
               runtimeAfterOpen,
               rebuildStatusAfterOpen,
               postOpenSession,
+              filesListAfterOpen,
+              filesReadAfterOpen,
+              filesRecentAfterOpen,
               searchAfterOpen,
               attachmentsAfterOpen,
               attachmentGetAfterOpen,

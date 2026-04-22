@@ -29,6 +29,43 @@ Current integration status:
 - packaged-mode native binding resolution now has a dedicated readiness check
 - packaged-run smoke now validates a packaged Electron shell plus native adapter load path
 
+## Current Renderer Handoff: Content Workspace Baseline
+
+Renderer has now moved past the launcher/dashboard stage and into a content-centric workspace baseline.
+
+Current renderer status:
+
+- Vault Launcher is usable and semantically separated from workspace mode
+- Workspace Shell is content-first rather than tool-first
+- Files owns the default center stage after vault open
+- Search / Attachments / Chemistry / Diagnostics remain reachable as tool surfaces
+- current content selection inside Files is now backed by host-facing Files baseline reads
+
+Current Files baseline integration status:
+
+- host now exposes:
+  - `window.hostShell.files.listEntries(...)`
+  - `window.hostShell.files.readNote(...)`
+  - `window.hostShell.files.listRecent(...)`
+- Files baseline stays host-truth-backed:
+  - renderer does not read vault files directly
+  - renderer does not infer note bodies from unrelated APIs
+  - renderer does not reconstruct a file tree from search or attachment surfaces
+
+This closes the three initial Files host gaps that blocked the content workspace baseline:
+
+- `EXPLICIT-HOST-GAP-FILES-TREE-SURFACE`
+- `EXPLICIT-HOST-GAP-CURRENT-FILE-READ-SURFACE`
+- `EXPLICIT-HOST-GAP-RECENT-CONTENT-SURFACE`
+
+## Current Renderer Boundary Rule
+
+With the Files baseline now present:
+
+- renderer owns layout, selection shell, and host-backed content presentation
+- no renderer workaround may bypass `window.hostShell.*`
+- no new Files semantics may be reverse-engineered from SQLite, disk layout, support bundle internals, or unrelated host APIs
+
 ## Canonical Build Rule
 
 - all validation still runs from `kernel/`

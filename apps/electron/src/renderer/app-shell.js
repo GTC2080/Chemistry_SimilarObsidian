@@ -5,13 +5,13 @@
  */
 
 import { store } from "./state/host-store.js";
-import { bootstrap, runtime, session } from "./services/host-api-client.js";
+import { bootstrap, files, runtime, session } from "./services/host-api-client.js";
 import { createStateSurface } from "./components/shared/state-surface.js";
 import { createLauncherShell } from "./components/layout/launcher-shell.js";
 import { createRecentVaultsList } from "./pages/launcher/recent-vaults-list.js";
 import { createLauncherPage } from "./pages/launcher/launcher-page.js";
 import { createWorkspaceShell } from "./components/layout/workspace-shell.js";
-import { createWorkspaceHomePage } from "./pages/workspace/workspace-home-page.js";
+import { createFilesPage } from "./pages/files/files-page.js";
 import { createSearchPage } from "./pages/search/search-page.js";
 import { createAttachmentPage } from "./pages/attachments/attachment-page.js";
 import { createChemistryPage } from "./pages/chemistry/chemistry-page.js";
@@ -27,6 +27,9 @@ class AppShell {
     this._sessionTransitioning = false;
     this._lastSessionOpen = undefined;
     this._visibilityHandler = null;
+    this._currentFilesContentId = null;
+    this._filesSurfaceState = createEmptyFilesSurfaceState();
+    this._filesSurfaceRequestToken = 0;
   }
 
   async init() {
@@ -66,6 +69,7 @@ class AppShell {
     // 5. Start runtime polling if session is open
     if (sessionState === "open") {
       this._startRuntimePolling();
+      void this._refreshFilesSurface({ preserveSelection: false });
     }
 
     // 6. Render initial mode
@@ -102,6 +106,7 @@ class AppShell {
         }
       } else {
         this._stopRuntimePolling();
+        this._resetFilesSurfaceState();
         store.setCurrentPage("launcher");
       }
     }
@@ -182,6 +187,11 @@ class AppShell {
       currentPage,
       vaultName: store.getActiveVaultPath() || "Vault",
       runtimeEnvelope: store.getRuntimeSummary(),
+      filesSurfaceState: this._filesSurfaceState,
+      currentFilesContentId: this._currentFilesContentId,
+      onSelectFilesContent: (contentId) => {
+        void this._selectFilesContent(contentId);
+      },
       onNavigate: (pageId) => {
         store.setCurrentPage(pageId);
         this._renderWorkspace();
@@ -209,9 +219,14 @@ class AppShell {
     } else if (currentPage === "diagnostics") {
       container.appendChild(createDiagnosticsPage());
     } else {
-      container.appendChild(createWorkspaceHomePage({
+      container.appendChild(createFilesPage({
         vaultPath: store.getActiveVaultPath(),
-        runtimeEnvelope: store.getRuntimeSummary()
+        runtimeEnvelope: store.getRuntimeSummary(),
+        filesSurfaceState: this._filesSurfaceState,
+        currentContentId: this._currentFilesContentId,
+        onSelectContent: (contentId) => {
+          void this._selectFilesContent(contentId);
+        }
       }));
     }
 
@@ -272,6 +287,7 @@ class AppShell {
     if (result.ok) {
       const runtimeEnv = await runtime.getSummary("app-post-open");
       store.setEnvelope("runtime", runtimeEnv);
+      await this._refreshFilesSurface({ preserveSelection: false });
     }
 
     return result;
@@ -286,6 +302,7 @@ class AppShell {
     store.setEnvelope("session", result);
 
     if (result.ok) {
+      this._resetFilesSurfaceState();
       store.setEnvelope("runtime", null);
     }
   }
@@ -310,6 +327,119 @@ class AppShell {
     }
   }
 
+  async _refreshFilesSurface(opts = {}) {
+    const { preserveSelection = true } = opts;
+    if (store.getSessionState() !== "open") {
+      this._resetFilesSurfaceState();
+      this._renderMode();
+      return;
+    }
+
+    const requestToken = ++this._filesSurfaceRequestToken;
+    this._filesSurfaceState = {
+      ...this._filesSurfaceState,
+      loading: true,
+      loadingSelection: false,
+      currentNoteEnvelope: null,
+      selectionError: null
+    };
+    this._renderMode();
+
+    const [entriesEnvelope, recentEnvelope] = await Promise.all([
+      files.listEntries({ limit: 32 }, "renderer-files-root"),
+      files.listRecent({ limit: 12 }, "renderer-files-recent")
+    ]);
+
+    if (!this._acceptFilesSurfaceResult(requestToken)) {
+      return;
+    }
+
+    const preferredSelection = preserveSelection ? this._currentFilesContentId : null;
+    const selectedRelPath = chooseFilesSelection(preferredSelection, entriesEnvelope, recentEnvelope);
+    this._currentFilesContentId = selectedRelPath;
+
+    const selectedEntry = findFilesEntry(selectedRelPath, entriesEnvelope, recentEnvelope);
+    const currentNoteEnvelope = await this._loadCurrentNoteEnvelope(selectedRelPath, selectedEntry, requestToken);
+    if (!this._acceptFilesSurfaceResult(requestToken)) {
+      return;
+    }
+
+    this._filesSurfaceState = {
+      loading: false,
+      loadingSelection: false,
+      entriesEnvelope,
+      recentEnvelope,
+      currentNoteEnvelope,
+      selectedRelPath,
+      selectedEntry,
+      selectionError: null
+    };
+    this._renderMode();
+  }
+
+  async _selectFilesContent(contentId) {
+    if (store.getSessionState() !== "open") {
+      return;
+    }
+
+    const selectedRelPath = normalizeSelectionKey(contentId);
+    this._currentFilesContentId = selectedRelPath;
+    const requestToken = ++this._filesSurfaceRequestToken;
+    const selectedEntry = findFilesEntry(
+      selectedRelPath,
+      this._filesSurfaceState.entriesEnvelope,
+      this._filesSurfaceState.recentEnvelope
+    );
+
+    this._filesSurfaceState = {
+      ...this._filesSurfaceState,
+      loading: false,
+      loadingSelection: true,
+      selectedRelPath,
+      selectedEntry,
+      currentNoteEnvelope: null,
+      selectionError: null
+    };
+    this._renderMode();
+
+    const currentNoteEnvelope = await this._loadCurrentNoteEnvelope(selectedRelPath, selectedEntry, requestToken);
+    if (!this._acceptFilesSurfaceResult(requestToken)) {
+      return;
+    }
+
+    this._filesSurfaceState = {
+      ...this._filesSurfaceState,
+      loadingSelection: false,
+      selectedRelPath,
+      selectedEntry,
+      currentNoteEnvelope,
+      selectionError: null
+    };
+    this._renderMode();
+  }
+
+  async _loadCurrentNoteEnvelope(selectedRelPath, selectedEntry, requestToken) {
+    if (!selectedRelPath || !isReadableNoteSelection(selectedRelPath, selectedEntry)) {
+      return null;
+    }
+
+    const currentNoteEnvelope = await files.readNote(
+      { relPath: selectedRelPath },
+      `renderer-files-read-${requestToken}`
+    );
+    return this._acceptFilesSurfaceResult(requestToken) ? currentNoteEnvelope : null;
+  }
+
+  _acceptFilesSurfaceResult(requestToken) {
+    return requestToken === this._filesSurfaceRequestToken && store.getSessionState() === "open";
+  }
+
+  _resetFilesSurfaceState() {
+    this._filesSurfaceRequestToken += 1;
+    this._currentFilesContentId = null;
+    this._filesSurfaceState = createEmptyFilesSurfaceState();
+  }
+
   _exposeSmokeHelpers() {
     window.__rendererSmoke = {
       getPageName: () => store.getCurrentPage(),
@@ -323,3 +453,79 @@ class AppShell {
 }
 
 export const appShell = new AppShell();
+
+function createEmptyFilesSurfaceState() {
+  return {
+    loading: false,
+    loadingSelection: false,
+    entriesEnvelope: null,
+    recentEnvelope: null,
+    currentNoteEnvelope: null,
+    selectedRelPath: null,
+    selectedEntry: null,
+    selectionError: null
+  };
+}
+
+function chooseFilesSelection(previousSelection, entriesEnvelope, recentEnvelope) {
+  const normalizedPrevious = normalizeSelectionKey(previousSelection);
+  if (normalizedPrevious && findFilesEntry(normalizedPrevious, entriesEnvelope, recentEnvelope)) {
+    return normalizedPrevious;
+  }
+
+  const firstRecentNote = recentEnvelope?.ok ? recentEnvelope.data?.items?.[0]?.relPath ?? null : null;
+  if (typeof firstRecentNote === "string" && firstRecentNote.trim()) {
+    return firstRecentNote.trim();
+  }
+
+  if (entriesEnvelope?.ok) {
+    const firstReadableRootEntry = (entriesEnvelope.data?.items ?? []).find((item) => isReadableNoteSelection(item.relPath, item));
+    if (firstReadableRootEntry?.relPath) {
+      return firstReadableRootEntry.relPath;
+    }
+  }
+
+  return null;
+}
+
+function findFilesEntry(relPath, entriesEnvelope, recentEnvelope) {
+  const normalizedRelPath = normalizeSelectionKey(relPath);
+  if (!normalizedRelPath) {
+    return null;
+  }
+
+  const recentItems = recentEnvelope?.ok ? recentEnvelope.data?.items ?? [] : [];
+  const entryItems = entriesEnvelope?.ok ? entriesEnvelope.data?.items ?? [] : [];
+  return recentItems.find((item) => item.relPath === normalizedRelPath)
+    ?? entryItems.find((item) => item.relPath === normalizedRelPath)
+    ?? { relPath: normalizedRelPath, name: baseName(normalizedRelPath), title: baseName(normalizedRelPath), kind: inferEntryKind(normalizedRelPath) };
+}
+
+function normalizeSelectionKey(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function isReadableNoteSelection(relPath, entry = null) {
+  if (entry?.kind === "note") {
+    return true;
+  }
+
+  return typeof relPath === "string" && relPath.toLowerCase().endsWith(".md");
+}
+
+function inferEntryKind(relPath) {
+  if (typeof relPath === "string" && relPath.toLowerCase().endsWith(".md")) {
+    return "note";
+  }
+
+  return "entry";
+}
+
+function baseName(filePath) {
+  if (!filePath || typeof filePath !== "string") {
+    return "";
+  }
+
+  const parts = filePath.split(/[\\/]/).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : filePath;
+}

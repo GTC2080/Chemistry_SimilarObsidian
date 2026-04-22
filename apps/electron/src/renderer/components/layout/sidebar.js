@@ -4,6 +4,8 @@
  * Obsidian-like left stack: activity rail + explorer pane.
  */
 
+import { appendFilesSidebarSections } from "../../pages/files/files-sidebar-sections.js";
+
 const ITEMS = [
   { id: "files", label: "文件", subtitle: "Vault Home", icon: "⌂" },
   { id: "search", label: "搜索", subtitle: "Query surfaces", icon: "⌕" },
@@ -13,7 +15,14 @@ const ITEMS = [
 ];
 
 export function createSidebar(currentPage, opts = {}) {
-  const { onNavigate, onCloseVault, vaultPath } = opts;
+  const {
+    onNavigate,
+    onCloseVault,
+    vaultPath,
+    filesSurfaceState = null,
+    currentFilesContentId = null,
+    onSelectFilesContent
+  } = opts;
 
   const sidebar = document.createElement("aside");
   sidebar.className = "workspace-sidebar";
@@ -28,7 +37,14 @@ export function createSidebar(currentPage, opts = {}) {
   `;
 
   sidebar.appendChild(createActivityRail(currentPage, { onNavigate }));
-  sidebar.appendChild(createExplorerPane(currentPage, { onNavigate, onCloseVault, vaultPath }));
+  sidebar.appendChild(createExplorerPane(currentPage, {
+    onNavigate,
+    onCloseVault,
+    vaultPath,
+    filesSurfaceState,
+    currentFilesContentId,
+    onSelectFilesContent
+  }));
   return sidebar;
 }
 
@@ -97,7 +113,9 @@ function createActivityRail(currentPage, opts = {}) {
 }
 
 function createExplorerPane(currentPage, opts = {}) {
-  const { onNavigate, onCloseVault, vaultPath } = opts;
+  const { onNavigate, onCloseVault, vaultPath, currentFilesContentId, onSelectFilesContent } = opts;
+  const vaultName = baseName(vaultPath) || "Current Vault";
+  const filesMode = currentPage === "files";
 
   const pane = document.createElement("div");
   pane.style.cssText = `
@@ -118,29 +136,11 @@ function createExplorerPane(currentPage, opts = {}) {
 
   const title = document.createElement("div");
   title.innerHTML = `
-    <div style="font-size:11px;letter-spacing:0.22em;color:#8c84a3;text-transform:uppercase;">Explorer</div>
-    <div style="margin-top:6px;font-size:14px;font-weight:600;color:#f5f3ff;">${escapeHtml(baseName(vaultPath) || "Current Vault")}</div>
+    <div style="font-size:11px;letter-spacing:0.22em;color:#8c84a3;text-transform:uppercase;">${filesMode ? "Files" : "Tools"}</div>
+    <div style="margin-top:6px;font-size:14px;font-weight:600;color:#f5f3ff;">${escapeHtml(vaultName)}</div>
   `;
   header.appendChild(title);
-
-  const controls = document.createElement("div");
-  controls.style.cssText = "display:flex;gap:6px;";
-  for (const label of ["＋", "⋯"]) {
-    const btn = document.createElement("button");
-    btn.textContent = label;
-    btn.style.cssText = `
-      width: 30px;
-      height: 30px;
-      border-radius: 9px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.04);
-      color: #d4cffa;
-      cursor: pointer;
-      font-size: 15px;
-    `;
-    controls.appendChild(btn);
-  }
-  header.appendChild(controls);
+  header.appendChild(createHeaderModeBadge(filesMode ? "content" : "tools"));
   pane.appendChild(header);
 
   const body = document.createElement("div");
@@ -150,52 +150,29 @@ function createExplorerPane(currentPage, opts = {}) {
     padding: 14px 10px 16px;
   `;
 
-  body.appendChild(sectionLabel("导航"));
-  for (const item of ITEMS) {
-    body.appendChild(explorerRow(item, item.id === currentPage, () => onNavigate?.(item.id)));
+  if (filesMode) {
+    appendFilesSidebarSections(body, {
+      filesSurfaceState: opts.filesSurfaceState,
+      currentFilesContentId,
+      onSelectFilesContent,
+      onNavigate,
+      tools: ITEMS.filter((entry) => entry.id !== "files")
+    });
+  } else {
+    body.appendChild(sectionLabel("工具入口"));
+    for (const item of ITEMS) {
+      body.appendChild(explorerRow(item, item.id === currentPage, () => onNavigate?.(item.id)));
+    }
+
+    body.appendChild(sectionLabel("内容区"));
+    body.appendChild(infoCallout(
+      "Files remains the primary content stage.",
+      "当前工具页是工作区工具面。返回 Files 可以回到内容中心主区。"
+    ));
   }
 
   body.appendChild(sectionLabel("当前工作区"));
-  const metaCard = document.createElement("div");
-  metaCard.style.cssText = `
-    margin: 0 8px 12px;
-    padding: 12px;
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.06);
-    background: rgba(255,255,255,0.03);
-  `;
-  metaCard.innerHTML = `
-    <div style="font-size:12px;color:#f5f3ff;font-weight:600;margin-bottom:6px;">${escapeHtml(baseName(vaultPath) || "vault")}</div>
-    <div style="font-size:12px;color:#8f88a7;line-height:1.6;word-break:break-all;">${escapeHtml(vaultPath || "No active vault path")}</div>
-  `;
-  body.appendChild(metaCard);
-
-  const tree = document.createElement("div");
-  tree.style.cssText = "margin: 0 8px; display:flex; flex-direction:column; gap:4px;";
-  const treeRows = [
-    { depth: 0, icon: "▾", label: "host surfaces" },
-    { depth: 1, icon: "•", label: "files" },
-    { depth: 1, icon: "•", label: "search" },
-    { depth: 1, icon: "•", label: "attachments" },
-    { depth: 1, icon: "•", label: "chemistry" },
-    { depth: 1, icon: "•", label: "diagnostics" }
-  ];
-  for (const row of treeRows) {
-    const line = document.createElement("div");
-    line.style.cssText = `
-      display:flex;
-      align-items:center;
-      gap:8px;
-      min-height:28px;
-      padding: 0 10px 0 ${10 + row.depth * 18}px;
-      border-radius: 10px;
-      color: #a59dbd;
-      font-size: 13px;
-    `;
-    line.innerHTML = `<span style="width:12px;color:#756e88;">${row.icon}</span><span>${escapeHtml(row.label)}</span>`;
-    tree.appendChild(line);
-  }
-  body.appendChild(tree);
+  body.appendChild(createVaultMetaCard(vaultName, vaultPath || "No active vault path"));
   pane.appendChild(body);
 
   const footer = document.createElement("div");
@@ -235,6 +212,25 @@ function createExplorerPane(currentPage, opts = {}) {
   pane.appendChild(footer);
 
   return pane;
+}
+
+function createHeaderModeBadge(text) {
+  const badge = document.createElement("div");
+  badge.style.cssText = `
+    display:inline-flex;
+    align-items:center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #bfb8d5;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  `;
+  badge.textContent = text;
+  return badge;
 }
 
 function sectionLabel(text) {
@@ -298,6 +294,38 @@ function explorerRow(item, active, onClick) {
   row.appendChild(text);
 
   return row;
+}
+
+function createVaultMetaCard(vaultName, vaultPath) {
+  const metaCard = document.createElement("div");
+  metaCard.style.cssText = `
+    margin: 0 8px 12px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+  `;
+  metaCard.innerHTML = `
+    <div style="font-size:12px;color:#f5f3ff;font-weight:600;margin-bottom:6px;">${escapeHtml(vaultName)}</div>
+    <div style="font-size:12px;color:#8f88a7;line-height:1.6;word-break:break-all;">${escapeHtml(vaultPath)}</div>
+  `;
+  return metaCard;
+}
+
+function infoCallout(title, body) {
+  const card = document.createElement("div");
+  card.style.cssText = `
+    margin: 0 8px 12px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(139,92,246,0.16);
+    background: rgba(124,58,237,0.08);
+  `;
+  card.innerHTML = `
+    <div style="font-size:12px;color:#f5f3ff;font-weight:600;margin-bottom:6px;">${escapeHtml(title)}</div>
+    <div style="font-size:12px;color:#cfc7ea;line-height:1.7;">${escapeHtml(body)}</div>
+  `;
+  return card;
 }
 
 function baseName(vaultPath) {

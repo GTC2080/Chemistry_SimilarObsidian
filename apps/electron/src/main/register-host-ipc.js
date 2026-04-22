@@ -31,6 +31,18 @@ function registerHostIpc(hostRuntime, hostApi) {
     return hostRuntime.closeVault(payload);
   });
 
+  ipcMain.handle(HOST_IPC_CHANNELS.filesListEntries, async (_event, payload = {}) => {
+    return hostApi.listFilesEntries(payload);
+  });
+
+  ipcMain.handle(HOST_IPC_CHANNELS.filesReadNote, async (_event, payload = {}) => {
+    return hostApi.readNoteFile(payload);
+  });
+
+  ipcMain.handle(HOST_IPC_CHANNELS.filesListRecent, async (_event, payload = {}) => {
+    return hostApi.listRecentFiles(payload);
+  });
+
   ipcMain.handle(HOST_IPC_CHANNELS.searchQuery, async (_event, payload = {}) => {
     return hostApi.querySearch(payload);
   });
