@@ -51,8 +51,10 @@ Thumbs.db
 
 # Future Electron app local artifacts
 /apps/electron/node_modules/
+/apps/electron/build/
 /apps/electron/dist/
 /apps/electron/out/
+/apps/electron/.electron-headers/
 
 # Local planning and placeholder tooling that do not need to ship in the public repo
 docs/superpowers/

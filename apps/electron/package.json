@@ -1,0 +1,24 @@
+{
+  "name": "chemistry-obsidian-electron-host",
+  "version": "1.0.0",
+  "description": "Minimal Electron host shell for the sealed Chemistry_Obsidian kernel platform.",
+  "private": true,
+  "main": "src/main/index.js",
+  "scripts": {
+    "install": "node -e \"console.log('Skipping automatic native build. Run npm run build:native when the sealed kernel build is ready.')\"",
+    "build:native": "node ./scripts/build-native.js",
+    "dev": "node ./scripts/run-electron.js",
+    "start": "node ./scripts/run-electron.js",
+    "smoke": "node ./scripts/smoke.js",
+    "test": "node --test ./tests/host/*.test.js",
+    "check:packaged-resolution": "node ./scripts/check-packaged-resolution.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^41.2.2",
+    "node-addon-api": "^8.7.0"
+  }
+}
