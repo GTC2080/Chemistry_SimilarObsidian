@@ -25,7 +25,7 @@ The full release flow is frozen in:
 - [release-checklist.md](/E:/测试/Chemistry_Obsidian/docs/release-checklist.md)
 
 The goal is not micro-optimization.
-The goal is to keep Phase 1 post-alpha hardening from silently regressing startup, watcher, rebuild, or query paths.
+The goal is to keep the current stable kernel line from silently regressing startup, watcher, rebuild, or query paths.
 
 ## Fixed Datasets
 
@@ -132,47 +132,47 @@ The goal is to keep Phase 1 post-alpha hardening from silently regressing startu
 ## Fresh Verification Snapshot
 
 - startup
-  - `clean_observed_ms=1736`
-  - `recovery_observed_ms=2641`
+  - `clean_observed_ms=1696`
+  - `recovery_observed_ms=2527`
 - io
-  - `io_roundtrip_observed_ms=248`
-  - `external_create_observed_ms=206`
+  - `io_roundtrip_observed_ms=245`
+  - `external_create_observed_ms=298`
 - rebuild
-  - `rebuild_observed_ms=15275`
-  - `chemistry_rebuild_mixed_spectra_dataset_observed_ms=15275`
+  - `rebuild_observed_ms=14776`
+  - `chemistry_rebuild_mixed_spectra_dataset_observed_ms=14776`
 - query
-  - `tag_query_observed_ms=135`
-  - `title_query_observed_ms=34`
-  - `body_query_observed_ms=33`
-  - `body_snippet_query_observed_ms=30`
-  - `title_only_query_observed_ms=33`
-  - `shallow_page_query_observed_ms=75`
-  - `deep_offset_query_observed_ms=69`
-  - `filtered_note_query_observed_ms=63`
-  - `attachment_path_query_observed_ms=52`
-  - `attachment_catalog_query_observed_ms=34`
-  - `attachment_lookup_query_observed_ms=11`
-  - `note_attachment_refs_query_observed_ms=19`
-  - `attachment_referrers_query_observed_ms=10`
-  - `pdf_source_refs_query_observed_ms=68`
-  - `pdf_referrers_query_observed_ms=110`
-  - `domain_attachment_metadata_query_observed_ms=15`
-  - `domain_pdf_metadata_query_observed_ms=23`
-  - `domain_attachment_objects_query_observed_ms=13`
-  - `domain_pdf_objects_query_observed_ms=16`
-  - `domain_object_lookup_query_observed_ms=16`
-  - `domain_note_source_refs_query_observed_ms=77`
-  - `domain_object_referrers_query_observed_ms=133`
-  - `chemistry_metadata_query_observed_ms=58`
-  - `chemistry_spectrum_catalog_query_observed_ms=206`
-  - `chemistry_spectrum_lookup_query_observed_ms=56`
-  - `chemistry_note_spectrum_refs_query_observed_ms=140`
-  - `chemistry_spectrum_referrers_query_observed_ms=321`
-  - `all_kind_query_observed_ms=106`
-  - `ranked_title_query_observed_ms=70`
-  - `ranked_tag_boost_query_observed_ms=76`
-  - `ranked_all_kind_query_observed_ms=146`
-  - `backlink_query_observed_ms=103`
+  - `tag_query_observed_ms=132`
+  - `title_query_observed_ms=43`
+  - `body_query_observed_ms=43`
+  - `body_snippet_query_observed_ms=37`
+  - `title_only_query_observed_ms=34`
+  - `shallow_page_query_observed_ms=92`
+  - `deep_offset_query_observed_ms=98`
+  - `filtered_note_query_observed_ms=76`
+  - `attachment_path_query_observed_ms=51`
+  - `attachment_catalog_query_observed_ms=35`
+  - `attachment_lookup_query_observed_ms=14`
+  - `note_attachment_refs_query_observed_ms=24`
+  - `attachment_referrers_query_observed_ms=13`
+  - `pdf_source_refs_query_observed_ms=89`
+  - `pdf_referrers_query_observed_ms=121`
+  - `domain_attachment_metadata_query_observed_ms=18`
+  - `domain_pdf_metadata_query_observed_ms=29`
+  - `domain_attachment_objects_query_observed_ms=14`
+  - `domain_pdf_objects_query_observed_ms=17`
+  - `domain_object_lookup_query_observed_ms=17`
+  - `domain_note_source_refs_query_observed_ms=82`
+  - `domain_object_referrers_query_observed_ms=146`
+  - `chemistry_metadata_query_observed_ms=73`
+  - `chemistry_spectrum_catalog_query_observed_ms=181`
+  - `chemistry_spectrum_lookup_query_observed_ms=66`
+  - `chemistry_note_spectrum_refs_query_observed_ms=164`
+  - `chemistry_spectrum_referrers_query_observed_ms=307`
+  - `all_kind_query_observed_ms=123`
+  - `ranked_title_query_observed_ms=53`
+  - `ranked_tag_boost_query_observed_ms=53`
+  - `ranked_all_kind_query_observed_ms=164`
+  - `backlink_query_observed_ms=106`
 
 ## Update Rule
 

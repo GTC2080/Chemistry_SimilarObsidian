@@ -22,7 +22,7 @@ It names the existing commands, checklists, and pass conditions that must be sat
   - exit code `0`
   - diagnostics export regressions pass, including support-bundle fields, rebuild observability, and runtime-state snapshots
 
-2. Full Phase 1 gate
+2. Full kernel gate
 
 - Run:
   - `cmake --build E:\测试\Chemistry_Obsidian\out\build --config Debug --target kernel_phase_gate`
@@ -47,6 +47,7 @@ Before release, confirm these repository documents still match the shipped behav
 - [domain-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/domain-regression-matrix.md)
 - [chemistry-capability-contract.md](/E:/测试/Chemistry_Obsidian/docs/chemistry-capability-contract.md)
 - [chemistry-regression-matrix.md](/E:/测试/Chemistry_Obsidian/docs/chemistry-regression-matrix.md)
+- [kernel-phase1-status.md](/E:/测试/Chemistry_Obsidian/docs/kernel-phase1-status.md)
 - [benchmark-baselines.md](/E:/测试/Chemistry_Obsidian/docs/benchmark-baselines.md)
 
 ## Baseline Update Rule
