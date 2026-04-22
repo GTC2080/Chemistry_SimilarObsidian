@@ -33,6 +33,15 @@ const HOST_ERROR_CODES = Object.freeze({
   ipcInvokeFailed: "HOST_IPC_INVOKE_FAILED"
 });
 
+// Keep the preload self-contained so it stays compatible with sandbox=true.
+const DESKTOP_IPC_CHANNELS = Object.freeze({
+  windowMinimize: "desktop/window/minimize",
+  windowToggleMaximize: "desktop/window/toggle-maximize",
+  windowClose: "desktop/window/close",
+  dialogPickDirectory: "desktop/dialog/pick-directory",
+  appGetVersion: "desktop/app/get-version"
+});
+
 function sanitizeEnvelope(envelope) {
   if (!envelope || typeof envelope.ok !== "boolean" || !("data" in envelope) || !("error" in envelope)) {
     return {
@@ -69,6 +78,10 @@ async function invokeHost(channel, payload = {}) {
       }
     };
   }
+}
+
+async function invokeDesktop(channel, payload = {}) {
+  return ipcRenderer.invoke(channel, payload);
 }
 
 const hostShell = Object.freeze({
@@ -254,3 +267,29 @@ const hostShell = Object.freeze({
 });
 
 contextBridge.exposeInMainWorld("hostShell", hostShell);
+
+contextBridge.exposeInMainWorld("desktopShell", Object.freeze({
+  window: Object.freeze({
+    minimize() {
+      return invokeDesktop(DESKTOP_IPC_CHANNELS.windowMinimize);
+    },
+    toggleMaximize() {
+      return invokeDesktop(DESKTOP_IPC_CHANNELS.windowToggleMaximize);
+    },
+    close() {
+      return invokeDesktop(DESKTOP_IPC_CHANNELS.windowClose);
+    }
+  }),
+  dialog: Object.freeze({
+    async pickDirectory() {
+      const result = await invokeDesktop(DESKTOP_IPC_CHANNELS.dialogPickDirectory);
+      return result?.ok ? (result.data ?? null) : null;
+    }
+  }),
+  app: Object.freeze({
+    async getVersion() {
+      const result = await invokeDesktop(DESKTOP_IPC_CHANNELS.appGetVersion);
+      return result?.ok ? (result.data ?? null) : null;
+    }
+  })
+}));

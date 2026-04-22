@@ -3,10 +3,15 @@ const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
 const { HostApi } = require("./host-api");
 const { registerHostIpc } = require("./register-host-ipc");
+const { registerDesktopIpc } = require("./register-desktop-ipc");
 const { HostRuntime } = require("./host-runtime");
 const { SECURITY_BASELINE } = require("../shared/host-contract");
 
 const isSmokeRun = process.env.CHEM_OBSIDIAN_HOST_SMOKE === "1";
+const rendererDevUrl = typeof process.env.CHEM_OBSIDIAN_RENDERER_URL === "string" &&
+  process.env.CHEM_OBSIDIAN_RENDERER_URL.trim()
+  ? process.env.CHEM_OBSIDIAN_RENDERER_URL.trim()
+  : "";
 const startupVaultPath = typeof process.env.CHEM_OBSIDIAN_STARTUP_VAULT === "string" &&
   process.env.CHEM_OBSIDIAN_STARTUP_VAULT.trim()
   ? process.env.CHEM_OBSIDIAN_STARTUP_VAULT.trim()
@@ -15,6 +20,8 @@ const smokeRunId = typeof process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID === "strin
   process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID.trim()
   ? process.env.CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID.trim().replace(/[^a-zA-Z0-9_-]/g, "_")
   : "default";
+const smokeRendererPath = path.join(__dirname, "../smoke-renderer/index.html");
+const builtRendererPath = path.join(__dirname, "../../build/renderer-react/index.html");
 
 function logSmokeStage(stage, details = null) {
   if (!isSmokeRun) {
@@ -115,6 +122,7 @@ if (isSmokeRun) {
 }
 
 registerHostIpc(hostRuntime, hostApi);
+registerDesktopIpc();
 
 async function createMainWindow() {
   const mainWindow = new BrowserWindow({
@@ -122,6 +130,8 @@ async function createMainWindow() {
     height: 640,
     show: !isSmokeRun,
     autoHideMenuBar: true,
+    frame: false,
+    backgroundColor: "#1e1e1e",
     title: "Chemistry_Obsidian Host Shell",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
@@ -170,9 +180,21 @@ async function createMainWindow() {
         const smokePayload = await mainWindow.webContents.executeJavaScript(`
           (async () => {
             const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            async function waitForIndexReady() {
+            async function waitForHostShell() {
               for (let attempt = 0; attempt < 50; attempt += 1) {
-                const runtimeSummary = await window.hostShell.runtime.getSummary("smoke-runtime-poll");
+                if (window.hostShell) {
+                  return window.hostShell;
+                }
+                await wait(100);
+              }
+
+              throw new Error("window.hostShell was not exposed before smoke execution.");
+            }
+
+            async function waitForIndexReady() {
+              const hostShell = await waitForHostShell();
+              for (let attempt = 0; attempt < 50; attempt += 1) {
+                const runtimeSummary = await hostShell.runtime.getSummary("smoke-runtime-poll");
                 if (
                   runtimeSummary.ok &&
                   runtimeSummary.data?.kernel_runtime?.session_state === "open" &&
@@ -183,85 +205,86 @@ async function createMainWindow() {
                 await wait(100);
               }
 
-              return window.hostShell.runtime.getSummary("smoke-runtime-poll-final");
+              return hostShell.runtime.getSummary("smoke-runtime-poll-final");
             }
 
+            const hostShell = await waitForHostShell();
             const [bootstrap, runtime, session] = await Promise.all([
-              window.hostShell.bootstrap.getInfo(),
-              window.hostShell.runtime.getSummary(),
-              window.hostShell.session.getStatus()
+              hostShell.bootstrap.getInfo(),
+              hostShell.runtime.getSummary(),
+              hostShell.session.getStatus()
             ]);
             const [filesList, filesRead, filesRecent, search, attachments, attachmentGet, attachmentRefs, attachmentReferrers] = await Promise.all([
-              window.hostShell.files.listEntries({ limit: 5 }, "smoke-files-list"),
-              window.hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read"),
-              window.hostShell.files.listRecent({ limit: 5 }, "smoke-files-recent"),
-              window.hostShell.search.query({ query: "baseline", limit: 5 }, "smoke-search"),
-              window.hostShell.attachments.list({ limit: 5 }, "smoke-attachments-list"),
-              window.hostShell.attachments.get({ attachmentRelPath: "assets/sample.pdf" }, "smoke-attachments-get"),
-              window.hostShell.attachments.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-attachments-note-refs"),
-              window.hostShell.attachments.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-attachments-referrers")
+              hostShell.files.listEntries({ limit: 5 }, "smoke-files-list"),
+              hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read"),
+              hostShell.files.listRecent({ limit: 5 }, "smoke-files-recent"),
+              hostShell.search.query({ query: "baseline", limit: 5 }, "smoke-search"),
+              hostShell.attachments.list({ limit: 5 }, "smoke-attachments-list"),
+              hostShell.attachments.get({ attachmentRelPath: "assets/sample.pdf" }, "smoke-attachments-get"),
+              hostShell.attachments.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-attachments-note-refs"),
+              hostShell.attachments.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-attachments-referrers")
             ]);
             const [pdfMetadata, pdfNoteRefs, pdfReferrers] = await Promise.all([
-              window.hostShell.pdf.getMetadata({ attachmentRelPath: "assets/sample.pdf" }, "smoke-pdf-metadata"),
-              window.hostShell.pdf.queryNoteSourceRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-pdf-note-refs"),
-              window.hostShell.pdf.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-pdf-referrers")
+              hostShell.pdf.getMetadata({ attachmentRelPath: "assets/sample.pdf" }, "smoke-pdf-metadata"),
+              hostShell.pdf.queryNoteSourceRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-pdf-note-refs"),
+              hostShell.pdf.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-pdf-referrers")
             ]);
             const [chemMetadata, chemSpectra, chemSpectrum, chemNoteRefs, chemReferrers] = await Promise.all([
-              window.hostShell.chemistry.queryMetadata({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-metadata"),
-              window.hostShell.chemistry.listSpectra({ limit: 5 }, "smoke-chem-list"),
-              window.hostShell.chemistry.getSpectrum({ attachmentRelPath: "assets/sample.jdx" }, "smoke-chem-get"),
-              window.hostShell.chemistry.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-chem-note-refs"),
-              window.hostShell.chemistry.queryReferrers({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-referrers")
+              hostShell.chemistry.queryMetadata({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-metadata"),
+              hostShell.chemistry.listSpectra({ limit: 5 }, "smoke-chem-list"),
+              hostShell.chemistry.getSpectrum({ attachmentRelPath: "assets/sample.jdx" }, "smoke-chem-get"),
+              hostShell.chemistry.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-chem-note-refs"),
+              hostShell.chemistry.queryReferrers({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-referrers")
             ]);
             const [diagnosticsExport, rebuildStatus, rebuildStart, rebuildWait] = await Promise.all([
-              window.hostShell.diagnostics.exportSupportBundle(
+              hostShell.diagnostics.exportSupportBundle(
                 { outputPath: ${JSON.stringify(smokePaths.supportBundlePath)} },
                 "smoke-diagnostics-export"
               ),
-              window.hostShell.rebuild.getStatus("smoke-rebuild-status"),
-              window.hostShell.rebuild.start("smoke-rebuild-start"),
-              window.hostShell.rebuild.wait({ timeoutMs: 1_000 }, "smoke-rebuild-wait")
+              hostShell.rebuild.getStatus("smoke-rebuild-status"),
+              hostShell.rebuild.start("smoke-rebuild-start"),
+              hostShell.rebuild.wait({ timeoutMs: 1_000 }, "smoke-rebuild-wait")
             ]);
-            const openAttempt = await window.hostShell.session.openVault(
+            const openAttempt = await hostShell.session.openVault(
               ${JSON.stringify(smokeVaultPath)},
               "smoke-open"
             );
             const runtimeAfterOpen = await waitForIndexReady();
-            const rebuildStatusAfterOpen = await window.hostShell.rebuild.getStatus("smoke-rebuild-status-after-open");
-            const postOpenSession = await window.hostShell.session.getStatus("smoke-post-open");
+            const rebuildStatusAfterOpen = await hostShell.rebuild.getStatus("smoke-rebuild-status-after-open");
+            const postOpenSession = await hostShell.session.getStatus("smoke-post-open");
             const [filesListAfterOpen, filesReadAfterOpen, filesRecentAfterOpen, searchAfterOpen, attachmentsAfterOpen, attachmentGetAfterOpen, attachmentRefsAfterOpen, attachmentReferrersAfterOpen] = await Promise.all([
-              window.hostShell.files.listEntries({ limit: 5 }, "smoke-files-list-after-open"),
-              window.hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read-after-open"),
-              window.hostShell.files.listRecent({ limit: 5 }, "smoke-files-recent-after-open"),
-              window.hostShell.search.query({ query: "baseline", limit: 5 }, "smoke-search-after-open"),
-              window.hostShell.attachments.list({ limit: 5 }, "smoke-attachments-list-after-open"),
-              window.hostShell.attachments.get({ attachmentRelPath: "assets/sample.pdf" }, "smoke-attachments-get-after-open"),
-              window.hostShell.attachments.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-attachments-note-refs-after-open"),
-              window.hostShell.attachments.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-attachments-referrers-after-open")
+              hostShell.files.listEntries({ limit: 5 }, "smoke-files-list-after-open"),
+              hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read-after-open"),
+              hostShell.files.listRecent({ limit: 5 }, "smoke-files-recent-after-open"),
+              hostShell.search.query({ query: "baseline", limit: 5 }, "smoke-search-after-open"),
+              hostShell.attachments.list({ limit: 5 }, "smoke-attachments-list-after-open"),
+              hostShell.attachments.get({ attachmentRelPath: "assets/sample.pdf" }, "smoke-attachments-get-after-open"),
+              hostShell.attachments.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-attachments-note-refs-after-open"),
+              hostShell.attachments.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-attachments-referrers-after-open")
             ]);
             const [pdfMetadataAfterOpen, pdfNoteRefsAfterOpen, pdfReferrersAfterOpen] = await Promise.all([
-              window.hostShell.pdf.getMetadata({ attachmentRelPath: "assets/sample.pdf" }, "smoke-pdf-metadata-after-open"),
-              window.hostShell.pdf.queryNoteSourceRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-pdf-note-refs-after-open"),
-              window.hostShell.pdf.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-pdf-referrers-after-open")
+              hostShell.pdf.getMetadata({ attachmentRelPath: "assets/sample.pdf" }, "smoke-pdf-metadata-after-open"),
+              hostShell.pdf.queryNoteSourceRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-pdf-note-refs-after-open"),
+              hostShell.pdf.queryReferrers({ attachmentRelPath: "assets/sample.pdf" }, "smoke-pdf-referrers-after-open")
             ]);
             const [chemMetadataAfterOpen, chemSpectraAfterOpen, chemSpectrumAfterOpen, chemNoteRefsAfterOpen, chemReferrersAfterOpen] = await Promise.all([
-              window.hostShell.chemistry.queryMetadata({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-metadata-after-open"),
-              window.hostShell.chemistry.listSpectra({ limit: 5 }, "smoke-chem-list-after-open"),
-              window.hostShell.chemistry.getSpectrum({ attachmentRelPath: "assets/sample.jdx" }, "smoke-chem-get-after-open"),
-              window.hostShell.chemistry.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-chem-note-refs-after-open"),
-              window.hostShell.chemistry.queryReferrers({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-referrers-after-open")
+              hostShell.chemistry.queryMetadata({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-metadata-after-open"),
+              hostShell.chemistry.listSpectra({ limit: 5 }, "smoke-chem-list-after-open"),
+              hostShell.chemistry.getSpectrum({ attachmentRelPath: "assets/sample.jdx" }, "smoke-chem-get-after-open"),
+              hostShell.chemistry.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-chem-note-refs-after-open"),
+              hostShell.chemistry.queryReferrers({ attachmentRelPath: "assets/sample.jdx", limit: 5 }, "smoke-chem-referrers-after-open")
             ]);
-            const diagnosticsExportAfterOpen = await window.hostShell.diagnostics.exportSupportBundle(
+            const diagnosticsExportAfterOpen = await hostShell.diagnostics.exportSupportBundle(
               { outputPath: ${JSON.stringify(smokePaths.supportBundlePath)} },
               "smoke-diagnostics-export-after-open"
             );
-            const rebuildStartAfterOpen = await window.hostShell.rebuild.start("smoke-rebuild-start-after-open");
-            const rebuildWaitAfterOpen = await window.hostShell.rebuild.wait(
+            const rebuildStartAfterOpen = await hostShell.rebuild.start("smoke-rebuild-start-after-open");
+            const rebuildWaitAfterOpen = await hostShell.rebuild.wait(
               { timeoutMs: 10_000 },
               "smoke-rebuild-wait-after-open"
             );
-            const rebuildStatusAfterWait = await window.hostShell.rebuild.getStatus("smoke-rebuild-status-after-wait");
-            const closeAttempt = await window.hostShell.session.closeVault("smoke-close");
+            const rebuildStatusAfterWait = await hostShell.rebuild.getStatus("smoke-rebuild-status-after-wait");
+            const closeAttempt = await hostShell.session.closeVault("smoke-close");
 
             return {
               title: document.title,
@@ -364,7 +387,21 @@ async function createMainWindow() {
     }
   }
 
-  await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  if (isSmokeRun) {
+    await mainWindow.loadFile(smokeRendererPath);
+    return;
+  }
+
+  if (rendererDevUrl) {
+    await mainWindow.loadURL(rendererDevUrl);
+    return;
+  }
+
+  if (!fs.existsSync(builtRendererPath)) {
+    throw new Error(`Renderer build missing at ${builtRendererPath}. Run npm run renderer:build or npm start.`);
+  }
+
+  await mainWindow.loadFile(builtRendererPath);
 }
 
 app.whenReady().then(async () => {

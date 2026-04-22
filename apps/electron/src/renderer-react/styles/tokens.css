@@ -1,0 +1,311 @@
+/* ========== Apple Dark Mode Design System ========== */
+
+:root {
+  /* Apple dark mode surfaces — slightly warmer */
+  --surface-0: #1e1e1e;
+  --surface-1: #252525;
+  --surface-2: #2c2c2c;
+  --surface-3: #323232;
+  --workspace-bg: #1e1e1e;
+  --chrome-bg: #1e1e1e;
+  --chrome-border: rgba(255, 255, 255, 0.08);
+  --panel-bg: #202020;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 0 0 rgba(0, 0, 0, 0);
+  --subtle-surface: #2a2a2a;
+  --subtle-surface-strong: #313131;
+
+  /* Apple system blue */
+  --accent: #0A84FF;
+  --accent-soft: rgba(10, 132, 255, 0.12);
+  --accent-hover: rgba(10, 132, 255, 0.18);
+
+  /* Glass */
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.14);
+
+  /* Text hierarchy — Apple HIG dark mode reference */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.85);
+  --text-tertiary: rgba(255, 255, 255, 0.55);
+  --text-quaternary: rgba(255, 255, 255, 0.35);
+  --text-quinary: rgba(255, 255, 255, 0.20);
+
+  /* Separator */
+  --separator: rgba(84, 84, 88, 0.65);
+  --separator-light: rgba(84, 84, 88, 0.35);
+
+  /* Sidebar */
+  --sidebar-bg: rgba(28, 28, 30, 0.82);
+  --sidebar-hover: rgba(255, 255, 255, 0.055);
+  --sidebar-active: rgba(255, 255, 255, 0.09);
+  --menu-bg: rgba(12, 12, 12, 0.98);
+  --menu-hover: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(44, 44, 46, 0.72);
+  --glass-bg-elevated: rgba(44, 44, 46, 0.85);
+  --glass-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 8px 24px rgba(0, 0, 0, 0.3);
+  --overlay-backdrop: rgba(0, 0, 0, 0.82);
+  --truth-overlay: rgba(3, 8, 18, 0.84);
+  --truth-panel-bg: linear-gradient(180deg, rgba(14,18,28,0.96) 0%, rgba(10,13,22,0.96) 100%);
+  --truth-panel-border: rgba(255,255,255,0.12);
+  --truth-panel-shadow: 0 36px 120px rgba(0,0,0,0.55), 0 10px 28px rgba(0,0,0,0.35);
+  --truth-text-primary: #eaf0ff;
+  --truth-text-secondary: rgba(255,255,255,0.9);
+  --truth-text-tertiary: rgba(255,255,255,0.72);
+  --truth-text-quaternary: rgba(255,255,255,0.42);
+  --truth-track: rgba(255,255,255,0.18);
+  --truth-grid: rgba(255,255,255,0.16);
+  --truth-divider: rgba(255,255,255,0.12);
+
+  /* Radius tokens */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+}
+
+:root[data-theme="light"] {
+  --surface-0: #f4f6f8;
+  --surface-1: #eef1f5;
+  --surface-2: #e6ebf0;
+  --surface-3: #dde3ea;
+  --workspace-bg: #f4f6f8;
+  --chrome-bg: #e9edf3;
+  --chrome-border: rgba(17, 24, 39, 0.12);
+  --panel-bg: #ffffff;
+  --panel-border: rgba(17, 24, 39, 0.1);
+  --panel-shadow: 0 12px 30px rgba(17, 24, 39, 0.06);
+  --subtle-surface: #f2f5f9;
+  --subtle-surface-strong: #e8edf3;
+
+  --text-primary: #111827;
+  --text-secondary: rgba(17, 24, 39, 0.9);
+  --text-tertiary: rgba(17, 24, 39, 0.68);
+  --text-quaternary: rgba(17, 24, 39, 0.45);
+  --text-quinary: rgba(17, 24, 39, 0.25);
+
+  --separator: rgba(15, 23, 42, 0.16);
+  --separator-light: rgba(15, 23, 42, 0.11);
+  --sidebar-bg: rgba(255, 255, 255, 0.86);
+  --sidebar-hover: rgba(17, 24, 39, 0.05);
+  --sidebar-active: rgba(10, 132, 255, 0.12);
+  --menu-bg: rgba(255, 255, 255, 0.97);
+  --menu-hover: rgba(17, 24, 39, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-elevated: rgba(255, 255, 255, 0.84);
+  --glass-shadow:
+    0 0 0 0.5px rgba(17, 24, 39, 0.08),
+    0 20px 52px rgba(17, 24, 39, 0.14),
+    0 8px 18px rgba(17, 24, 39, 0.08);
+  --overlay-backdrop: rgba(15, 23, 42, 0.35);
+  --truth-overlay: rgba(15, 23, 42, 0.32);
+  --truth-panel-bg: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(246,249,255,0.96) 100%);
+  --truth-panel-border: rgba(15, 23, 42, 0.16);
+  --truth-panel-shadow: 0 26px 72px rgba(15, 23, 42, 0.18), 0 8px 20px rgba(15, 23, 42, 0.1);
+  --truth-text-primary: #0f172a;
+  --truth-text-secondary: rgba(15,23,42,0.9);
+  --truth-text-tertiary: rgba(15,23,42,0.72);
+  --truth-text-quaternary: rgba(15,23,42,0.5);
+  --truth-track: rgba(15,23,42,0.18);
+  --truth-grid: rgba(15,23,42,0.16);
+  --truth-divider: rgba(15,23,42,0.14);
+
+  --glass-border: rgba(17, 24, 39, 0.12);
+  --glass-border-hover: rgba(17, 24, 39, 0.2);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--surface-0);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text-primary);
+}
+
+/* ========== Scrollbar — thinner, more Apple-like ========== */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ========== Animations — smoother spring curves ========== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes canvasPulse {
+  0%, 100% { border-color: var(--accent-soft); box-shadow: 0 0 0 0 var(--accent-soft); }
+  50% { border-color: var(--accent); box-shadow: 0 0 0 8px transparent; }
+}
+@keyframes slideForward {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideBackward {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in { animation: fadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-slide-in { animation: slideInLeft 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-modal-in { animation: modalIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-breathe { animation: breathe 2.5s ease-in-out infinite; }
+.animate-float { animation: float 4s ease-in-out infinite; }
+
+.workspace-canvas {
+  background: var(--workspace-bg);
+}
+
+.workspace-panel {
+  background: var(--panel-bg);
+  border-left: 0.5px solid var(--panel-border);
+  border-right: 0.5px solid var(--panel-border);
+  border-radius: 0;
+  box-shadow: var(--panel-shadow);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.app-chrome {
+  background: var(--chrome-bg);
+  border-color: var(--chrome-border);
+}
+
+/* ========== Glass Materials — more depth ========== */
+
+.glass-panel {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  backdrop-filter: blur(40px) saturate(1.8);
+  border: 0.5px solid var(--glass-border);
+}
+
+.glass-elevated {
+  background: var(--glass-bg-elevated);
+  -webkit-backdrop-filter: blur(60px) saturate(2);
+  backdrop-filter: blur(60px) saturate(2);
+  border: 0.5px solid var(--glass-border-hover);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-highlight {
+  position: relative;
+}
+.glass-highlight::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.5px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.1) 80%, transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ========== Apple-style pill button ========== */
+.apple-btn {
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.apple-btn:active {
+  transform: scale(0.97);
+}
+
+/* ========== Launch Splash ========== */
+
+@keyframes splashFadeIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes splashGlow {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50%      { opacity: 0.6;  transform: scale(1.15); }
+}
+
+@keyframes splashBar {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+.launch-splash {
+  animation: splashFadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.launch-logo {
+  animation: splashFadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+.launch-glow {
+  position: absolute;
+  inset: -16px;
+  border-radius: 28px;
+  background: radial-gradient(circle, rgba(10, 132, 255, 0.35) 0%, transparent 70%);
+  animation: splashGlow 2.4s ease-in-out infinite;
+  z-index: 0;
+}
+
+.launch-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.launch-bar {
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: splashBar 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+:root[data-theme="light"] .launch-track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme="light"] .launch-glow {
+  background: radial-gradient(circle, rgba(10, 132, 255, 0.2) 0%, transparent 70%);
+}
+
+/* ========== Chem Editor Loading ========== */
+
+@keyframes chemPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.8; transform: scale(1.08); }
+}
+
+.chem-loading-icon {
+  animation: chemPulse 2s ease-in-out infinite;
+}

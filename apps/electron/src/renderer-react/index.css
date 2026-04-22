@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: none;
+  background: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app-drag-region {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.note-markdown {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-markdown h1,
+.note-markdown h2,
+.note-markdown h3 {
+  color: var(--text-primary);
+}

@@ -7,8 +7,10 @@
   "scripts": {
     "install": "node -e \"console.log('Skipping automatic native build. Run npm run build:native when the sealed kernel build is ready.')\"",
     "build:native": "node ./scripts/build-native.js",
-    "dev": "node ./scripts/run-electron.js",
-    "start": "node ./scripts/run-electron.js",
+    "dev": "node ./scripts/run-react-electron-dev.js",
+    "renderer:dev": "vite --config ./vite.renderer.config.mjs",
+    "renderer:build": "vite build --config ./vite.renderer.config.mjs --base ./",
+    "start": "npm run renderer:build && node ./scripts/run-electron.js",
     "smoke": "node ./scripts/smoke.js",
     "test": "node --test ./tests/host/*.test.js",
     "check:packaged-resolution": "node ./scripts/check-packaged-resolution.js",
@@ -20,7 +22,18 @@
   "type": "commonjs",
   "devDependencies": {
     "@electron/packager": "^20.0.0",
+    "@tailwindcss/vite": "^4.2.4",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "electron": "^41.2.2",
-    "node-addon-api": "^8.7.0"
+    "node-addon-api": "^8.7.0",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.9"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   }
 }

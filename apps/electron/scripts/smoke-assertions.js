@@ -40,8 +40,8 @@ function getExpectedPreOpenReadFailureCode(payload) {
 
 function assertSmokePayload(payload) {
   expect(payload && typeof payload === "object", "smoke payload should be an object.");
-  expect(payload.title === "Chemistry_Obsidian Host Shell", "window title should match the host shell title.");
-  expect(payload.marker === "Electron host shell baseline", "renderer marker should expose the baseline marker.");
+  expect(payload.title === "Chemistry_Obsidian Host Smoke", "window title should match the smoke harness title.");
+  expect(payload.marker === "Electron host shell smoke", "renderer marker should expose the smoke harness marker.");
 
   expectSuccessEnvelope(payload.bootstrap, "bootstrap");
   expectSuccessEnvelope(payload.runtime, "runtime");
