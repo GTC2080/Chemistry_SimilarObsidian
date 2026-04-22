@@ -62,6 +62,6 @@ if(KERNEL_BUILD_TESTS AND KERNEL_BUILD_BENCHMARKS)
       kernel_rebuild_benchmark
       kernel_query_benchmark
     USES_TERMINAL
-    COMMENT "Run the full Phase 1 gate: tests plus benchmark regression gates"
+    COMMENT "Run the full kernel gate: tests plus benchmark regression gates"
   )
 endif()
