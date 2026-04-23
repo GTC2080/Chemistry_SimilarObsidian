@@ -12,6 +12,7 @@ import {
   ToolBadge,
   ToolBody,
   ToolContentHeader,
+  ToolDevDetails,
   ToolDetailSection,
   ToolEmptyState,
   ToolErrorBanner,
@@ -24,6 +25,32 @@ import {
 
 interface RebuildWorkspaceProps {
   visible: boolean;
+}
+
+function readableIndexState(value: string) {
+  if (value === "ready") {
+    return "就绪";
+  }
+  if (value === "rebuilding") {
+    return "重建中";
+  }
+  if (value === "catching_up") {
+    return "同步中";
+  }
+  if (value === "unavailable") {
+    return "不可用";
+  }
+  return value || "未知";
+}
+
+function readableResult(value: string | null) {
+  if (!value) {
+    return "尚无结果";
+  }
+  if (value === "KERNEL_OK") {
+    return "成功";
+  }
+  return "需要检查";
 }
 
 export default function RebuildWorkspace({
@@ -79,7 +106,7 @@ export default function RebuildWorkspace({
       return;
     }
 
-    setLastEvent(`rebuild.start -> ${envelope.data.result}`);
+    setLastEvent(envelope.data.result === "started" ? "重建已启动。" : `重建请求：${envelope.data.result}`);
     setRunningAction(null);
     await refresh();
   }
@@ -93,7 +120,7 @@ export default function RebuildWorkspace({
       return;
     }
 
-    setLastEvent(`rebuild.wait -> ${envelope.data.result}`);
+    setLastEvent(envelope.data.result === "completed" ? "重建已完成。" : `等待结果：${envelope.data.result}`);
     setRunningAction(null);
     await refresh();
   }
@@ -102,10 +129,10 @@ export default function RebuildWorkspace({
     <ToolWorkspaceShell
       sidebar={
         <>
-          <ToolSection title="Rebuild lifecycle" subtitle="这里直接消费 host 的 rebuild start / status / wait。">
+          <ToolSection title="索引重建" subtitle="低频维护入口：启动重建、等待完成或刷新状态。">
             <div className="space-y-3">
               <ToolActionButton onClick={() => void handleStart()} disabled={runningAction !== null} tone="primary">
-                {runningAction === "start" ? "启动中…" : "启动 Rebuild"}
+                {runningAction === "start" ? "启动中…" : "重建索引"}
               </ToolActionButton>
               <ToolActionButton onClick={() => void handleWait()} disabled={runningAction !== null}>
                 {runningAction === "wait" ? "等待中…" : "等待完成"}
@@ -116,9 +143,9 @@ export default function RebuildWorkspace({
             </div>
           </ToolSection>
 
-          <ToolSection title="最近事件" subtitle="保持 host-visible rebuild 收尾语义，不在 renderer 自创队列。">
+          <ToolSection title="最近事件" subtitle="只显示宿主可见的重建结果。">
             <div className="text-[12px] leading-6 text-[var(--text-quaternary)]">
-              {lastEvent || "尚未触发 rebuild 操作。"}
+              {lastEvent || "尚未触发重建。"}
             </div>
           </ToolSection>
         </>
@@ -130,33 +157,47 @@ export default function RebuildWorkspace({
         </div>
       ) : !status ? (
         <ToolEmptyState
-          title="Rebuild 面板已接入"
-          description="这里现在直接消费 rebuild status / start / wait 三个 host 面，并持续跟踪 runtime summary 与 rebuild state 的一致性。"
+          title="索引重建"
+          description="这里用于手动触发索引重建，并观察最近一次重建结果。"
         />
       ) : (
         <div className="flex flex-col min-h-full">
           <ToolContentHeader
-            title="Rebuild Lifecycle"
-            subtitle={`adapter ${status.adapterAttached ? "attached" : "detached"} · runMode ${status.runMode}`}
+            title="索引重建"
+            subtitle="用于重新生成派生索引；不会改变 vault 文件真相。"
             badges={
               <>
-                <ToolBadge label={`inFlight ${status.status.inFlight}`} />
-                <ToolBadge label={`index ${status.status.indexState}`} />
-                <ToolBadge label={`last ${status.status.lastResultCode ?? "none"}`} />
+                <ToolBadge label={status.status.inFlight ? "重建中" : "空闲"} />
+                <ToolBadge label={`索引 ${readableIndexState(status.status.indexState)}`} />
+                <ToolBadge label={readableResult(status.status.lastResultCode)} />
               </>
             }
           />
 
           <ToolBody>
-            <ToolDetailSection title="任务摘要" subtitle="Rebuild 保持单实例语义，Renderer 只观察 host-visible state。">
+            <ToolDetailSection title="任务摘要" subtitle="默认只展示用户需要知道的重建状态。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <ToolMetric label="In flight" value={status.status.inFlight ? "yes" : "no"} hint={status.status.indexState} />
-                <ToolMetric label="Current generation" value={String(status.status.currentGeneration)} />
-                <ToolMetric label="Last completed" value={String(status.status.lastCompletedGeneration)} hint={status.status.lastResultCode ?? "none"} />
+                <ToolMetric label="当前任务" value={status.status.inFlight ? "重建中" : "空闲"} hint={readableIndexState(status.status.indexState)} />
+                <ToolMetric label="最近结果" value={readableResult(status.status.lastResultCode)} hint={status.status.lastResultCode ?? "尚未记录"} />
+                <ToolMetric label="最近完成" value={formatNsTimestamp(status.status.lastResultAtNs)} />
               </div>
             </ToolDetailSection>
 
-            <ToolDetailSection title="Rebuild status" subtitle="直接映射 host rebuild status，不在 renderer 自建任务队列。">
+            <ToolDetailSection title="操作" subtitle="重建是单实例长任务；重复请求由 host 保持稳定语义。">
+              <div className="flex flex-wrap items-center gap-3">
+                <ToolActionButton onClick={() => void handleStart()} disabled={runningAction !== null || status.status.inFlight} tone="primary">
+                  {runningAction === "start" ? "启动中…" : "重建索引"}
+                </ToolActionButton>
+                <ToolActionButton onClick={() => void handleWait()} disabled={runningAction !== null}>
+                  {runningAction === "wait" ? "等待中…" : "等待完成"}
+                </ToolActionButton>
+                <ToolActionButton onClick={() => void refresh()} disabled={loading}>
+                  {loading ? "刷新中…" : "刷新状态"}
+                </ToolActionButton>
+              </div>
+            </ToolDetailSection>
+
+            <ToolDevDetails title="Rebuild status 详情" subtitle="直接映射 host rebuild status，不在 renderer 自建任务队列。">
               <ToolMetaGrid
                 items={[
                   { label: "run_mode", value: status.runMode },
@@ -171,10 +212,10 @@ export default function RebuildWorkspace({
                   { label: "index_state", value: status.status.indexState }
                 ]}
               />
-            </ToolDetailSection>
+            </ToolDevDetails>
 
             {runtime ? (
-              <ToolDetailSection title="Runtime consistency" subtitle="runtime summary 与 rebuild summary 的一致性检查面。">
+              <ToolDevDetails title="Runtime consistency 详情" subtitle="runtime summary 与 rebuild summary 的一致性检查面。">
                 <ToolMetaGrid
                   items={[
                     { label: "runtime.lifecycle", value: runtime.lifecycle_state },
@@ -185,7 +226,7 @@ export default function RebuildWorkspace({
                     { label: "runtime.rebuild.last_result_at", value: formatNsTimestamp(runtime.rebuild.last_result_at_ns ?? 0) }
                   ]}
                 />
-              </ToolDetailSection>
+              </ToolDevDetails>
             ) : null}
           </ToolBody>
         </div>
