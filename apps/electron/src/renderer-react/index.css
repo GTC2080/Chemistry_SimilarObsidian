@@ -70,10 +70,10 @@ button {
 
 .tool-card {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)),
+    linear-gradient(180deg, rgba(255,255,255,0.026), rgba(255,255,255,0.01)),
     var(--subtle-surface);
   border: 0.5px solid var(--panel-border);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.018);
 }
 
 .tool-list-item {
@@ -88,8 +88,8 @@ button {
 
 .tool-list-item.is-active {
   background:
-    linear-gradient(90deg, rgba(10,132,255,0.15), rgba(10,132,255,0.045));
-  border-color: rgba(10,132,255,0.18);
+    linear-gradient(90deg, rgba(10,132,255,0.13), rgba(10,132,255,0.035));
+  border-color: rgba(10,132,255,0.15);
 }
 
 .tool-list-item.is-active::before {
@@ -98,16 +98,16 @@ button {
   left: 4px;
   top: 10px;
   bottom: 10px;
-  width: 3px;
+  width: 2px;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(10,132,255,0.45);
+  box-shadow: 0 0 8px rgba(10,132,255,0.32);
 }
 
 .tool-badge {
-  background: rgba(255,255,255,0.036);
+  background: rgba(255,255,255,0.028);
   border: 0.5px solid var(--panel-border);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 
 .tool-action {

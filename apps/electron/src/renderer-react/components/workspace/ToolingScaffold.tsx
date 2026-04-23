@@ -10,7 +10,7 @@ export function ToolWorkspaceShell({
   return (
     <div className="flex flex-1 min-w-0 min-h-0 tool-workspace">
       <aside
-        className="w-[308px] shrink-0 border-r-[0.5px] border-r-[var(--panel-border)] overflow-y-auto workspace-panel tool-sidebar"
+        className="w-[300px] shrink-0 border-r-[0.5px] border-r-[var(--panel-border)] overflow-y-auto workspace-panel tool-sidebar"
       >
         {sidebar}
       </aside>
@@ -33,7 +33,7 @@ export function ToolSection({
   action?: ReactNode;
 }) {
   return (
-    <section className="px-4 py-4 border-b-[0.5px] border-b-[var(--panel-border)] tool-section">
+    <section className="px-4 py-3.5 border-b-[0.5px] border-b-[var(--panel-border)] tool-section">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <h2 className="text-[12px] font-semibold tracking-[0.08em] uppercase text-[var(--text-tertiary)]">{title}</h2>
@@ -67,7 +67,7 @@ export function ToolListButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left px-3 py-3 rounded-[12px] transition-colors tool-list-item ${active ? "is-active" : ""}`}
+      className={`w-full text-left px-3 py-2.5 rounded-[11px] transition-colors tool-list-item ${active ? "is-active" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -96,7 +96,7 @@ export function ToolContentHeader({
 }) {
   return (
     <header
-      className="px-7 py-6 border-b-[0.5px] border-b-[var(--panel-border)] tool-content-header"
+      className="px-7 py-5 border-b-[0.5px] border-b-[var(--panel-border)] tool-content-header"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -121,7 +121,7 @@ export function ToolMetric({
   hint?: string;
 }) {
   return (
-    <div className="rounded-[14px] px-4 py-3 tool-card">
+    <div className="rounded-[13px] px-4 py-3 tool-card">
       <div className="text-[11px] uppercase tracking-wider text-[var(--text-quaternary)]">{label}</div>
       <div className="text-[15px] mt-1 font-semibold tracking-[-0.01em] text-[var(--text-secondary)]">{value}</div>
       {hint ? (
@@ -149,7 +149,7 @@ export function ToolMetaGrid({
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-[14px] px-4 py-3 tool-card"
+          className="rounded-[13px] px-4 py-3 tool-card"
         >
           <div className="text-[11px] uppercase tracking-wider text-[var(--text-quaternary)]">{item.label}</div>
           <div className="text-[13px] mt-1 break-all text-[var(--text-secondary)]">{item.value}</div>
@@ -161,7 +161,7 @@ export function ToolMetaGrid({
 
 export function ToolBody({ children }: { children: ReactNode }) {
   return (
-    <div className="p-6 space-y-7 tool-body">
+    <div className="p-6 space-y-6 tool-body">
       {children}
     </div>
   );
@@ -203,7 +203,7 @@ export function ToolReferenceCard({
   children?: ReactNode;
 }) {
   return (
-    <div className="rounded-[14px] px-4 py-3 tool-card">
+    <div className="rounded-[13px] px-4 py-3 tool-card">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[13px] font-medium truncate text-[var(--text-secondary)]">{title}</div>
@@ -233,7 +233,7 @@ export function ToolDevDetails({
   children: ReactNode;
 }) {
   return (
-    <details className="rounded-[14px] px-4 py-3 tool-card group">
+    <details className="rounded-[13px] px-4 py-3 tool-card group">
       <summary className="cursor-pointer list-none">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -242,7 +242,7 @@ export function ToolDevDetails({
               <div className="text-[11px] mt-1 text-[var(--text-quaternary)]">{subtitle}</div>
             ) : null}
           </div>
-          <span className="text-[11px] text-[var(--text-quinary)] group-open:rotate-90 transition-transform">›</span>
+          <span className="text-[13px] text-[var(--text-quinary)] group-open:rotate-90 transition-transform">›</span>
         </div>
       </summary>
       <div className="mt-4">
