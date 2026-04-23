@@ -8,6 +8,20 @@ const {
   SECURITY_BASELINE
 } = require("../shared/host-contract");
 
+function appendHostDebug(label, payload = null) {
+  try {
+    const debugPath = path.join(app.getPath("userData"), "host-debug.log");
+    const line = JSON.stringify({
+      at_ms: Date.now(),
+      label,
+      ...(payload ?? {})
+    });
+    require("node:fs").appendFileSync(debugPath, `${line}\n`, "utf8");
+  } catch {
+    // Best-effort debug trace only.
+  }
+}
+
 function ok(data, requestId) {
   const envelope = {
     ok: true,
@@ -173,6 +187,11 @@ class HostRuntime {
       ? payload.vaultPath.trim()
       : "";
 
+    appendHostDebug("host_runtime.open_vault.begin", {
+      requestId,
+      vaultPath
+    });
+
     if (!vaultPath) {
       return fail(
         HOST_ERROR_CODES.invalidArgument,
@@ -225,6 +244,13 @@ class HostRuntime {
       runMode: app.isPackaged ? "packaged" : "dev"
     });
 
+    appendHostDebug("host_runtime.open_vault.adapter_result", {
+      requestId,
+      normalizedVaultPath,
+      ok: openResult.ok,
+      errorCode: openResult.ok ? null : openResult.error.code
+    });
+
     if (!openResult.ok) {
       this.sessionState = HOST_SESSION_STATES.none;
       this.activeSession = null;
@@ -247,6 +273,11 @@ class HostRuntime {
       openedAtMs: Date.now()
     };
     this.sessionState = HOST_SESSION_STATES.open;
+
+    appendHostDebug("host_runtime.open_vault.done", {
+      requestId,
+      normalizedVaultPath
+    });
 
     return ok(
       {

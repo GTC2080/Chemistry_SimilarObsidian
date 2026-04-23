@@ -19,8 +19,6 @@ window.addEventListener("unhandledrejection", (event) => {
   });
 });
 
-console.log("renderer.main.mount.begin");
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LanguageProvider language="zh-CN">
@@ -28,5 +26,3 @@ createRoot(document.getElementById("root")!).render(
     </LanguageProvider>
   </StrictMode>
 );
-
-console.log("renderer.main.mount.done");

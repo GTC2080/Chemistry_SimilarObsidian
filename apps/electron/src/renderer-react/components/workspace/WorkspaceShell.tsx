@@ -1,10 +1,15 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import ResizeHandle from "../nexus/ResizeHandle";
 import ActivityBar from "../nexus/ActivityBar";
 import AppStatusBar from "../nexus/AppStatusBar";
 import EditorViewport from "./EditorViewport";
-import { useT } from "../../i18n";
+import AttachmentsWorkspace from "./AttachmentsWorkspace";
+import ChemistryWorkspace from "./ChemistryWorkspace";
+import DiagnosticsWorkspace from "./DiagnosticsWorkspace";
+import PdfWorkspace from "./PdfWorkspace";
+import RebuildWorkspace from "./RebuildWorkspace";
 import type { NoteRecord, TreeNode } from "../../lib/files-tree";
+import type { WorkspacePanel } from "./workspace-types";
 
 interface WorkspaceShellProps {
   vaultPath: string;
@@ -42,7 +47,7 @@ export default function WorkspaceShell({
   onSearchQueryChange
 }: WorkspaceShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(280);
-  const [panel, setPanel] = useState<"files" | "search">("files");
+  const [activePanel, setActivePanel] = useState<WorkspacePanel>("files");
 
   const handleSidebarDrag = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -63,85 +68,95 @@ export default function WorkspaceShell({
     window.addEventListener("mouseup", onUp);
   };
 
-  const vaultName = useMemo(
-    () => vaultPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Vault",
-    [vaultPath]
-  );
+  function handleOpenNote(relPath: string) {
+    onSelectNote(relPath);
+    setActivePanel("files");
+  }
 
   return (
     <>
       <div className="flex flex-1 min-h-0">
         <ActivityBar
           onBackToManager={onBackToManager}
-          onOpenSearch={() => setPanel((current) => current === "search" ? "files" : "search")}
-          activePanel={panel}
-          visibleItems={["search"]}
+          activePanel={activePanel}
+          onSelectPanel={setActivePanel}
+          visibleItems={["files", "search", "attachments", "pdf", "chemistry", "diagnostics", "rebuild"]}
         />
 
-        <aside
-          className="flex flex-col select-none workspace-panel"
-          style={{
-            width: `${sidebarWidth}px`,
-            minWidth: `${sidebarWidth}px`,
-            borderRight: "0.5px solid var(--panel-border)",
-            overflow: "hidden"
-          }}
-        >
-          <div className="px-3 pt-3 pb-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[13px] font-semibold truncate mr-2 text-[var(--text-primary)]" title={vaultPath}>
-                {vaultName}
-              </span>
-              <span className="text-[11px] text-[var(--text-quaternary)]">{notes.length}</span>
-            </div>
-            <div
-              className="flex p-[3px] rounded-[10px]"
-              style={{ background: "var(--subtle-surface)", border: "0.5px solid var(--panel-border)" }}
+        {activePanel === "files" || activePanel === "search" ? (
+          <>
+            <aside
+              className="flex flex-col select-none workspace-panel"
+              style={{
+                width: `${sidebarWidth}px`,
+                minWidth: `${sidebarWidth}px`,
+                borderRight: "0.5px solid var(--panel-border)",
+                overflow: "hidden"
+              }}
             >
-              {(["files", "search"] as const).map((nextTab) => {
-                const active = panel === nextTab;
-                return (
-                  <button
-                    key={nextTab}
-                    onClick={() => setPanel(nextTab)}
-                    className="flex-1 px-2 py-[5px] rounded-[9px] text-[12px] font-medium transition-colors duration-250 cursor-pointer flex items-center justify-center gap-1.5"
-                    style={{
-                      background: active ? "rgba(10,132,255,0.16)" : "transparent",
-                      color: active ? "var(--text-primary)" : "var(--text-tertiary)",
-                      boxShadow: active
-                        ? "0 1px 4px rgba(0,0,0,0.25), 0 0.5px 1px rgba(0,0,0,0.15), inset 0 0.5px 0 rgba(255,255,255,0.08)"
-                        : "none"
-                    }}
-                  >
-                    {nextTab === "files" ? "目录" : "搜索"}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+              {activePanel === "search" ? (
+                <SearchSidebar
+                  query={searchQuery}
+                  results={searchResults}
+                  loading={searchLoading}
+                  onQueryChange={onSearchQueryChange}
+                  onSelectNote={onSelectNote}
+                />
+              ) : (
+                <FilesSidebar
+                  vaultPath={vaultPath}
+                  tree={tree}
+                  notes={notes}
+                  recentNotes={recentNotes}
+                  activeRelPath={activeNote?.relPath ?? null}
+                  onSelectNote={onSelectNote}
+                />
+              )}
+            </aside>
 
-          {panel === "search" ? (
-            <SearchSidebar
-              query={searchQuery}
-              results={searchResults}
-              loading={searchLoading}
-              onQueryChange={onSearchQueryChange}
-              onSelectNote={onSelectNote}
+            <ResizeHandle side="left" onMouseDown={handleSidebarDrag} />
+
+            <EditorViewport
+              activeNote={activeNote}
+              noteBody={noteBody}
+              contentLoading={contentLoading}
+              contentError={contentError}
+              onCloseNote={onClearNote}
             />
-          ) : (
-            <FilesSidebar tree={tree} recentNotes={recentNotes} activeRelPath={activeNote?.relPath ?? null} onSelectNote={onSelectNote} />
-          )}
-        </aside>
+          </>
+        ) : null}
 
-        <ResizeHandle side="left" onMouseDown={handleSidebarDrag} />
+        {activePanel === "attachments" ? (
+          <AttachmentsWorkspace
+            visible
+            activeNote={activeNote}
+            onOpenNote={handleOpenNote}
+          />
+        ) : null}
 
-        <EditorViewport
-          activeNote={activeNote}
-          noteBody={noteBody}
-          contentLoading={contentLoading}
-          contentError={contentError}
-          onCloseNote={onClearNote}
-        />
+        {activePanel === "pdf" ? (
+          <PdfWorkspace
+            visible
+            activeNote={activeNote}
+            onOpenNote={handleOpenNote}
+          />
+        ) : null}
+
+        {activePanel === "chemistry" ? (
+          <ChemistryWorkspace
+            visible
+            activeNote={activeNote}
+            onOpenNote={handleOpenNote}
+          />
+        ) : null}
+
+        {activePanel === "diagnostics" ? (
+          <DiagnosticsWorkspace visible />
+        ) : null}
+
+        {activePanel === "rebuild" ? (
+          <RebuildWorkspace visible />
+        ) : null}
       </div>
 
       <AppStatusBar vaultPath={vaultPath} />
@@ -150,22 +165,38 @@ export default function WorkspaceShell({
 }
 
 function FilesSidebar({
+  vaultPath,
   tree,
+  notes,
   recentNotes,
   activeRelPath,
   onSelectNote
 }: {
+  vaultPath: string;
   tree: TreeNode[];
+  notes: NoteRecord[];
   recentNotes: NoteRecord[];
   activeRelPath: string | null;
   onSelectNote: (relPath: string) => void;
 }) {
-  const t = useT();
+  const vaultName = vaultPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Vault";
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-4">
-      {recentNotes.length > 0 && (
-        <div className="px-2 py-2">
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="px-4 pt-4 pb-3 border-b-[0.5px] border-b-[var(--panel-border)]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[12px] uppercase tracking-wider text-[var(--text-quaternary)]">Files</div>
+            <div className="text-[14px] mt-1 font-semibold truncate text-[var(--text-primary)]">{vaultName}</div>
+          </div>
+          <div className="text-[11px] px-2 py-1 rounded-full bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] text-[var(--text-quaternary)]">
+            {notes.length}
+          </div>
+        </div>
+      </div>
+
+      {recentNotes.length > 0 ? (
+        <section className="px-3 py-4 border-b-[0.5px] border-b-[var(--panel-border)]">
           <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-quinary)]">Recent</div>
           <div className="mt-2 space-y-1">
             {recentNotes.slice(0, 5).map((note) => (
@@ -180,19 +211,25 @@ function FilesSidebar({
               </button>
             ))}
           </div>
-        </div>
-      )}
+        </section>
+      ) : null}
 
-      <div className="px-2 py-2">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-quinary)]">{t("sidebar.files")}</div>
+      <section className="px-3 py-4">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-quinary)]">Vault tree</div>
         <div className="mt-2 space-y-0.5">
           {tree.length === 0 ? (
-            <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">{t("sidebar.noFiles")}</div>
+            <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">未找到支持的文件。</div>
           ) : tree.map((node) => (
-            <TreeItem key={node.relPath} node={node} depth={0} activeRelPath={activeRelPath} onSelectNote={onSelectNote} />
+            <TreeItem
+              key={node.relPath}
+              node={node}
+              depth={0}
+              activeRelPath={activeRelPath}
+              onSelectNote={onSelectNote}
+            />
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -252,9 +289,9 @@ function TreeItem({
         background: activeRelPath === node.relPath ? "rgba(10,132,255,0.12)" : "transparent"
       }}
     >
-      {activeRelPath === node.relPath && (
+      {activeRelPath === node.relPath ? (
         <div className="absolute left-[3px] top-1/2 -translate-y-1/2 w-[3px] h-[14px] rounded-full" style={{ background: "var(--accent)", boxShadow: "0 0 6px rgba(10,132,255,0.4)" }} />
-      )}
+      ) : null}
       <svg className="w-[15px] h-[15px] shrink-0 text-[var(--text-quaternary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <polyline points="14 2 14 8 20 8" />
@@ -280,34 +317,39 @@ function SearchSidebar({
   onSelectNote: (relPath: string) => void;
 }) {
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
-      <div className="px-1 py-2">
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="px-4 pt-4 pb-3 border-b-[0.5px] border-b-[var(--panel-border)]">
+        <div className="text-[12px] uppercase tracking-wider text-[var(--text-quaternary)]">Search</div>
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="搜索笔记..."
-          className="w-full rounded-[10px] px-3 py-2 text-[13px] outline-none border-[0.5px] border-[var(--panel-border)] bg-[var(--subtle-surface)] text-[var(--text-primary)]"
+          className="w-full mt-3 rounded-[10px] px-3 py-2 text-[13px] outline-none border-[0.5px] border-[var(--panel-border)] bg-[var(--subtle-surface)] text-[var(--text-primary)]"
         />
       </div>
-      {loading ? (
-        <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">搜索中…</div>
-      ) : (
-        <div className="space-y-1">
-          {results.map((result) => (
-            <button
-              key={result.relPath}
-              onClick={() => onSelectNote(result.relPath)}
-              className="w-full text-left px-3 py-2 rounded-[10px] hover:bg-[var(--sidebar-hover)] transition-colors"
-            >
-              <div className="text-[13px] text-[var(--text-secondary)] truncate">{result.title}</div>
-              <div className="text-[11px] text-[var(--text-quaternary)] truncate">{result.relPath}</div>
-            </button>
-          ))}
-          {!results.length && query.trim() && (
-            <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">未找到相关笔记</div>
-          )}
-        </div>
-      )}
+
+      <div className="px-3 py-4">
+        {loading ? (
+          <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">搜索中…</div>
+        ) : results.length > 0 ? (
+          <div className="space-y-1">
+            {results.map((result) => (
+              <button
+                key={result.relPath}
+                onClick={() => onSelectNote(result.relPath)}
+                className="w-full text-left px-3 py-2 rounded-[10px] hover:bg-[var(--sidebar-hover)] transition-colors"
+              >
+                <div className="text-[13px] text-[var(--text-secondary)] truncate">{result.title}</div>
+                <div className="text-[11px] text-[var(--text-quaternary)] truncate">{result.relPath}</div>
+              </button>
+            ))}
+          </div>
+        ) : query.trim() ? (
+          <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">未找到相关笔记。</div>
+        ) : (
+          <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">输入关键词后，这里会显示正式 search public surface 的结果。</div>
+        )}
+      </div>
     </div>
   );
 }

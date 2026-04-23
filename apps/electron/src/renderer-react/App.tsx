@@ -40,7 +40,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    console.log("renderer.app.bootstrap.effect");
     void bootstrap();
   }, []);
 
@@ -73,7 +72,6 @@ export default function App() {
   const appVersion = useMemo(() => hostVersion ?? "1.0.0", [hostVersion]);
 
   async function bootstrap() {
-    console.log("renderer.app.bootstrap.start");
     setBooting(true);
 
     const [bootstrapEnvelope, sessionEnvelope, desktopVersion] = await Promise.all([
@@ -82,15 +80,7 @@ export default function App() {
       getDesktopAppVersion()
     ]);
 
-    console.log("renderer.app.bootstrap.responses", {
-      bootstrapOk: bootstrapEnvelope?.ok ?? null,
-      sessionOk: sessionEnvelope?.ok ?? null,
-      desktopVersion: desktopVersion ?? null,
-      sessionState: sessionEnvelope?.data?.state ?? null
-    });
-
     if (!bootstrapEnvelope?.ok) {
-      console.log("renderer.app.bootstrap.host_unavailable");
       setHostUnavailable(true);
       setLauncherState("host_unavailable");
       setLastError(bootstrapEnvelope?.error ?? { code: "HOST_UNAVAILABLE", message: "Host bootstrap failed." });
@@ -103,28 +93,17 @@ export default function App() {
     setLastError(null);
 
     if (sessionEnvelope?.ok && sessionEnvelope.data?.state === "open" && sessionEnvelope.data?.active_vault_path) {
-      console.log("renderer.app.bootstrap.enter_workspace_from_session", {
-        vaultPath: sessionEnvelope.data.active_vault_path
-      });
       await enterWorkspace(sessionEnvelope.data.active_vault_path);
     } else {
-      console.log("renderer.app.bootstrap.launcher");
       setLauncherState("no_vault_open");
     }
 
     setBooting(false);
-    console.log("renderer.app.bootstrap.done");
   }
 
   async function enterWorkspace(nextVaultPath: string) {
-    console.log("renderer.app.enterWorkspace.start", { nextVaultPath });
     const treeEnvelope = await scanVaultTree();
     const recent = await loadRecentNotes();
-
-    console.log("renderer.app.enterWorkspace.responses", {
-      treeOk: treeEnvelope.ok,
-      recentCount: recent.length
-    });
 
     setVaultPath(nextVaultPath);
     setRecentNotes(recent);
@@ -133,9 +112,6 @@ export default function App() {
       setTree(treeEnvelope.data.tree);
       setNotes(treeEnvelope.data.notes);
       if (treeEnvelope.data.notes.length > 0) {
-        console.log("renderer.app.enterWorkspace.open_first_note", {
-          relPath: treeEnvelope.data.notes[0].relPath
-        });
         await openNote(treeEnvelope.data.notes[0].relPath, treeEnvelope.data.notes);
       } else {
         setActiveNote(null);
@@ -148,22 +124,15 @@ export default function App() {
       setNoteBody("");
       setLastError(treeEnvelope.error);
     }
-
-    console.log("renderer.app.enterWorkspace.done");
   }
 
   async function openNote(relPath: string, notePool = notes) {
-    console.log("renderer.app.openNote.start", { relPath });
     const target = notePool.find((note) => note.relPath === relPath) ?? null;
     setActiveNote(target);
     setContentLoading(true);
     setContentError(null);
 
     const envelope = await loadNoteContent(relPath);
-    console.log("renderer.app.openNote.response", {
-      ok: envelope?.ok ?? null,
-      relPath
-    });
     if (envelope?.ok && envelope.data) {
       setNoteBody(envelope.data.bodyText ?? "");
     } else {
@@ -172,11 +141,9 @@ export default function App() {
     }
 
     setContentLoading(false);
-    console.log("renderer.app.openNote.done", { relPath });
   }
 
   async function openVaultPath(targetPath: string) {
-    console.log("renderer.app.openVaultPath.start", { targetPath });
     if (!targetPath) {
       return;
     }
@@ -185,10 +152,6 @@ export default function App() {
     setLastError(null);
 
     const result = await openVault(targetPath);
-    console.log("renderer.app.openVaultPath.response", {
-      ok: result?.ok ?? null,
-      targetPath
-    });
     if (!result?.ok) {
       setLauncherState("no_vault_open");
       setLastError(result?.error ?? { code: "HOST_OPEN_FAILED", message: "Failed to open vault." });
@@ -200,7 +163,6 @@ export default function App() {
     await getRuntimeSummary();
     await enterWorkspace(targetPath);
     setLauncherState("no_vault_open");
-    console.log("renderer.app.openVaultPath.done", { targetPath });
   }
 
   async function handleOpenVault() {

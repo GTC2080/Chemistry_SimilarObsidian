@@ -5,6 +5,27 @@ const {
 } = require("./unavailable-kernel-adapter");
 const { tryLoadNativeBinding } = require("./native-binding-loader");
 const { HOST_ERROR_CODES, HOST_INDEX_STATES } = require("../../shared/host-contract");
+const fs = require("node:fs");
+const path = require("node:path");
+
+function appendHostDebug(label, payload = null) {
+  try {
+    const appData = process.env.APPDATA;
+    if (!appData) {
+      return;
+    }
+
+    const debugPath = path.join(appData, "chemistry-obsidian-electron-host", "host-debug.log");
+    const line = JSON.stringify({
+      at_ms: Date.now(),
+      label,
+      ...(payload ?? {})
+    });
+    fs.appendFileSync(debugPath, `${line}\n`, "utf8");
+  } catch {
+    // Best-effort debug trace only.
+  }
+}
 
 const KERNEL_SESSION_STATE_NAMES = Object.freeze({
   0: "closed",
@@ -246,6 +267,12 @@ function createBoundKernelAdapter(bindingState) {
     getRebuildStatusSummary,
 
     async openVault(payload = {}) {
+      appendHostDebug("kernel_adapter.open_vault.begin", {
+        vaultPath: payload.vaultPath ?? null,
+        runMode: payload.runMode ?? null,
+        alreadyActive: activeSession !== null
+      });
+
       if (activeSession) {
         return adapterFail(
           "session.open_vault",
@@ -259,15 +286,28 @@ function createBoundKernelAdapter(bindingState) {
       }
 
       try {
+        appendHostDebug("kernel_adapter.open_vault.native_call.begin", {
+          vaultPath: payload.vaultPath ?? null
+        });
         const nativeHandle = bindingState.binding.openVault(payload.vaultPath);
+        appendHostDebug("kernel_adapter.open_vault.native_call.done", {
+          vaultPath: payload.vaultPath ?? null
+        });
         activeSession = {
           nativeHandle,
           vaultPath: payload.vaultPath
         };
+        appendHostDebug("kernel_adapter.open_vault.done", {
+          vaultPath: payload.vaultPath ?? null
+        });
         return adapterOk({
           result: "opened"
         });
       } catch (error) {
+        appendHostDebug("kernel_adapter.open_vault.error", {
+          vaultPath: payload.vaultPath ?? null,
+          error: error instanceof Error ? error.stack : String(error)
+        });
         return mapNativeBindingError(bindingState, "session.open_vault", error, {
           vault_path: payload.vaultPath ?? null
         });
