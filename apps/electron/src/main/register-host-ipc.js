@@ -39,6 +39,10 @@ function registerHostIpc(hostRuntime, hostApi) {
     return hostApi.readNoteFile(payload);
   });
 
+  ipcMain.handle(HOST_IPC_CHANNELS.filesWriteNote, async (_event, payload = {}) => {
+    return hostApi.writeNoteFile(payload);
+  });
+
   ipcMain.handle(HOST_IPC_CHANNELS.filesListRecent, async (_event, payload = {}) => {
     return hostApi.listRecentFiles(payload);
   });

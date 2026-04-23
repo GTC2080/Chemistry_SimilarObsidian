@@ -340,6 +340,22 @@ function createBoundKernelAdapter(bindingState) {
       );
     },
 
+    async readNote(request = {}) {
+      return withActiveSession("files.read_note", ({ nativeHandle }) =>
+        bindingState.binding.readNote(nativeHandle, request.relPath)
+      );
+    },
+
+    async writeNote(request = {}) {
+      return withActiveSession("files.write_note", ({ nativeHandle }) =>
+        bindingState.binding.writeNote(nativeHandle, {
+          relPath: request.relPath,
+          bodyText: request.bodyText,
+          expectedRevision: request.expectedRevision ?? null
+        })
+      );
+    },
+
     async listAttachments(request = {}) {
       return withActiveSession("attachments.list", ({ nativeHandle }) =>
         bindingState.binding.queryAttachments(nativeHandle, request.limit)

@@ -3,12 +3,14 @@ const path = require("node:path");
 
 const cwd = path.resolve(__dirname, "..");
 const env = { ...process.env };
+const useShell = process.platform === "win32";
 
 delete env.ELECTRON_RUN_AS_NODE;
 
-const vite = spawn("npm.cmd", ["run", "renderer:dev"], {
+const vite = spawn("npm", ["run", "renderer:dev"], {
   cwd,
   env,
+  shell: useShell,
   stdio: ["ignore", "pipe", "pipe"]
 });
 
@@ -25,7 +27,7 @@ function launchElectron() {
     CHEM_OBSIDIAN_RENDERER_URL: "http://127.0.0.1:5173"
   };
 
-  const electron = spawn("node", ["./scripts/run-electron.js"], {
+  const electron = spawn(process.execPath, ["./scripts/run-electron.js"], {
     cwd,
     env: childEnv,
     stdio: "inherit"
@@ -37,17 +39,21 @@ function launchElectron() {
   });
 }
 
-vite.stdout.on("data", (chunk) => {
+function handleViteOutput(chunk) {
   const text = chunk.toString();
   process.stdout.write(text);
   if (text.includes("http://127.0.0.1:5173") || text.includes("http://localhost:5173")) {
     launchElectron();
   }
-});
+}
+
+vite.stdout.on("data", handleViteOutput);
 
 vite.stderr.on("data", (chunk) => {
-  process.stderr.write(chunk.toString());
+  handleViteOutput(chunk);
 });
+
+setTimeout(launchElectron, 2500);
 
 vite.on("error", (error) => {
   console.error(error);

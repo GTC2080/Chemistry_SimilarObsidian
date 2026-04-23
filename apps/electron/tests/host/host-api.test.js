@@ -34,6 +34,12 @@ function createStubKernelAdapter(overrides = {}) {
     async querySearch() {
       throw new Error("querySearch was not stubbed");
     },
+    async readNote() {
+      throw new Error("readNote was not stubbed");
+    },
+    async writeNote() {
+      throw new Error("writeNote was not stubbed");
+    },
     async listAttachments() {
       throw new Error("listAttachments was not stubbed");
     },
@@ -334,22 +340,23 @@ test("HostApi files.listEntries maps entry records into the host model", async (
 test("HostApi files.readNote maps a note record into the host model", async () => {
   let capturedRequest = null;
   const api = new HostApi({
-    kernelAdapter: createStubKernelAdapter(),
-    getActiveVaultPath: () => "E:/vault",
-    filesSurface: createStubFilesSurface({
+    kernelAdapter: createStubKernelAdapter({
       async readNote(request) {
         capturedRequest = request;
         return {
-          rel_path: "notes/example.md",
-          name: "example.md",
-          title: "Example",
-          kind: "note",
-          body_text: "# Example\n\nbody",
-          size_bytes: 16,
-          mtime_ms: 2000
+          ok: true,
+          value: {
+            rel_path: "notes/example.md",
+            body_text: "# Example\n\nbody",
+            file_size: 16,
+            mtime_ns: 2000000000,
+            content_revision: "rev-example"
+          }
         };
       }
-    })
+    }),
+    getActiveVaultPath: () => "E:/vault",
+    filesSurface: createStubFilesSurface()
   });
 
   const result = await api.readNoteFile({
@@ -358,7 +365,6 @@ test("HostApi files.readNote maps a note record into the host model", async () =
   });
 
   assert.deepEqual(capturedRequest, {
-    vaultPath: "E:/vault",
     relPath: "notes/example.md"
   });
   assert.deepEqual(result, {
@@ -370,10 +376,64 @@ test("HostApi files.readNote maps a note record into the host model", async () =
       kind: "note",
       bodyText: "# Example\n\nbody",
       sizeBytes: 16,
-      mtimeMs: 2000
+      mtimeMs: 2000,
+      contentRevision: "rev-example"
     },
     error: null,
     request_id: "req-files-read"
+  });
+});
+
+test("HostApi files.writeNote forwards the optimistic revision and maps the write result", async () => {
+  let capturedRequest = null;
+  const api = new HostApi({
+    kernelAdapter: createStubKernelAdapter({
+      async writeNote(request) {
+        capturedRequest = request;
+        return {
+          ok: true,
+          value: {
+            rel_path: "notes/example.md",
+            body_text: "# Example\n\nbody",
+            file_size: 16,
+            mtime_ns: 2000000000,
+            content_revision: "rev-after-write",
+            disposition: "written"
+          }
+        };
+      }
+    })
+  });
+
+  const result = await api.writeNoteFile({
+    relPath: "notes/example.md",
+    bodyText: "# Example\n\nbody",
+    expectedRevision: "rev-before-write",
+    request_id: "req-files-write"
+  });
+
+  assert.deepEqual(capturedRequest, {
+    relPath: "notes/example.md",
+    bodyText: "# Example\n\nbody",
+    expectedRevision: "rev-before-write"
+  });
+  assert.deepEqual(result, {
+    ok: true,
+    data: {
+      disposition: "written",
+      note: {
+        relPath: "notes/example.md",
+        name: "example.md",
+        title: "Example",
+        kind: "note",
+        bodyText: "# Example\n\nbody",
+        sizeBytes: 16,
+        mtimeMs: 2000,
+        contentRevision: "rev-after-write"
+      }
+    },
+    error: null,
+    request_id: "req-files-write"
   });
 });
 

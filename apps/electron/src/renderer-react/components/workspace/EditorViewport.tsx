@@ -6,7 +6,13 @@ interface EditorViewportProps {
   noteBody: string;
   contentLoading: boolean;
   contentError: string | null;
+  noteDirty: boolean;
+  saveState: "idle" | "saving" | "saved" | "error";
+  saveError: string | null;
   onCloseNote: () => void;
+  onCreateNote: () => void;
+  onSaveNote: () => void;
+  onNoteBodyChange: (value: string) => void;
 }
 
 export default function EditorViewport({
@@ -14,9 +20,20 @@ export default function EditorViewport({
   noteBody,
   contentLoading,
   contentError,
-  onCloseNote
+  noteDirty,
+  saveState,
+  saveError,
+  onCloseNote,
+  onCreateNote,
+  onSaveNote,
+  onNoteBodyChange
 }: EditorViewportProps) {
   const t = useT();
+  const saveLabel = saveState === "saving"
+    ? "保存中"
+    : saveState === "saved" && !noteDirty
+      ? "已保存"
+      : "保存";
 
   return (
     <main className="relative flex-1 flex flex-col min-w-0 workspace-panel m-0">
@@ -36,9 +53,38 @@ export default function EditorViewport({
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-4">
+              <span
+                className="text-[11px] px-2 py-0.5 rounded-lg shrink-0"
+                style={{
+                  background: noteDirty ? "rgba(255,159,10,0.12)" : "var(--subtle-surface-strong)",
+                  color: noteDirty ? "#ff9f0a" : "var(--text-quaternary)"
+                }}
+              >
+                {noteDirty ? "未保存" : saveState === "saved" ? "已保存" : "同步"}
+              </span>
               <span className="text-[11px] tabular-nums text-[var(--text-quaternary)]">
                 {new Date(activeNote.updatedAtMs).toLocaleString("zh-CN")}
               </span>
+              <button
+                type="button"
+                onClick={onSaveNote}
+                disabled={!noteDirty || saveState === "saving"}
+                className="px-3 h-7 rounded-[10px] text-[12px] font-medium transition-colors disabled:opacity-45 disabled:cursor-default"
+                style={{
+                  background: "var(--accent)",
+                  color: "#fff",
+                  boxShadow: "0 6px 18px rgba(10,132,255,0.18)"
+                }}
+              >
+                {saveLabel}
+              </button>
+              <button
+                type="button"
+                onClick={onCreateNote}
+                className="px-3 h-7 rounded-[10px] text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--subtle-surface-strong)] hover:bg-[var(--sidebar-hover)] transition-colors"
+              >
+                新建
+              </button>
               <button
                 type="button"
                 onClick={onCloseNote}
@@ -61,7 +107,19 @@ export default function EditorViewport({
                 {contentError}
               </div>
             ) : (
-              <article className="note-markdown">{noteBody}</article>
+              <div className="h-full min-h-[420px] flex flex-col gap-3">
+                {saveError ? (
+                  <div className="animate-fade-in px-4 py-2.5 rounded-xl text-[13px] bg-[rgba(255,69,58,0.08)] border-[0.5px] border-[rgba(255,69,58,0.12)] text-[#ff453a]">
+                    {saveError}
+                  </div>
+                ) : null}
+                <textarea
+                  value={noteBody}
+                  onChange={(event) => onNoteBodyChange(event.target.value)}
+                  className="note-editor-textarea flex-1"
+                  spellCheck={false}
+                />
+              </div>
             )}
           </div>
         </>
@@ -86,6 +144,13 @@ export default function EditorViewport({
             <p className="text-[12px] mt-2 text-[var(--text-quaternary)]">
               {t("viewport.orSearch")} <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[rgba(118,118,128,0.12)] text-[var(--text-tertiary)]">Ctrl+K</kbd> {t("viewport.toSearch")}
             </p>
+            <button
+              type="button"
+              onClick={onCreateNote}
+              className="mt-5 px-4 h-9 rounded-[12px] text-[13px] font-medium text-white bg-[var(--accent)] shadow-[0_8px_22px_rgba(10,132,255,0.2)]"
+            >
+              新建笔记
+            </button>
           </div>
         </div>
       )}

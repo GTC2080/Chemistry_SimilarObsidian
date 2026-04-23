@@ -103,6 +103,12 @@ export interface HostNote {
   bodyText: string;
   sizeBytes: number;
   mtimeMs: number;
+  contentRevision: string;
+}
+
+export interface HostNoteWriteResult {
+  disposition: string;
+  note: HostNote;
 }
 
 export interface HostAttachmentRecord {
@@ -255,6 +261,14 @@ export async function readNote(relPath: string) {
   return getHostShell()?.files?.readNote?.({
     relPath
   }, `nexus-read-${relPath}`) as Promise<HostEnvelope<HostNote>>;
+}
+
+export async function writeNote(relPath: string, bodyText: string, expectedRevision: string | null = null) {
+  return getHostShell()?.files?.writeNote?.({
+    relPath,
+    bodyText,
+    expectedRevision
+  }, `nexus-write-${relPath}`) as Promise<HostEnvelope<HostNoteWriteResult>>;
 }
 
 export async function querySearch(query: string) {

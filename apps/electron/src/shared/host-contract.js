@@ -6,6 +6,7 @@ const HOST_IPC_CHANNELS = Object.freeze({
   sessionCloseVault: "host/session/close-vault",
   filesListEntries: "host/files/list-entries",
   filesReadNote: "host/files/read-note",
+  filesWriteNote: "host/files/write-note",
   filesListRecent: "host/files/list-recent",
   searchQuery: "host/search/query",
   attachmentsList: "host/attachments/list",

@@ -105,6 +105,14 @@ function createUnavailableKernelAdapter(options = {}) {
       return failFor("search.query");
     },
 
+    async readNote() {
+      return failFor("files.read_note");
+    },
+
+    async writeNote() {
+      return failFor("files.write_note");
+    },
+
     async listAttachments() {
       return failFor("attachments.list");
     },

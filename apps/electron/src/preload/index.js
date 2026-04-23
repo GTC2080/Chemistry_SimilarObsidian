@@ -8,6 +8,7 @@ const HOST_IPC_CHANNELS = Object.freeze({
   sessionCloseVault: "host/session/close-vault",
   filesListEntries: "host/files/list-entries",
   filesReadNote: "host/files/read-note",
+  filesWriteNote: "host/files/write-note",
   filesListRecent: "host/files/list-recent",
   searchQuery: "host/search/query",
   attachmentsList: "host/attachments/list",
@@ -129,6 +130,13 @@ const hostShell = Object.freeze({
 
     async readNote(request = {}, requestId) {
       return invokeHost(HOST_IPC_CHANNELS.filesReadNote, {
+        ...request,
+        ...(requestId ? { request_id: requestId } : {})
+      });
+    },
+
+    async writeNote(request = {}, requestId) {
+      return invokeHost(HOST_IPC_CHANNELS.filesWriteNote, {
         ...request,
         ...(requestId ? { request_id: requestId } : {})
       });

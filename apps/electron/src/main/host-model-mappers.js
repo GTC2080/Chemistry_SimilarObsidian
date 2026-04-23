@@ -76,15 +76,48 @@ function mapFilesList(list = {}, request = {}) {
   };
 }
 
+function basenameFromRelPath(relPath = "") {
+  const parts = String(relPath).split("/").filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : "";
+}
+
+function titleFromName(name = "") {
+  return String(name).replace(/\.[^.]+$/, "") || String(name);
+}
+
+function titleFromBody(name = "", bodyText = "") {
+  const heading = String(bodyText)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.startsWith("#") && line.replace(/^#+\s*/, "").trim());
+  if (heading) {
+    return heading.replace(/^#+\s*/, "").trim();
+  }
+
+  return titleFromName(name);
+}
+
 function mapFileNoteRecord(record = {}) {
+  const relPath = record.rel_path ?? record.relPath ?? "";
+  const name = record.name ?? basenameFromRelPath(relPath);
+  const bodyText = record.body_text ?? record.bodyText ?? "";
+  const mtimeNs = Number(record.mtime_ns ?? record.mtimeNs ?? 0);
   return {
-    relPath: record.rel_path ?? "",
-    name: record.name ?? "",
-    title: record.title ?? "",
+    relPath,
+    name,
+    title: record.title ?? titleFromBody(name, bodyText),
     kind: record.kind ?? "note",
-    bodyText: record.body_text ?? "",
-    sizeBytes: Number(record.size_bytes ?? 0),
-    mtimeMs: Number(record.mtime_ms ?? 0)
+    bodyText,
+    sizeBytes: Number(record.size_bytes ?? record.sizeBytes ?? record.file_size ?? 0),
+    mtimeMs: Number(record.mtime_ms ?? record.mtimeMs ?? (mtimeNs > 0 ? Math.floor(mtimeNs / 1_000_000) : 0)),
+    contentRevision: record.content_revision ?? record.contentRevision ?? ""
+  };
+}
+
+function mapNoteWriteResult(result = {}) {
+  return {
+    disposition: result.disposition ?? "written",
+    note: mapFileNoteRecord(result.note ?? result)
   };
 }
 
@@ -277,6 +310,7 @@ module.exports = {
   mapFilesList,
   mapKernelRebuildStatus,
   mapKernelRuntimeSummary,
+  mapNoteWriteResult,
   mapPdfMetadata,
   mapPdfReferrers,
   mapPdfSourceRefs,

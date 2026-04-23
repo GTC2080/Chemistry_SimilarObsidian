@@ -1,4 +1,4 @@
-import { listEntries, listRecentNotes, readNote, type HostEntry } from "./host-shell";
+import { listEntries, listRecentNotes, readNote, writeNote, type HostEntry, type HostNote } from "./host-shell";
 
 export interface NoteRecord {
   id: string;
@@ -22,14 +22,15 @@ function ext(name: string) {
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
 }
 
-function createNoteRecord(entry: HostEntry): NoteRecord {
+export function createNoteRecord(entry: HostEntry | HostNote): NoteRecord {
+  const name = entry.name || entry.relPath.split("/").filter(Boolean).pop() || "Untitled.md";
   return {
     id: entry.relPath,
-    name: entry.name,
+    name,
     relPath: entry.relPath,
-    fileExtension: ext(entry.name),
+    fileExtension: ext(name),
     updatedAtMs: entry.mtimeMs,
-    title: entry.title
+    title: entry.title || name.replace(/\.[^.]+$/, "")
   };
 }
 
@@ -119,4 +120,8 @@ export async function loadRecentNotes() {
 
 export async function loadNoteContent(relPath: string) {
   return readNote(relPath);
+}
+
+export async function saveNoteContent(relPath: string, bodyText: string, expectedRevision: string | null) {
+  return writeNote(relPath, bodyText, expectedRevision);
 }

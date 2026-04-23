@@ -288,9 +288,13 @@ async function createMainWindow() {
               hostShell.runtime.getSummary(),
               hostShell.session.getStatus()
             ]);
-            const [filesList, filesRead, filesRecent, search, attachments, attachmentGet, attachmentRefs, attachmentReferrers] = await Promise.all([
+            const [filesList, filesRead, filesWrite, filesRecent, search, attachments, attachmentGet, attachmentRefs, attachmentReferrers] = await Promise.all([
               hostShell.files.listEntries({ limit: 5 }, "smoke-files-list"),
               hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read"),
+              hostShell.files.writeNote(
+                { relPath: "notes/pre-open.md", bodyText: "# Pre Open\\n", expectedRevision: null },
+                "smoke-files-write"
+              ),
               hostShell.files.listRecent({ limit: 5 }, "smoke-files-recent"),
               hostShell.search.query({ query: "baseline", limit: 5 }, "smoke-search"),
               hostShell.attachments.list({ limit: 5 }, "smoke-attachments-list"),
@@ -326,6 +330,7 @@ async function createMainWindow() {
             const runtimeAfterOpen = await waitForIndexReady();
             const rebuildStatusAfterOpen = await hostShell.rebuild.getStatus("smoke-rebuild-status-after-open");
             const postOpenSession = await hostShell.session.getStatus("smoke-post-open");
+            const smokeWriteRelPath = ${JSON.stringify(`notes/written-${smokeRunId}-${Date.now()}.md`)};
             const [filesListAfterOpen, filesReadAfterOpen, filesRecentAfterOpen, searchAfterOpen, attachmentsAfterOpen, attachmentGetAfterOpen, attachmentRefsAfterOpen, attachmentReferrersAfterOpen] = await Promise.all([
               hostShell.files.listEntries({ limit: 5 }, "smoke-files-list-after-open"),
               hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read-after-open"),
@@ -336,6 +341,22 @@ async function createMainWindow() {
               hostShell.attachments.queryNoteRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-attachments-note-refs-after-open"),
               hostShell.attachments.queryReferrers({ attachmentRelPath: "assets/sample.pdf", limit: 5 }, "smoke-attachments-referrers-after-open")
             ]);
+            const filesWriteAfterOpen = await hostShell.files.writeNote(
+              {
+                relPath: smokeWriteRelPath,
+                bodyText: "# Written Smoke Note\\n\\nsaved through host.",
+                expectedRevision: null
+              },
+              "smoke-files-write-after-open"
+            );
+            const filesReadWrittenAfterOpen = await hostShell.files.readNote(
+              { relPath: smokeWriteRelPath },
+              "smoke-files-read-written-after-open"
+            );
+            const searchWrittenAfterOpen = await hostShell.search.query(
+              { query: "Written", limit: 5 },
+              "smoke-search-written-after-open"
+            );
             const [pdfMetadataAfterOpen, pdfNoteRefsAfterOpen, pdfReferrersAfterOpen] = await Promise.all([
               hostShell.pdf.getMetadata({ attachmentRelPath: "assets/sample.pdf" }, "smoke-pdf-metadata-after-open"),
               hostShell.pdf.queryNoteSourceRefs({ noteRelPath: "notes/example.md", limit: 5 }, "smoke-pdf-note-refs-after-open"),
@@ -369,6 +390,7 @@ async function createMainWindow() {
               session,
               filesList,
               filesRead,
+              filesWrite,
               filesRecent,
               search,
               attachments,
@@ -393,8 +415,11 @@ async function createMainWindow() {
               postOpenSession,
               filesListAfterOpen,
               filesReadAfterOpen,
+              filesWriteAfterOpen,
+              filesReadWrittenAfterOpen,
               filesRecentAfterOpen,
               searchAfterOpen,
+              searchWrittenAfterOpen,
               attachmentsAfterOpen,
               attachmentGetAfterOpen,
               attachmentRefsAfterOpen,

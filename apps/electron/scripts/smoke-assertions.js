@@ -53,8 +53,11 @@ function assertSmokePayload(payload) {
   expectSuccessEnvelope(payload.postOpenSession, "postOpenSession");
   expectSuccessEnvelope(payload.filesListAfterOpen, "filesListAfterOpen");
   expectSuccessEnvelope(payload.filesReadAfterOpen, "filesReadAfterOpen");
+  expectSuccessEnvelope(payload.filesWriteAfterOpen, "filesWriteAfterOpen");
+  expectSuccessEnvelope(payload.filesReadWrittenAfterOpen, "filesReadWrittenAfterOpen");
   expectSuccessEnvelope(payload.filesRecentAfterOpen, "filesRecentAfterOpen");
   expectSuccessEnvelope(payload.searchAfterOpen, "searchAfterOpen");
+  expectSuccessEnvelope(payload.searchWrittenAfterOpen, "searchWrittenAfterOpen");
   expectSuccessEnvelope(payload.attachmentsAfterOpen, "attachmentsAfterOpen");
   expectSuccessEnvelope(payload.attachmentGetAfterOpen, "attachmentGetAfterOpen");
   expectSuccessEnvelope(payload.attachmentRefsAfterOpen, "attachmentRefsAfterOpen");
@@ -78,6 +81,7 @@ function assertSmokePayload(payload) {
   expectFailureEnvelope(payload.search, "search", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.filesList, "filesList", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.filesRead, "filesRead", expectedPreOpenReadFailureCode);
+  expectFailureEnvelope(payload.filesWrite, "filesWrite", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.filesRecent, "filesRecent", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.attachments, "attachments", expectedPreOpenReadFailureCode);
   expectFailureEnvelope(payload.attachmentGet, "attachmentGet", expectedPreOpenReadFailureCode);
@@ -125,10 +129,20 @@ function assertSmokePayload(payload) {
   );
   expect(payload.filesReadAfterOpen.data.relPath === "notes/example.md", "filesReadAfterOpen should resolve the seeded note.");
   expect(payload.filesReadAfterOpen.data.title === "Baseline Smoke Note", "filesReadAfterOpen should derive the note title from the heading.");
+  expect(typeof payload.filesReadAfterOpen.data.contentRevision === "string" && payload.filesReadAfterOpen.data.contentRevision.length > 0, "filesReadAfterOpen should expose a note content revision.");
+  expect(payload.filesWriteAfterOpen.data.disposition === "written", "filesWriteAfterOpen should write a new note.");
+  expect(payload.filesWriteAfterOpen.data.note.relPath.startsWith("notes/written-"), "filesWriteAfterOpen should write under notes/.");
+  expect(typeof payload.filesWriteAfterOpen.data.note.contentRevision === "string" && payload.filesWriteAfterOpen.data.note.contentRevision.length > 0, "filesWriteAfterOpen should expose a new content revision.");
+  expect(payload.filesReadWrittenAfterOpen.data.relPath === payload.filesWriteAfterOpen.data.note.relPath, "filesReadWrittenAfterOpen should read back the written note.");
+  expect(payload.filesReadWrittenAfterOpen.data.bodyText.includes("saved through host"), "filesReadWrittenAfterOpen should preserve the written body.");
   expect(payload.filesRecentAfterOpen.data.count >= 1, "filesRecentAfterOpen should list at least one recent note.");
   expect(payload.filesRecentAfterOpen.data.items[0].relPath === "notes/example.md", "filesRecentAfterOpen should expose the seeded note.");
   expect(payload.searchAfterOpen.data.totalHits >= 1, "searchAfterOpen should return at least one hit.");
   expect(payload.searchAfterOpen.data.items[0].relPath === "notes/example.md", "searchAfterOpen should return the seeded note.");
+  expect(
+    payload.searchWrittenAfterOpen.data.items.some((item) => item.relPath === payload.filesWriteAfterOpen.data.note.relPath),
+    "searchWrittenAfterOpen should find the written note."
+  );
   expect(payload.attachmentsAfterOpen.data.count >= 2, "attachmentsAfterOpen should project the seeded attachment catalog.");
   expectArrayIncludes(
     payload.attachmentsAfterOpen.data.items.map((item) => item.relPath),
@@ -167,12 +181,16 @@ function assertSmokePayload(payload) {
   expect(payload.rebuildStatus.data.adapterAttached === payload.runtime.data.kernel_binding.attached, "rebuild status should reflect the adapter attachment flag.");
   expect(payload.filesList.request_id === "smoke-files-list", "filesList request_id should round-trip.");
   expect(payload.filesRead.request_id === "smoke-files-read", "filesRead request_id should round-trip.");
+  expect(payload.filesWrite.request_id === "smoke-files-write", "filesWrite request_id should round-trip.");
   expect(payload.filesRecent.request_id === "smoke-files-recent", "filesRecent request_id should round-trip.");
   expect(payload.filesListAfterOpen.request_id === "smoke-files-list-after-open", "filesListAfterOpen request_id should round-trip.");
   expect(payload.filesReadAfterOpen.request_id === "smoke-files-read-after-open", "filesReadAfterOpen request_id should round-trip.");
+  expect(payload.filesWriteAfterOpen.request_id === "smoke-files-write-after-open", "filesWriteAfterOpen request_id should round-trip.");
+  expect(payload.filesReadWrittenAfterOpen.request_id === "smoke-files-read-written-after-open", "filesReadWrittenAfterOpen request_id should round-trip.");
   expect(payload.filesRecentAfterOpen.request_id === "smoke-files-recent-after-open", "filesRecentAfterOpen request_id should round-trip.");
   expect(payload.search.request_id === "smoke-search", "search request_id should round-trip.");
   expect(payload.searchAfterOpen.request_id === "smoke-search-after-open", "searchAfterOpen request_id should round-trip.");
+  expect(payload.searchWrittenAfterOpen.request_id === "smoke-search-written-after-open", "searchWrittenAfterOpen request_id should round-trip.");
 }
 
 module.exports = {

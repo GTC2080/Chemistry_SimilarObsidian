@@ -20,6 +20,7 @@ const {
   mapFileNoteRecord,
   mapFilesList,
   mapKernelRebuildStatus,
+  mapNoteWriteResult,
   mapPdfMetadata,
   mapPdfReferrers,
   mapPdfSourceRefs,
@@ -55,6 +56,21 @@ function ensureNonEmptyString(value, fieldName, requestId) {
   }
 
   return value.trim();
+}
+
+function ensureTextString(value, fieldName, requestId) {
+  if (typeof value !== "string") {
+    return fail(
+      HOST_ERROR_CODES.invalidArgument,
+      `${fieldName} must be a string.`,
+      {
+        field: fieldName
+      },
+      requestId
+    );
+  }
+
+  return value;
 }
 
 function ensureLimit(value, requestId, fieldName = "limit", defaultValue = LIST_LIMIT_DEFAULT, maxValue = SEARCH_LIMIT_MAX) {
@@ -215,28 +231,35 @@ class HostApi {
       return relPath;
     }
 
-    const vaultPath = this.getActiveVaultPath();
-    if (!vaultPath) {
-      return fail(
-        HOST_ERROR_CODES.sessionNotOpen,
-        "Open a vault session before using this host surface.",
-        {
-          operation: "files.read_note",
-          run_mode: getRunMode()
-        },
-        requestId
-      );
+    const adapterResult = await this.kernelAdapter.readNote({ relPath });
+    return finalizeAdapterResult(adapterResult, mapFileNoteRecord, requestId);
+  }
+
+  async writeNoteFile(payload = {}) {
+    const requestId = sanitizeRequestId(payload);
+    const relPath = ensureNonEmptyString(payload.relPath, "relPath", requestId);
+    if (typeof relPath !== "string") {
+      return relPath;
     }
 
-    try {
-      const result = await this.filesSurface.readNote({
-        vaultPath,
-        relPath
-      });
-      return ok(mapFileNoteRecord(result), requestId);
-    } catch (error) {
-      return mapFilesSurfaceFailure(error, requestId);
+    const bodyText = ensureTextString(payload.bodyText, "bodyText", requestId);
+    if (typeof bodyText !== "string") {
+      return bodyText;
     }
+
+    const expectedRevision = payload.expectedRevision == null || payload.expectedRevision === ""
+      ? null
+      : ensureOptionalString(payload.expectedRevision, "expectedRevision", requestId);
+    if (expectedRevision !== null && typeof expectedRevision !== "string") {
+      return expectedRevision;
+    }
+
+    const adapterResult = await this.kernelAdapter.writeNote({
+      relPath,
+      bodyText,
+      expectedRevision
+    });
+    return finalizeAdapterResult(adapterResult, mapNoteWriteResult, requestId);
   }
 
   async listRecentFiles(payload = {}) {

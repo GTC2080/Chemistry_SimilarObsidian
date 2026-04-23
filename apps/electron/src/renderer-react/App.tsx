@@ -4,11 +4,12 @@ import LaunchSplash from "./components/nexus/LaunchSplash";
 import VaultManagerView from "./components/nexus/VaultManagerView";
 import WorkspaceShell from "./components/workspace/WorkspaceShell";
 import { getDesktopAppVersion, pickDirectory } from "./lib/desktop-shell";
-import { loadNoteContent, loadRecentNotes, scanVaultTree, type NoteRecord, type TreeNode } from "./lib/files-tree";
+import { createNoteRecord, loadNoteContent, loadRecentNotes, saveNoteContent, scanVaultTree, type NoteRecord, type TreeNode } from "./lib/files-tree";
 import { addRecentVault, readRecentVaults, removeRecentVault, type RecentVault } from "./lib/recent-vaults";
 import { closeVault, getBootstrapInfo, getRuntimeSummary, getSessionStatus, openVault, querySearch } from "./lib/host-shell";
 
 type HostEnvelopeError = { code?: string; message?: string } | null;
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 export default function App() {
   const [booting, setBooting] = useState(true);
@@ -23,6 +24,10 @@ export default function App() {
   const [recentNotes, setRecentNotes] = useState<NoteRecord[]>([]);
   const [activeNote, setActiveNote] = useState<NoteRecord | null>(null);
   const [noteBody, setNoteBody] = useState("");
+  const [savedNoteBody, setSavedNoteBody] = useState("");
+  const [noteRevision, setNoteRevision] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [searchQueryValue, setSearchQueryValue] = useState("");
@@ -70,6 +75,7 @@ export default function App() {
   }, [searchQueryValue, vaultPath]);
 
   const appVersion = useMemo(() => hostVersion ?? "1.0.0", [hostVersion]);
+  const noteDirty = Boolean(activeNote && noteBody !== savedNoteBody);
 
   async function bootstrap() {
     setBooting(true);
@@ -116,12 +122,20 @@ export default function App() {
       } else {
         setActiveNote(null);
         setNoteBody("");
+        setSavedNoteBody("");
+        setNoteRevision(null);
+        setSaveState("idle");
+        setSaveError(null);
       }
     } else {
       setTree([]);
       setNotes([]);
       setActiveNote(null);
       setNoteBody("");
+      setSavedNoteBody("");
+      setNoteRevision(null);
+      setSaveState("idle");
+      setSaveError(null);
       setLastError(treeEnvelope.error);
     }
   }
@@ -135,12 +149,102 @@ export default function App() {
     const envelope = await loadNoteContent(relPath);
     if (envelope?.ok && envelope.data) {
       setNoteBody(envelope.data.bodyText ?? "");
+      setSavedNoteBody(envelope.data.bodyText ?? "");
+      setNoteRevision(envelope.data.contentRevision || null);
+      setSaveState("idle");
+      setSaveError(null);
     } else {
       setNoteBody("");
+      setSavedNoteBody("");
+      setNoteRevision(null);
+      setSaveState("idle");
+      setSaveError(null);
       setContentError(envelope?.error?.message ?? "Failed to load note content.");
     }
 
     setContentLoading(false);
+  }
+
+  async function refreshContentLists(preferredRelPath?: string) {
+    const treeEnvelope = await scanVaultTree();
+    const recent = await loadRecentNotes();
+    setRecentNotes(recent);
+
+    if (!treeEnvelope.ok) {
+      setLastError(treeEnvelope.error);
+      return;
+    }
+
+    setTree(treeEnvelope.data.tree);
+    setNotes(treeEnvelope.data.notes);
+    if (preferredRelPath) {
+      const refreshedNote = treeEnvelope.data.notes.find((note) => note.relPath === preferredRelPath);
+      if (refreshedNote) {
+        setActiveNote(refreshedNote);
+      }
+    }
+  }
+
+  function nextUntitledRelPath() {
+    const existing = new Set(notes.map((note) => note.relPath.toLowerCase()));
+    for (let index = 1; index < 1000; index += 1) {
+      const name = index === 1 ? "Untitled.md" : `Untitled ${index}.md`;
+      const relPath = name;
+      if (!existing.has(relPath.toLowerCase())) {
+        return relPath;
+      }
+    }
+
+    return `Untitled ${Date.now()}.md`;
+  }
+
+  async function handleCreateNote() {
+    const relPath = nextUntitledRelPath();
+    const bodyText = "# Untitled\n\n";
+    setSaveState("saving");
+    setSaveError(null);
+
+    const envelope = await saveNoteContent(relPath, bodyText, null);
+    if (envelope?.ok && envelope.data?.note) {
+      const noteRecord = createNoteRecord(envelope.data.note);
+      setActiveNote(noteRecord);
+      setNoteBody(envelope.data.note.bodyText ?? bodyText);
+      setSavedNoteBody(envelope.data.note.bodyText ?? bodyText);
+      setNoteRevision(envelope.data.note.contentRevision || null);
+      setSaveState("saved");
+      setSaveError(null);
+      await refreshContentLists(noteRecord.relPath);
+      return;
+    }
+
+    setSaveState("error");
+    setSaveError(envelope?.error?.message ?? "Failed to create note.");
+  }
+
+  async function handleSaveNote() {
+    if (!activeNote || saveState === "saving") {
+      return;
+    }
+
+    setSaveState("saving");
+    setSaveError(null);
+
+    const envelope = await saveNoteContent(activeNote.relPath, noteBody, noteRevision);
+    if (envelope?.ok && envelope.data?.note) {
+      const noteRecord = createNoteRecord(envelope.data.note);
+      const nextBody = envelope.data.note.bodyText ?? noteBody;
+      setActiveNote(noteRecord);
+      setNoteBody(nextBody);
+      setSavedNoteBody(nextBody);
+      setNoteRevision(envelope.data.note.contentRevision || null);
+      setSaveState("saved");
+      setSaveError(null);
+      await refreshContentLists(noteRecord.relPath);
+      return;
+    }
+
+    setSaveState("error");
+    setSaveError(envelope?.error?.message ?? "Failed to save note.");
   }
 
   async function openVaultPath(targetPath: string) {
@@ -181,6 +285,10 @@ export default function App() {
     setRecentNotes([]);
     setActiveNote(null);
     setNoteBody("");
+    setSavedNoteBody("");
+    setNoteRevision(null);
+    setSaveState("idle");
+    setSaveError(null);
     setSearchQueryValue("");
     setSearchResults([]);
     setLauncherState("no_vault_open");
@@ -232,9 +340,29 @@ export default function App() {
           onClearNote={() => {
             setActiveNote(null);
             setNoteBody("");
+            setSavedNoteBody("");
+            setNoteRevision(null);
+            setSaveState("idle");
+            setSaveError(null);
             setContentError(null);
             setContentLoading(false);
           }}
+          onCreateNote={() => {
+            void handleCreateNote();
+          }}
+          onSaveNote={() => {
+            void handleSaveNote();
+          }}
+          onNoteBodyChange={(value) => {
+            setNoteBody(value);
+            if (saveState !== "saving") {
+              setSaveState("idle");
+              setSaveError(null);
+            }
+          }}
+          noteDirty={noteDirty}
+          saveState={saveState}
+          saveError={saveError}
           onSearchQueryChange={setSearchQueryValue}
         />
       )}

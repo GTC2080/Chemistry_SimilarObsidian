@@ -38,6 +38,24 @@ button {
   color: var(--text-primary);
 }
 
+.note-editor-textarea {
+  width: 100%;
+  min-height: 100%;
+  resize: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.note-editor-textarea::selection {
+  background: rgba(10, 132, 255, 0.25);
+}
+
 /* ========== Nexus Kernel Tooling Surfaces ========== */
 
 .tool-workspace {

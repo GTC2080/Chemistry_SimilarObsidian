@@ -442,6 +442,37 @@ Napi::Object MakeSearchPageObject(
   return result;
 }
 
+Napi::Object MakeNoteObject(
+    Napi::Env env,
+    const char* rel_path,
+    const char* body_text,
+    const std::size_t body_text_size,
+    const kernel_note_metadata& metadata) {
+  Napi::Object result = Napi::Object::New(env);
+  result.Set("rel_path", MakeKernelPathValue(env, rel_path));
+  result.Set(
+      "body_text",
+      Napi::String::New(
+          env,
+          body_text == nullptr ? "" : body_text,
+          body_text == nullptr ? 0 : body_text_size));
+  result.Set("file_size", Napi::Number::New(env, metadata.file_size));
+  result.Set("mtime_ns", Napi::Number::New(env, metadata.mtime_ns));
+  result.Set("content_revision", MakeKernelTextValue(env, metadata.content_revision));
+  return result;
+}
+
+const char* WriteDispositionName(const kernel_write_disposition disposition) {
+  switch (disposition) {
+    case KERNEL_WRITE_WRITTEN:
+      return "written";
+    case KERNEL_WRITE_NO_OP:
+      return "no_op";
+  }
+
+  return "unknown";
+}
+
 Napi::Object MakeAttachmentRecordObject(
     Napi::Env env,
     const kernel_attachment_record& attachment) {
@@ -891,6 +922,91 @@ Napi::Value QuerySearch(const Napi::CallbackInfo& info) {
   }
 
   return MakeSearchPageObject(env, page.value);
+}
+
+Napi::Value ReadNote(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  KernelSessionBox* session = RequireSessionBox(info, 0, "kernel_read_note");
+  if (session == nullptr) {
+    return env.Null();
+  }
+
+  if (info.Length() < 2 || !info[1].IsString()) {
+    ThrowBindingError(
+        env,
+        "BINDING_INVALID_ARGUMENT",
+        "kernel_read_note expects a note rel_path string.",
+        "kernel_read_note");
+    return env.Null();
+  }
+
+  const std::string rel_path = ExtractHostPathArgument(info[1]);
+  OwnedKernelResult<kernel_owned_buffer, kernel_free_buffer> buffer;
+  kernel_note_metadata metadata{};
+  const kernel_status status =
+      kernel_read_note(session->handle, rel_path.c_str(), buffer.out(), &metadata);
+  if (status.code != KERNEL_OK) {
+    ThrowKernelStatusError(
+        env,
+        status,
+        "kernel_read_note",
+        "kernel_read_note failed");
+    return env.Null();
+  }
+
+  return MakeNoteObject(
+      env,
+      rel_path.c_str(),
+      buffer.value.data,
+      buffer.value.size,
+      metadata);
+}
+
+Napi::Value WriteNote(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  KernelSessionBox* session = RequireSessionBox(info, 0, "kernel_write_note");
+  if (session == nullptr) {
+    return env.Null();
+  }
+
+  const Napi::Object request_object =
+      RequireObjectArgument(info, 1, "kernel_write_note", "request");
+  const std::string rel_path =
+      RequireStringField(env, request_object, "relPath", "kernel_write_note", true);
+  const std::string body_text =
+      RequireStringField(
+          env,
+          request_object,
+          "bodyText",
+          "kernel_write_note",
+          false,
+          true);
+  const std::string expected_revision =
+      ReadOptionalStringField(request_object, "expectedRevision", false);
+
+  kernel_note_metadata metadata{};
+  kernel_write_disposition disposition = KERNEL_WRITE_WRITTEN;
+  const kernel_status status = kernel_write_note(
+      session->handle,
+      rel_path.c_str(),
+      body_text.data(),
+      body_text.size(),
+      expected_revision.empty() ? nullptr : expected_revision.c_str(),
+      &metadata,
+      &disposition);
+  if (status.code != KERNEL_OK) {
+    ThrowKernelStatusError(
+        env,
+        status,
+        "kernel_write_note",
+        "kernel_write_note failed");
+    return env.Null();
+  }
+
+  Napi::Object result =
+      MakeNoteObject(env, rel_path.c_str(), body_text.data(), body_text.size(), metadata);
+  result.Set("disposition", Napi::String::New(env, WriteDispositionName(disposition)));
+  return result;
 }
 
 Napi::Value QueryAttachments(const Napi::CallbackInfo& info) {
@@ -1471,6 +1587,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("getState", Napi::Function::New(env, GetState));
   exports.Set("getRebuildStatus", Napi::Function::New(env, GetRebuildStatus));
   exports.Set("querySearch", Napi::Function::New(env, QuerySearch));
+  exports.Set("readNote", Napi::Function::New(env, ReadNote));
+  exports.Set("writeNote", Napi::Function::New(env, WriteNote));
   exports.Set("queryAttachments", Napi::Function::New(env, QueryAttachments));
   exports.Set("getAttachment", Napi::Function::New(env, GetAttachment));
   exports.Set(

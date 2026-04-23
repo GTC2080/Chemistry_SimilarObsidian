@@ -20,12 +20,18 @@ interface WorkspaceShellProps {
   noteBody: string;
   contentLoading: boolean;
   contentError: string | null;
+  noteDirty: boolean;
+  saveState: "idle" | "saving" | "saved" | "error";
+  saveError: string | null;
   searchQuery: string;
   searchResults: { relPath: string; title: string }[];
   searchLoading: boolean;
   onBackToManager: () => void;
   onSelectNote: (relPath: string) => void;
   onClearNote: () => void;
+  onCreateNote: () => void;
+  onSaveNote: () => void;
+  onNoteBodyChange: (value: string) => void;
   onSearchQueryChange: (value: string) => void;
 }
 
@@ -38,12 +44,18 @@ export default function WorkspaceShell({
   noteBody,
   contentLoading,
   contentError,
+  noteDirty,
+  saveState,
+  saveError,
   searchQuery,
   searchResults,
   searchLoading,
   onBackToManager,
   onSelectNote,
   onClearNote,
+  onCreateNote,
+  onSaveNote,
+  onNoteBodyChange,
   onSearchQueryChange
 }: WorkspaceShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(280);
@@ -110,6 +122,7 @@ export default function WorkspaceShell({
                   recentNotes={recentNotes}
                   activeRelPath={activeNote?.relPath ?? null}
                   onSelectNote={onSelectNote}
+                  onCreateNote={onCreateNote}
                 />
               )}
             </aside>
@@ -122,6 +135,12 @@ export default function WorkspaceShell({
               contentLoading={contentLoading}
               contentError={contentError}
               onCloseNote={onClearNote}
+              onCreateNote={onCreateNote}
+              onSaveNote={onSaveNote}
+              onNoteBodyChange={onNoteBodyChange}
+              noteDirty={noteDirty}
+              saveState={saveState}
+              saveError={saveError}
             />
           </>
         ) : null}
@@ -170,7 +189,8 @@ function FilesSidebar({
   notes,
   recentNotes,
   activeRelPath,
-  onSelectNote
+  onSelectNote,
+  onCreateNote
 }: {
   vaultPath: string;
   tree: TreeNode[];
@@ -178,6 +198,7 @@ function FilesSidebar({
   recentNotes: NoteRecord[];
   activeRelPath: string | null;
   onSelectNote: (relPath: string) => void;
+  onCreateNote: () => void;
 }) {
   const vaultName = vaultPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Vault";
 
@@ -192,6 +213,14 @@ function FilesSidebar({
           <div className="text-[11px] px-2 py-1 rounded-full bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] text-[var(--text-quaternary)]">
             {notes.length}
           </div>
+          <button
+            type="button"
+            onClick={onCreateNote}
+            className="w-7 h-7 rounded-[10px] flex items-center justify-center bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-hover)] transition-colors"
+            title="新建笔记"
+          >
+            +
+          </button>
         </div>
       </div>
 
