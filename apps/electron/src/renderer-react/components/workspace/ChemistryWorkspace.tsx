@@ -99,7 +99,7 @@ export default function ChemistryWorkspace({
 
       if (!envelope?.ok || !envelope.data) {
         setSpectra([]);
-        setError(envelope?.error?.message ?? "读取 spectra 目录失败。");
+        setError(envelope?.error?.message ?? "读取谱图目录失败。");
         setLoadingList(false);
         return;
       }
@@ -162,7 +162,7 @@ export default function ChemistryWorkspace({
         setSpectrum(null);
         setMetadataEntries([]);
         setReferrers([]);
-        setError(spectrumEnvelope?.error?.message ?? "读取 spectra 详情失败。");
+        setError(spectrumEnvelope?.error?.message ?? "读取谱图详情失败。");
         setLoadingDetail(false);
         return;
       }
@@ -195,16 +195,16 @@ export default function ChemistryWorkspace({
     <ToolWorkspaceShell
       sidebar={
         <>
-          <ToolSection title="Spectra 目录" subtitle={`共 ${spectra.length} 个谱图对象`}>
+          <ToolSection title="谱图目录" subtitle={`共 ${spectra.length} 个谱图对象`}>
             <input
               value={filterText}
               onChange={(event) => setFilterText(event.target.value)}
-              placeholder="按 carrier 或 object key 筛选"
+              placeholder="按路径或谱图标识筛选"
               className="w-full rounded-[10px] px-3 py-2 text-[13px] outline-none border-[0.5px] border-[var(--panel-border)] bg-[var(--subtle-surface)] text-[var(--text-primary)]"
             />
             <div className="mt-3 space-y-1">
               {loadingList ? (
-                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">正在读取 spectra 目录…</div>
+                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">正在读取谱图目录…</div>
               ) : filteredSpectra.length > 0 ? (
                 filteredSpectra.map((item) => (
                   <ToolListButton
@@ -218,13 +218,13 @@ export default function ChemistryWorkspace({
                   />
                 ))
               ) : (
-                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">当前没有 chemistry spectra。</div>
+                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">当前没有谱图。</div>
               )}
             </div>
           </ToolSection>
 
           <ToolSection
-            title="当前笔记 spectra refs"
+            title="当前笔记谱图引用"
             subtitle={activeNote ? activeNote.relPath : "先在文件区打开一篇笔记"}
             action={activeNote ? <ToolBadge label={`${noteRefs.length} 个`} /> : undefined}
           >
@@ -242,10 +242,10 @@ export default function ChemistryWorkspace({
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-[var(--text-quaternary)]">当前笔记还没有 formal chemistry source refs。</div>
+                <div className="text-[12px] text-[var(--text-quaternary)]">当前笔记没有引用谱图。</div>
               )
             ) : (
-              <div className="text-[12px] text-[var(--text-quaternary)]">打开笔记后，这里会显示它的 spectra refs。</div>
+              <div className="text-[12px] text-[var(--text-quaternary)]">打开笔记后，这里会显示它引用的谱图。</div>
             )}
           </ToolSection>
         </>
@@ -257,8 +257,8 @@ export default function ChemistryWorkspace({
         </div>
       ) : !spectrum ? (
         <ToolEmptyState
-          title="Chemistry spectra substrate 已接入"
-          description="这里直接消费 chemistry spectra public surface。选中谱图对象后，可以查看 subtype record、domain metadata，以及 note ↔ spectrum referrers。"
+          title="暂无谱图"
+          description="这个仓库里还没有被笔记引用的谱图文件。打开包含谱图链接的笔记后，这里会显示谱图信息和引用关系。"
         />
       ) : (
         <div className="flex flex-col min-h-full">
@@ -275,7 +275,7 @@ export default function ChemistryWorkspace({
 
           <ToolBody>
             {loadingDetail ? (
-              <div className="text-[13px] text-[var(--text-quaternary)]">正在读取 spectra 详情…</div>
+              <div className="text-[13px] text-[var(--text-quaternary)]">正在读取谱图详情…</div>
             ) : null}
 
             <ToolDetailSection title="谱图摘要" subtitle="当前谱图对象的基础信息。">
@@ -286,7 +286,7 @@ export default function ChemistryWorkspace({
               </div>
             </ToolDetailSection>
 
-            <ToolDevDetails subtitle="默认收起 subtype revision、flags 和内部状态码，保留给接线排查使用。">
+            <ToolDevDetails subtitle="默认收起谱图详细字段和内部状态码，保留给排查使用。">
               <ToolMetaGrid
                 items={[
                   { label: "attachment_rel_path", value: spectrum.attachmentRelPath },
@@ -314,11 +314,11 @@ export default function ChemistryWorkspace({
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-[var(--text-quaternary)]">当前谱图没有公开 domain metadata。</div>
+                <div className="text-[12px] text-[var(--text-quaternary)]">当前谱图没有公开元数据。</div>
               )}
             </ToolDetailSection>
 
-            <ToolDetailSection title="Referrers" subtitle="Formal note ↔ spectrum refs，不扩展为化学工作流壳层。">
+            <ToolDetailSection title="引用它的笔记" subtitle="哪些笔记引用了这个谱图。">
               {referrers.length > 0 ? (
                 <div className="space-y-2">
                   {referrers.map((ref) => (
@@ -333,12 +333,12 @@ export default function ChemistryWorkspace({
                         </ToolActionButton>
                       }
                     >
-                      {ref.previewText || ref.selectorSerialized || ref.targetBasisRevision || "(no preview text)"}
+                      {ref.previewText || ref.selectorSerialized || ref.targetBasisRevision || "(无引用预览)"}
                     </ToolReferenceCard>
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-[var(--text-quaternary)]">当前谱图还没有 formal chemistry referrers。</div>
+                <div className="text-[12px] text-[var(--text-quaternary)]">当前谱图还没有被笔记引用。</div>
               )}
             </ToolDetailSection>
           </ToolBody>

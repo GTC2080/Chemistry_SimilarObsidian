@@ -180,7 +180,7 @@ export default function AttachmentsWorkspace({
                   />
                 ))
               ) : (
-                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">当前没有可展示的附件。</div>
+                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">当前没有附件。</div>
               )}
             </div>
           </ToolSection>
@@ -204,7 +204,7 @@ export default function AttachmentsWorkspace({
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-[var(--text-quaternary)]">当前笔记没有正式 attachment refs。</div>
+                <div className="text-[12px] text-[var(--text-quaternary)]">当前笔记没有引用附件。</div>
               )
             ) : (
               <div className="text-[12px] text-[var(--text-quaternary)]">打开笔记后，这里会显示它引用的附件。</div>
@@ -219,8 +219,8 @@ export default function AttachmentsWorkspace({
         </div>
       ) : !selectedAttachment ? (
         <ToolEmptyState
-          title="附件面板已接入"
-          description="左侧现在已经直接消费 host 的 attachments public surface。选择一个附件后，可以查看正式 metadata、referrers，以及当前笔记对它的引用。"
+          title="暂无附件"
+          description="这个仓库里还没有被笔记引用的附件。打开包含附件链接的笔记后，这里会显示附件列表和引用关系。"
         />
       ) : (
         <div className="flex flex-col min-h-full">
@@ -249,7 +249,7 @@ export default function AttachmentsWorkspace({
               </div>
             </ToolDetailSection>
 
-            <ToolDevDetails subtitle="默认收起 raw contract 字段；需要排查 host/kernel 接线时再展开。">
+            <ToolDevDetails subtitle="默认收起详细字段；需要排查接线时再展开。">
               <ToolMetaGrid
                 items={[
                   { label: "rel_path", value: selectedAttachment.relPath },
@@ -263,7 +263,7 @@ export default function AttachmentsWorkspace({
               />
             </ToolDevDetails>
 
-            <ToolDetailSection title="Referrers" subtitle="哪些 live notes 正式引用了这个 attachment。">
+            <ToolDetailSection title="引用它的笔记" subtitle="哪些笔记引用了这个附件。">
               {referrers.length > 0 ? (
                 <div className="space-y-2">
                   {referrers.map((referrer) => (
@@ -280,7 +280,7 @@ export default function AttachmentsWorkspace({
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-[var(--text-quaternary)]">当前附件没有 live note referrers。</div>
+                <div className="text-[12px] text-[var(--text-quaternary)]">当前附件还没有被笔记引用。</div>
               )}
             </ToolDetailSection>
           </ToolBody>

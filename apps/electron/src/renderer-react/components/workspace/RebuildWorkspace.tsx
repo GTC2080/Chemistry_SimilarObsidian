@@ -53,6 +53,16 @@ function readableResult(value: string | null) {
   return "需要检查";
 }
 
+function readableResultHint(value: string | null) {
+  if (!value) {
+    return "尚未记录";
+  }
+  if (value === "KERNEL_OK") {
+    return "最近一次重建完成";
+  }
+  return "需要时展开详情查看原因";
+}
+
 export default function RebuildWorkspace({
   visible
 }: RebuildWorkspaceProps) {
@@ -106,7 +116,7 @@ export default function RebuildWorkspace({
       return;
     }
 
-    setLastEvent(envelope.data.result === "started" ? "重建已启动。" : `重建请求：${envelope.data.result}`);
+    setLastEvent(envelope.data.result === "started" ? "重建已启动。" : "重建请求已处理。");
     setRunningAction(null);
     await refresh();
   }
@@ -120,7 +130,7 @@ export default function RebuildWorkspace({
       return;
     }
 
-    setLastEvent(envelope.data.result === "completed" ? "重建已完成。" : `等待结果：${envelope.data.result}`);
+    setLastEvent(envelope.data.result === "completed" ? "重建已完成。" : "等待已结束。");
     setRunningAction(null);
     await refresh();
   }
@@ -164,7 +174,7 @@ export default function RebuildWorkspace({
         <div className="flex flex-col min-h-full">
           <ToolContentHeader
             title="索引重建"
-            subtitle="用于重新生成派生索引；不会改变 vault 文件真相。"
+            subtitle="用于重新生成派生索引；不会改变仓库里的文件。"
             badges={
               <>
                 <ToolBadge label={status.status.inFlight ? "重建中" : "空闲"} />
@@ -178,12 +188,12 @@ export default function RebuildWorkspace({
             <ToolDetailSection title="任务摘要" subtitle="默认只展示用户需要知道的重建状态。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <ToolMetric label="当前任务" value={status.status.inFlight ? "重建中" : "空闲"} hint={readableIndexState(status.status.indexState)} />
-                <ToolMetric label="最近结果" value={readableResult(status.status.lastResultCode)} hint={status.status.lastResultCode ?? "尚未记录"} />
+                <ToolMetric label="最近结果" value={readableResult(status.status.lastResultCode)} hint={readableResultHint(status.status.lastResultCode)} />
                 <ToolMetric label="最近完成" value={formatNsTimestamp(status.status.lastResultAtNs)} />
               </div>
             </ToolDetailSection>
 
-            <ToolDetailSection title="操作" subtitle="重建是单实例长任务；重复请求由 host 保持稳定语义。">
+            <ToolDetailSection title="操作" subtitle="重建是单实例长任务；重复请求会按固定规则处理。">
               <div className="flex flex-wrap items-center gap-3">
                 <ToolActionButton onClick={() => void handleStart()} disabled={runningAction !== null || status.status.inFlight} tone="primary">
                   {runningAction === "start" ? "启动中…" : "重建索引"}
@@ -197,7 +207,7 @@ export default function RebuildWorkspace({
               </div>
             </ToolDetailSection>
 
-            <ToolDevDetails title="Rebuild status 详情" subtitle="直接映射 host rebuild status，不在 renderer 自建任务队列。">
+            <ToolDevDetails title="重建状态详情" subtitle="用于排查重建任务的详细状态。">
               <ToolMetaGrid
                 items={[
                   { label: "run_mode", value: status.runMode },
@@ -215,7 +225,7 @@ export default function RebuildWorkspace({
             </ToolDevDetails>
 
             {runtime ? (
-              <ToolDevDetails title="Runtime consistency 详情" subtitle="runtime summary 与 rebuild summary 的一致性检查面。">
+              <ToolDevDetails title="运行一致性详情" subtitle="用于排查运行状态和重建状态是否一致。">
                 <ToolMetaGrid
                   items={[
                     { label: "runtime.lifecycle", value: runtime.lifecycle_state },

@@ -105,13 +105,16 @@ async function main() {
     });
   }
 
+  const childEnv = {
+    ...process.env,
+    CHEM_OBSIDIAN_HOST_SMOKE: "1",
+    CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID: runId
+  };
+  delete childEnv.ELECTRON_RUN_AS_NODE;
+
   const child = spawn(executablePath, [], {
     cwd: packagedAppRoot,
-    env: {
-      ...process.env,
-      CHEM_OBSIDIAN_HOST_SMOKE: "1",
-      CHEM_OBSIDIAN_HOST_SMOKE_RUN_ID: runId
-    },
+    env: childEnv,
     stdio: "ignore",
     windowsHide: true
   });

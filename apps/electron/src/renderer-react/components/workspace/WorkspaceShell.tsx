@@ -218,7 +218,7 @@ function FilesSidebar({
         <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-quinary)]">Vault tree</div>
         <div className="mt-2 space-y-0.5">
           {tree.length === 0 ? (
-            <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">未找到支持的文件。</div>
+            <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">这个仓库里还没有可显示的笔记。</div>
           ) : tree.map((node) => (
             <TreeItem
               key={node.relPath}
@@ -347,7 +347,7 @@ function SearchSidebar({
         ) : query.trim() ? (
           <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">未找到相关笔记。</div>
         ) : (
-          <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">输入关键词后，这里会显示正式 search public surface 的结果。</div>
+          <div className="px-3 py-4 text-[12px] text-[var(--text-quaternary)]">输入关键词后，这里会显示匹配的笔记。</div>
         )}
       </div>
     </div>

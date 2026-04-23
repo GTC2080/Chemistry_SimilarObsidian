@@ -98,13 +98,13 @@ export default function DiagnosticsWorkspace({
     ]);
 
     if (!bootstrapEnvelope?.ok || !bootstrapEnvelope.data) {
-      setError(bootstrapEnvelope?.error?.message ?? "读取 bootstrap 信息失败。");
+      setError(bootstrapEnvelope?.error?.message ?? "读取启动信息失败。");
       setLoading(false);
       return;
     }
 
     if (!runtimeEnvelope?.ok || !runtimeEnvelope.data) {
-      setError(runtimeEnvelope?.error?.message ?? "读取 runtime summary 失败。");
+      setError(runtimeEnvelope?.error?.message ?? "读取运行状态失败。");
       setLoading(false);
       return;
     }
@@ -183,7 +183,7 @@ export default function DiagnosticsWorkspace({
                 />
               </div>
             ) : (
-              <div className="text-[12px] text-[var(--text-quaternary)]">等待宿主 summary。</div>
+              <div className="text-[12px] text-[var(--text-quaternary)]">等待状态摘要。</div>
             )}
           </ToolSection>
         </>
@@ -217,7 +217,7 @@ export default function DiagnosticsWorkspace({
               <div className="text-[13px] text-[var(--text-quaternary)]">正在刷新诊断信息…</div>
             ) : null}
 
-            <ToolDetailSection title="健康摘要" subtitle="默认展示当前工作状态，不暴露底层 binding 和 raw runtime 字段。">
+            <ToolDetailSection title="健康摘要" subtitle="默认展示当前工作状态，详细技术信息已收起。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <ToolMetric label="应用状态" value={readableLifecycle(runtime.lifecycle_state)} />
                 <ToolMetric label="索引状态" value={readableIndexState(runtime.kernel_runtime.index_state)} hint={`${runtime.kernel_runtime.indexed_note_count ?? 0} 篇笔记`} />
@@ -225,7 +225,7 @@ export default function DiagnosticsWorkspace({
               </div>
             </ToolDetailSection>
 
-            <ToolDetailSection title="支持包" subtitle="遇到异常时导出，用于后续排查。Renderer 不解析内部格式。">
+            <ToolDetailSection title="支持包" subtitle="遇到异常时导出，用于后续排查。界面不会展开支持包内部内容。">
               <div className="flex flex-wrap items-center gap-3">
                 <ToolActionButton onClick={() => void handleExportBundle()} disabled={exporting} tone="primary">
                   {exporting ? "导出中…" : "导出支持包"}
@@ -238,7 +238,7 @@ export default function DiagnosticsWorkspace({
               </div>
             </ToolDetailSection>
 
-            <ToolDevDetails subtitle="包含 bootstrap、安全基线、运行模式和 preload 边界。">
+            <ToolDevDetails subtitle="包含启动信息、安全基线、运行模式和桥接边界。">
               <ToolMetaGrid
                 items={[
                   { label: "host_version", value: bootstrap.host_version },
@@ -253,7 +253,7 @@ export default function DiagnosticsWorkspace({
               />
             </ToolDevDetails>
 
-            <ToolDevDetails title="Runtime / Session 详情" subtitle="宿主生命周期和单 vault session 的 raw summary。">
+            <ToolDevDetails title="运行与仓库详情" subtitle="宿主生命周期和单仓库会话的详细摘要。">
               <ToolMetaGrid
                 items={[
                   { label: "lifecycle_state", value: runtime.lifecycle_state },
@@ -268,7 +268,7 @@ export default function DiagnosticsWorkspace({
               />
             </ToolDevDetails>
 
-            <ToolDevDetails title="Kernel binding / Rebuild 详情" subtitle="真实 Node-API binding 与 rebuild lifecycle 原始字段。">
+            <ToolDevDetails title="内核连接与重建详情" subtitle="内核连接和重建状态的详细字段。">
               <ToolMetaGrid
                 items={[
                   { label: "binding_attached", value: String(runtime.kernel_binding.attached) },

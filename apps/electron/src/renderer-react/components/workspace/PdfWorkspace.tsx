@@ -128,7 +128,7 @@ export default function PdfWorkspace({
       if (!metadataEnvelope?.ok || !metadataEnvelope.data) {
         setMetadata(null);
         setReferrers([]);
-        setError(metadataEnvelope?.error?.message ?? "读取 PDF metadata 失败。");
+        setError(metadataEnvelope?.error?.message ?? "读取 PDF 信息失败。");
         setLoadingDetail(false);
         return;
       }
@@ -183,13 +183,13 @@ export default function PdfWorkspace({
                   />
                 ))
               ) : (
-                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">当前没有 PDF attachment。</div>
+                <div className="px-3 py-3 text-[12px] text-[var(--text-quaternary)]">当前没有 PDF 附件。</div>
               )}
             </div>
           </ToolSection>
 
           <ToolSection
-            title="当前笔记 PDF refs"
+            title="当前笔记 PDF 引用"
             subtitle={activeNote ? activeNote.relPath : "先在文件区打开一篇笔记"}
             action={activeNote ? <ToolBadge label={`${noteRefs.length} 个`} /> : undefined}
           >
@@ -207,10 +207,10 @@ export default function PdfWorkspace({
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-[var(--text-quaternary)]">当前笔记还没有正式 PDF source refs。</div>
+                <div className="text-[12px] text-[var(--text-quaternary)]">当前笔记没有引用 PDF。</div>
               )
             ) : (
-              <div className="text-[12px] text-[var(--text-quaternary)]">打开笔记后，这里会显示它的 PDF source refs。</div>
+              <div className="text-[12px] text-[var(--text-quaternary)]">打开笔记后，这里会显示它引用的 PDF。</div>
             )}
           </ToolSection>
         </>
@@ -222,8 +222,8 @@ export default function PdfWorkspace({
         </div>
       ) : !metadata ? (
         <ToolEmptyState
-          title="PDF substrate 已接入"
-          description="这里现在直接消费 sealed host 的 PDF metadata 与 PDF ref surfaces。选择左侧 PDF 后，可以查看 metadata、referrers，以及当前笔记里的 PDF source refs。"
+          title="暂无 PDF"
+          description="这个仓库里还没有被笔记引用的 PDF。打开包含 PDF 链接的笔记后，这里会显示文档信息和引用关系。"
         />
       ) : (
         <div className="flex flex-col min-h-full">
@@ -240,7 +240,7 @@ export default function PdfWorkspace({
 
           <ToolBody>
             {loadingDetail ? (
-              <div className="text-[13px] text-[var(--text-quaternary)]">正在读取 PDF metadata…</div>
+              <div className="text-[13px] text-[var(--text-quaternary)]">正在读取 PDF 信息…</div>
             ) : null}
 
             <ToolDetailSection title="摘要" subtitle="PDF 附件的基础文档信息。">
@@ -251,7 +251,7 @@ export default function PdfWorkspace({
               </div>
             </ToolDetailSection>
 
-            <ToolDevDetails subtitle="默认收起 PDF substrate revision 和状态码，避免主界面变成调试面板。">
+            <ToolDevDetails subtitle="默认收起 PDF 详细字段和状态码，避免主界面变成调试面板。">
               <ToolMetaGrid
                 items={[
                   { label: "rel_path", value: metadata.relPath },
@@ -267,7 +267,7 @@ export default function PdfWorkspace({
               />
             </ToolDevDetails>
 
-            <ToolDetailSection title="Referrers" subtitle="Formal PDF source refs，不混入普通 backlinks/search 语义。">
+            <ToolDetailSection title="引用它的笔记" subtitle="哪些笔记引用了这个 PDF。">
               {referrers.length > 0 ? (
                 <div className="space-y-2">
                   {referrers.map((ref) => (
@@ -282,12 +282,12 @@ export default function PdfWorkspace({
                         </ToolActionButton>
                       }
                     >
-                      {ref.excerptText || ref.anchorSerialized || "(no anchor text)"}
+                      {ref.excerptText || ref.anchorSerialized || "(无引用预览)"}
                     </ToolReferenceCard>
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-[var(--text-quaternary)]">当前 PDF 还没有 formal PDF referrers。</div>
+                <div className="text-[12px] text-[var(--text-quaternary)]">当前 PDF 还没有被笔记引用。</div>
               )}
             </ToolDetailSection>
           </ToolBody>
