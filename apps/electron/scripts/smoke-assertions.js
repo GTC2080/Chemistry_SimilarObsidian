@@ -55,6 +55,11 @@ function assertSmokePayload(payload) {
   expectSuccessEnvelope(payload.filesReadAfterOpen, "filesReadAfterOpen");
   expectSuccessEnvelope(payload.filesWriteAfterOpen, "filesWriteAfterOpen");
   expectSuccessEnvelope(payload.filesReadWrittenAfterOpen, "filesReadWrittenAfterOpen");
+  expectSuccessEnvelope(payload.filesCreateFolderAfterOpen, "filesCreateFolderAfterOpen");
+  expectSuccessEnvelope(payload.filesRenameAfterOpen, "filesRenameAfterOpen");
+  expectSuccessEnvelope(payload.filesReadRenamedAfterOpen, "filesReadRenamedAfterOpen");
+  expectSuccessEnvelope(payload.filesDeleteRenamedAfterOpen, "filesDeleteRenamedAfterOpen");
+  expectSuccessEnvelope(payload.filesDeleteFolderAfterOpen, "filesDeleteFolderAfterOpen");
   expectSuccessEnvelope(payload.filesRecentAfterOpen, "filesRecentAfterOpen");
   expectSuccessEnvelope(payload.searchAfterOpen, "searchAfterOpen");
   expectSuccessEnvelope(payload.searchWrittenAfterOpen, "searchWrittenAfterOpen");
@@ -135,12 +140,20 @@ function assertSmokePayload(payload) {
   expect(typeof payload.filesWriteAfterOpen.data.note.contentRevision === "string" && payload.filesWriteAfterOpen.data.note.contentRevision.length > 0, "filesWriteAfterOpen should expose a new content revision.");
   expect(payload.filesReadWrittenAfterOpen.data.relPath === payload.filesWriteAfterOpen.data.note.relPath, "filesReadWrittenAfterOpen should read back the written note.");
   expect(payload.filesReadWrittenAfterOpen.data.bodyText.includes("saved through host"), "filesReadWrittenAfterOpen should preserve the written body.");
+  expect(payload.filesCreateFolderAfterOpen.data.disposition === "created", "filesCreateFolderAfterOpen should create a folder.");
+  expect(payload.filesCreateFolderAfterOpen.data.entry.kind === "directory", "filesCreateFolderAfterOpen should return a directory entry.");
+  expect(payload.filesRenameAfterOpen.data.disposition === "renamed", "filesRenameAfterOpen should rename or move the written note.");
+  expect(payload.filesRenameAfterOpen.data.entry.relPath.includes("/renamed-"), "filesRenameAfterOpen should return the new relPath.");
+  expect(payload.filesReadRenamedAfterOpen.data.relPath === payload.filesRenameAfterOpen.data.entry.relPath, "filesReadRenamedAfterOpen should read the renamed note.");
+  expect(payload.filesReadRenamedAfterOpen.data.bodyText.includes("saved through host"), "filesReadRenamedAfterOpen should preserve the renamed body.");
+  expect(payload.filesDeleteRenamedAfterOpen.data.deleted === true, "filesDeleteRenamedAfterOpen should delete the renamed note.");
+  expect(payload.filesDeleteFolderAfterOpen.data.deleted === true, "filesDeleteFolderAfterOpen should delete the temporary smoke folder.");
   expect(payload.filesRecentAfterOpen.data.count >= 1, "filesRecentAfterOpen should list at least one recent note.");
   expect(payload.filesRecentAfterOpen.data.items[0].relPath === "notes/example.md", "filesRecentAfterOpen should expose the seeded note.");
   expect(payload.searchAfterOpen.data.totalHits >= 1, "searchAfterOpen should return at least one hit.");
   expect(payload.searchAfterOpen.data.items[0].relPath === "notes/example.md", "searchAfterOpen should return the seeded note.");
   expect(
-    payload.searchWrittenAfterOpen.data.items.some((item) => item.relPath === payload.filesWriteAfterOpen.data.note.relPath),
+    payload.searchWrittenAfterOpen.data.items.some((item) => item.relPath === payload.filesRenameAfterOpen.data.entry.relPath),
     "searchWrittenAfterOpen should find the written note."
   );
   expect(payload.attachmentsAfterOpen.data.count >= 2, "attachmentsAfterOpen should project the seeded attachment catalog.");
@@ -187,6 +200,11 @@ function assertSmokePayload(payload) {
   expect(payload.filesReadAfterOpen.request_id === "smoke-files-read-after-open", "filesReadAfterOpen request_id should round-trip.");
   expect(payload.filesWriteAfterOpen.request_id === "smoke-files-write-after-open", "filesWriteAfterOpen request_id should round-trip.");
   expect(payload.filesReadWrittenAfterOpen.request_id === "smoke-files-read-written-after-open", "filesReadWrittenAfterOpen request_id should round-trip.");
+  expect(payload.filesCreateFolderAfterOpen.request_id === "smoke-files-create-folder-after-open", "filesCreateFolderAfterOpen request_id should round-trip.");
+  expect(payload.filesRenameAfterOpen.request_id === "smoke-files-rename-after-open", "filesRenameAfterOpen request_id should round-trip.");
+  expect(payload.filesReadRenamedAfterOpen.request_id === "smoke-files-read-renamed-after-open", "filesReadRenamedAfterOpen request_id should round-trip.");
+  expect(payload.filesDeleteRenamedAfterOpen.request_id === "smoke-files-delete-renamed-after-open", "filesDeleteRenamedAfterOpen request_id should round-trip.");
+  expect(payload.filesDeleteFolderAfterOpen.request_id === "smoke-files-delete-folder-after-open", "filesDeleteFolderAfterOpen request_id should round-trip.");
   expect(payload.filesRecentAfterOpen.request_id === "smoke-files-recent-after-open", "filesRecentAfterOpen request_id should round-trip.");
   expect(payload.search.request_id === "smoke-search", "search request_id should round-trip.");
   expect(payload.searchAfterOpen.request_id === "smoke-search-after-open", "searchAfterOpen request_id should round-trip.");

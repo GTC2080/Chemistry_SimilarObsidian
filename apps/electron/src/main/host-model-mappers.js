@@ -76,6 +76,17 @@ function mapFilesList(list = {}, request = {}) {
   };
 }
 
+function mapFileOperationResult(result = {}) {
+  return {
+    disposition: result.disposition ?? "ok",
+    deleted: Boolean(result.deleted),
+    relPath: result.rel_path ?? result.relPath ?? result.entry?.rel_path ?? "",
+    kind: result.kind ?? result.entry?.kind ?? "unknown",
+    isDirectory: Boolean(result.is_directory ?? result.entry?.is_directory),
+    entry: result.entry ? mapFilesEntry(result.entry) : null
+  };
+}
+
 function basenameFromRelPath(relPath = "") {
   const parts = String(relPath).split("/").filter(Boolean);
   return parts.length > 0 ? parts[parts.length - 1] : "";
@@ -307,6 +318,7 @@ module.exports = {
   mapDiagnosticsExport,
   mapDomainMetadataList,
   mapFileNoteRecord,
+  mapFileOperationResult,
   mapFilesList,
   mapKernelRebuildStatus,
   mapKernelRuntimeSummary,

@@ -23,6 +23,7 @@ interface WorkspaceShellProps {
   noteDirty: boolean;
   saveState: "idle" | "saving" | "saved" | "error";
   saveError: string | null;
+  fileOperationError: string | null;
   searchQuery: string;
   searchResults: { relPath: string; title: string }[];
   searchLoading: boolean;
@@ -30,7 +31,10 @@ interface WorkspaceShellProps {
   onSelectNote: (relPath: string) => void;
   onClearNote: () => void;
   onCreateNote: () => void;
+  onCreateFolder: () => void;
   onSaveNote: () => void;
+  onRenameNote: () => void;
+  onDeleteNote: () => void;
   onNoteBodyChange: (value: string) => void;
   onSearchQueryChange: (value: string) => void;
 }
@@ -47,6 +51,7 @@ export default function WorkspaceShell({
   noteDirty,
   saveState,
   saveError,
+  fileOperationError,
   searchQuery,
   searchResults,
   searchLoading,
@@ -54,7 +59,10 @@ export default function WorkspaceShell({
   onSelectNote,
   onClearNote,
   onCreateNote,
+  onCreateFolder,
   onSaveNote,
+  onRenameNote,
+  onDeleteNote,
   onNoteBodyChange,
   onSearchQueryChange
 }: WorkspaceShellProps) {
@@ -123,6 +131,7 @@ export default function WorkspaceShell({
                   activeRelPath={activeNote?.relPath ?? null}
                   onSelectNote={onSelectNote}
                   onCreateNote={onCreateNote}
+                  onCreateFolder={onCreateFolder}
                 />
               )}
             </aside>
@@ -137,10 +146,13 @@ export default function WorkspaceShell({
               onCloseNote={onClearNote}
               onCreateNote={onCreateNote}
               onSaveNote={onSaveNote}
+              onRenameNote={onRenameNote}
+              onDeleteNote={onDeleteNote}
               onNoteBodyChange={onNoteBodyChange}
               noteDirty={noteDirty}
               saveState={saveState}
               saveError={saveError}
+              fileOperationError={fileOperationError}
             />
           </>
         ) : null}
@@ -190,7 +202,8 @@ function FilesSidebar({
   recentNotes,
   activeRelPath,
   onSelectNote,
-  onCreateNote
+  onCreateNote,
+  onCreateFolder
 }: {
   vaultPath: string;
   tree: TreeNode[];
@@ -199,6 +212,7 @@ function FilesSidebar({
   activeRelPath: string | null;
   onSelectNote: (relPath: string) => void;
   onCreateNote: () => void;
+  onCreateFolder: () => void;
 }) {
   const vaultName = vaultPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Vault";
 
@@ -220,6 +234,17 @@ function FilesSidebar({
             title="新建笔记"
           >
             +
+          </button>
+          <button
+            type="button"
+            onClick={onCreateFolder}
+            className="w-7 h-7 rounded-[10px] flex items-center justify-center bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-hover)] transition-colors"
+            title="新建文件夹"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
           </button>
         </div>
       </div>

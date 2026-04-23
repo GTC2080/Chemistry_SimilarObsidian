@@ -46,6 +46,22 @@ function createStubKernelAdapter(overrides = {}) {
     async exportDiagnostics() {
       throw new Error("exportDiagnostics was not stubbed");
     },
+    async startRebuild() {
+      return {
+        ok: true,
+        value: {
+          result: "started"
+        }
+      };
+    },
+    async waitForRebuild() {
+      return {
+        ok: true,
+        value: {
+          result: "completed"
+        }
+      };
+    },
     ...overrides
   };
 }
@@ -60,6 +76,15 @@ function createStubFilesSurface(overrides = {}) {
     },
     async listRecentNotes() {
       throw new Error("listRecentNotes was not stubbed");
+    },
+    async createFolder() {
+      throw new Error("createFolder was not stubbed");
+    },
+    async renameEntry() {
+      throw new Error("renameEntry was not stubbed");
+    },
+    async deleteEntry() {
+      throw new Error("deleteEntry was not stubbed");
     },
     ...overrides
   };
@@ -485,4 +510,117 @@ test("HostApi files.listRecent maps recent note records into the host model", as
     error: null,
     request_id: "req-files-recent"
   });
+});
+
+test("HostApi files.createFolder maps folder creation through the files surface", async () => {
+  let capturedRequest = null;
+  const api = new HostApi({
+    kernelAdapter: createStubKernelAdapter(),
+    getActiveVaultPath: () => "E:/vault",
+    filesSurface: createStubFilesSurface({
+      async createFolder(request) {
+        capturedRequest = request;
+        return {
+          disposition: "created",
+          entry: {
+            rel_path: "notes/lab",
+            name: "lab",
+            title: "lab",
+            kind: "directory",
+            is_directory: true,
+            size_bytes: 0,
+            mtime_ms: 7000
+          }
+        };
+      }
+    })
+  });
+
+  const result = await api.createFolderEntry({
+    parentRelPath: "notes",
+    folderName: "lab",
+    request_id: "req-files-create-folder"
+  });
+
+  assert.deepEqual(capturedRequest, {
+    vaultPath: "E:/vault",
+    parentRelPath: "notes",
+    folderName: "lab"
+  });
+  assert.deepEqual(result, {
+    ok: true,
+    data: {
+      disposition: "created",
+      deleted: false,
+      relPath: "notes/lab",
+      kind: "directory",
+      isDirectory: true,
+      entry: {
+        relPath: "notes/lab",
+        name: "lab",
+        title: "lab",
+        kind: "directory",
+        isDirectory: true,
+        sizeBytes: 0,
+        mtimeMs: 7000
+      }
+    },
+    error: null,
+    request_id: "req-files-create-folder"
+  });
+});
+
+test("HostApi files.renameEntry reconciles the kernel index after a file mutation", async () => {
+  const rebuildCalls = [];
+  const api = new HostApi({
+    kernelAdapter: createStubKernelAdapter({
+      async startRebuild() {
+        rebuildCalls.push("start");
+        return {
+          ok: true,
+          value: {
+            result: "started"
+          }
+        };
+      },
+      async waitForRebuild(request) {
+        rebuildCalls.push(`wait:${request.timeoutMs}`);
+        return {
+          ok: true,
+          value: {
+            result: "completed"
+          }
+        };
+      }
+    }),
+    getActiveVaultPath: () => "E:/vault",
+    filesSurface: createStubFilesSurface({
+      async renameEntry() {
+        return {
+          disposition: "renamed",
+          entry: {
+            rel_path: "notes/renamed.md",
+            name: "renamed.md",
+            title: "renamed",
+            kind: "note",
+            is_directory: false,
+            size_bytes: 10,
+            mtime_ms: 8000
+          }
+        };
+      }
+    })
+  });
+
+  const result = await api.renameFileEntry({
+    fromRelPath: "notes/example.md",
+    toRelPath: "notes/renamed.md",
+    request_id: "req-files-rename"
+  });
+
+  assert.deepEqual(rebuildCalls, ["start", "wait:30000"]);
+  assert.equal(result.ok, true);
+  assert.equal(result.data.disposition, "renamed");
+  assert.equal(result.data.entry.relPath, "notes/renamed.md");
+  assert.equal(result.request_id, "req-files-rename");
 });

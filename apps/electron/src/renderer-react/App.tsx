@@ -4,7 +4,7 @@ import LaunchSplash from "./components/nexus/LaunchSplash";
 import VaultManagerView from "./components/nexus/VaultManagerView";
 import WorkspaceShell from "./components/workspace/WorkspaceShell";
 import { getDesktopAppVersion, pickDirectory } from "./lib/desktop-shell";
-import { createNoteRecord, loadNoteContent, loadRecentNotes, saveNoteContent, scanVaultTree, type NoteRecord, type TreeNode } from "./lib/files-tree";
+import { createFolderInVault, createNoteRecord, deleteVaultEntry, loadNoteContent, loadRecentNotes, renameVaultEntry, saveNoteContent, scanVaultTree, type NoteRecord, type TreeNode } from "./lib/files-tree";
 import { addRecentVault, readRecentVaults, removeRecentVault, type RecentVault } from "./lib/recent-vaults";
 import { closeVault, getBootstrapInfo, getRuntimeSummary, getSessionStatus, openVault, querySearch } from "./lib/host-shell";
 
@@ -28,6 +28,7 @@ export default function App() {
   const [noteRevision, setNoteRevision] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [fileOperationError, setFileOperationError] = useState<string | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [searchQueryValue, setSearchQueryValue] = useState("");
@@ -76,6 +77,46 @@ export default function App() {
 
   const appVersion = useMemo(() => hostVersion ?? "1.0.0", [hostVersion]);
   const noteDirty = Boolean(activeNote && noteBody !== savedNoteBody);
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!noteDirty) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [noteDirty]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === "s") {
+        event.preventDefault();
+        if (activeNote && noteDirty && saveState !== "saving") {
+          void handleSaveNote();
+        }
+        return;
+      }
+
+      if (key === "n" && vaultPath && saveState !== "saving") {
+        event.preventDefault();
+        void handleCreateNote();
+        return;
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeNote, noteDirty, noteBody, noteRevision, saveState, vaultPath]);
 
   async function bootstrap() {
     setBooting(true);
@@ -140,7 +181,19 @@ export default function App() {
     }
   }
 
+  function confirmDiscardUnsaved() {
+    if (!noteDirty) {
+      return true;
+    }
+
+    return window.confirm("当前笔记还有未保存修改。是否放弃这些修改并继续？");
+  }
+
   async function openNote(relPath: string, notePool = notes) {
+    if (activeNote?.relPath !== relPath && !confirmDiscardUnsaved()) {
+      return;
+    }
+
     const target = notePool.find((note) => note.relPath === relPath) ?? null;
     setActiveNote(target);
     setContentLoading(true);
@@ -172,7 +225,7 @@ export default function App() {
 
     if (!treeEnvelope.ok) {
       setLastError(treeEnvelope.error);
-      return;
+      return [];
     }
 
     setTree(treeEnvelope.data.tree);
@@ -183,26 +236,52 @@ export default function App() {
         setActiveNote(refreshedNote);
       }
     }
+    return treeEnvelope.data.notes;
   }
 
   function nextUntitledRelPath() {
     const existing = new Set(notes.map((note) => note.relPath.toLowerCase()));
+    const activeFolder = activeNote?.relPath.includes("/")
+      ? activeNote.relPath.split("/").slice(0, -1).join("/")
+      : "";
+    const hasNotesFolder = tree.some((node) => node.isFolder && node.relPath.toLowerCase() === "notes");
+    const folder = activeFolder || (hasNotesFolder ? "notes" : "");
+
     for (let index = 1; index < 1000; index += 1) {
-      const name = index === 1 ? "Untitled.md" : `Untitled ${index}.md`;
-      const relPath = name;
+      const name = index === 1 ? "新建笔记.md" : `新建笔记 ${index}.md`;
+      const relPath = folder ? `${folder}/${name}` : name;
       if (!existing.has(relPath.toLowerCase())) {
         return relPath;
       }
     }
 
-    return `Untitled ${Date.now()}.md`;
+    return folder ? `${folder}/新建笔记 ${Date.now()}.md` : `新建笔记 ${Date.now()}.md`;
+  }
+
+  function describeSaveFailure(error: HostEnvelopeError, fallback: string) {
+    if (error?.code === "HOST_KERNEL_CONFLICT") {
+      return "保存失败：这篇笔记已在外部发生变化。请重新打开后再保存，避免覆盖外部修改。";
+    }
+    if (error?.code === "HOST_KERNEL_NOT_FOUND") {
+      return "保存失败：目标笔记不存在或已被移动。请刷新文件列表后再试。";
+    }
+    if (error?.code === "HOST_SESSION_NOT_OPEN") {
+      return "保存失败：当前没有打开的 vault。";
+    }
+
+    return error?.message ?? fallback;
   }
 
   async function handleCreateNote() {
+    if (!confirmDiscardUnsaved()) {
+      return;
+    }
+
     const relPath = nextUntitledRelPath();
-    const bodyText = "# Untitled\n\n";
+    const bodyText = "# 新建笔记\n\n";
     setSaveState("saving");
     setSaveError(null);
+    setFileOperationError(null);
 
     const envelope = await saveNoteContent(relPath, bodyText, null);
     if (envelope?.ok && envelope.data?.note) {
@@ -218,7 +297,7 @@ export default function App() {
     }
 
     setSaveState("error");
-    setSaveError(envelope?.error?.message ?? "Failed to create note.");
+    setSaveError(describeSaveFailure(envelope?.error ?? null, "Failed to create note."));
   }
 
   async function handleSaveNote() {
@@ -228,6 +307,7 @@ export default function App() {
 
     setSaveState("saving");
     setSaveError(null);
+    setFileOperationError(null);
 
     const envelope = await saveNoteContent(activeNote.relPath, noteBody, noteRevision);
     if (envelope?.ok && envelope.data?.note) {
@@ -244,7 +324,98 @@ export default function App() {
     }
 
     setSaveState("error");
-    setSaveError(envelope?.error?.message ?? "Failed to save note.");
+    setSaveError(describeSaveFailure(envelope?.error ?? null, "Failed to save note."));
+  }
+
+  function activeFolderRelPath() {
+    if (!activeNote?.relPath.includes("/")) {
+      return "";
+    }
+
+    return activeNote.relPath.split("/").slice(0, -1).join("/");
+  }
+
+  async function handleCreateFolder() {
+    const folderName = window.prompt("新建文件夹名称");
+    if (!folderName) {
+      return;
+    }
+
+    setFileOperationError(null);
+    const envelope = await createFolderInVault(activeFolderRelPath(), folderName);
+    if (envelope?.ok) {
+      await refreshContentLists();
+      return;
+    }
+
+    setFileOperationError(envelope?.error?.message ?? "新建文件夹失败。");
+  }
+
+  async function handleRenameActiveNote() {
+    if (!activeNote) {
+      return;
+    }
+
+    if (noteDirty) {
+      setFileOperationError("请先保存当前笔记，再重命名。");
+      return;
+    }
+
+    const currentName = activeNote.name || activeNote.relPath.split("/").pop() || "Untitled.md";
+    const nextNameInput = window.prompt("新的笔记文件名", currentName);
+    if (!nextNameInput || !nextNameInput.trim()) {
+      return;
+    }
+
+    if (nextNameInput.includes("/") || nextNameInput.includes("\\")) {
+      setFileOperationError("重命名只接受文件名；移动到其他文件夹会在后续文件树交互里处理。");
+      return;
+    }
+
+    const nextName = nextNameInput.trim().endsWith(".md")
+      ? nextNameInput.trim()
+      : `${nextNameInput.trim()}.md`;
+    const folder = activeFolderRelPath();
+    const nextRelPath = folder ? `${folder}/${nextName}` : nextName;
+    if (nextRelPath === activeNote.relPath) {
+      return;
+    }
+
+    setFileOperationError(null);
+    const envelope = await renameVaultEntry(activeNote.relPath, nextRelPath);
+    if (envelope?.ok) {
+      const refreshedNotes = await refreshContentLists(nextRelPath);
+      await openNote(nextRelPath, refreshedNotes);
+      return;
+    }
+
+    setFileOperationError(envelope?.error?.message ?? "重命名失败。");
+  }
+
+  async function handleDeleteActiveNote() {
+    if (!activeNote) {
+      return;
+    }
+
+    const confirmed = window.confirm(`确认删除 ${activeNote.relPath}？此操作会删除磁盘文件。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setFileOperationError(null);
+    const envelope = await deleteVaultEntry(activeNote.relPath);
+    if (envelope?.ok) {
+      setActiveNote(null);
+      setNoteBody("");
+      setSavedNoteBody("");
+      setNoteRevision(null);
+      setSaveState("idle");
+      setSaveError(null);
+      await refreshContentLists();
+      return;
+    }
+
+    setFileOperationError(envelope?.error?.message ?? "删除失败。");
   }
 
   async function openVaultPath(targetPath: string) {
@@ -278,6 +449,10 @@ export default function App() {
   }
 
   async function handleBackToManager() {
+    if (!confirmDiscardUnsaved()) {
+      return;
+    }
+
     await closeVault();
     setVaultPath("");
     setTree([]);
@@ -289,9 +464,26 @@ export default function App() {
     setNoteRevision(null);
     setSaveState("idle");
     setSaveError(null);
+    setFileOperationError(null);
     setSearchQueryValue("");
     setSearchResults([]);
     setLauncherState("no_vault_open");
+  }
+
+  function clearActiveNote() {
+    if (!confirmDiscardUnsaved()) {
+      return;
+    }
+
+    setActiveNote(null);
+    setNoteBody("");
+    setSavedNoteBody("");
+    setNoteRevision(null);
+    setSaveState("idle");
+    setSaveError(null);
+    setFileOperationError(null);
+    setContentError(null);
+    setContentLoading(false);
   }
 
   if (booting) {
@@ -337,21 +529,21 @@ export default function App() {
           onSelectNote={(relPath) => {
             void openNote(relPath);
           }}
-          onClearNote={() => {
-            setActiveNote(null);
-            setNoteBody("");
-            setSavedNoteBody("");
-            setNoteRevision(null);
-            setSaveState("idle");
-            setSaveError(null);
-            setContentError(null);
-            setContentLoading(false);
-          }}
+          onClearNote={clearActiveNote}
           onCreateNote={() => {
             void handleCreateNote();
           }}
+          onCreateFolder={() => {
+            void handleCreateFolder();
+          }}
           onSaveNote={() => {
             void handleSaveNote();
+          }}
+          onRenameNote={() => {
+            void handleRenameActiveNote();
+          }}
+          onDeleteNote={() => {
+            void handleDeleteActiveNote();
           }}
           onNoteBodyChange={(value) => {
             setNoteBody(value);
@@ -363,6 +555,7 @@ export default function App() {
           noteDirty={noteDirty}
           saveState={saveState}
           saveError={saveError}
+          fileOperationError={fileOperationError}
           onSearchQueryChange={setSearchQueryValue}
         />
       )}

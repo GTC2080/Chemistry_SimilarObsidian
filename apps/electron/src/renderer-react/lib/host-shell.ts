@@ -111,6 +111,15 @@ export interface HostNoteWriteResult {
   note: HostNote;
 }
 
+export interface HostFileOperationResult {
+  disposition: string;
+  deleted: boolean;
+  relPath: string;
+  kind: string;
+  isDirectory: boolean;
+  entry: HostEntry | null;
+}
+
 export interface HostAttachmentRecord {
   relPath: string;
   basename: string;
@@ -255,6 +264,26 @@ export async function listRecentNotes() {
   return getHostShell()?.files?.listRecent?.({
     limit: 24
   }, "nexus-files-recent") as Promise<HostEnvelope<{ count: number; items: HostEntry[] }>>;
+}
+
+export async function createFolder(parentRelPath: string, folderName: string) {
+  return getHostShell()?.files?.createFolder?.({
+    parentRelPath,
+    folderName
+  }, `nexus-create-folder-${parentRelPath || "root"}-${folderName}`) as Promise<HostEnvelope<HostFileOperationResult>>;
+}
+
+export async function renameEntry(fromRelPath: string, toRelPath: string) {
+  return getHostShell()?.files?.renameEntry?.({
+    fromRelPath,
+    toRelPath
+  }, `nexus-rename-${fromRelPath}`) as Promise<HostEnvelope<HostFileOperationResult>>;
+}
+
+export async function deleteEntry(relPath: string) {
+  return getHostShell()?.files?.deleteEntry?.({
+    relPath
+  }, `nexus-delete-${relPath}`) as Promise<HostEnvelope<HostFileOperationResult>>;
 }
 
 export async function readNote(relPath: string) {

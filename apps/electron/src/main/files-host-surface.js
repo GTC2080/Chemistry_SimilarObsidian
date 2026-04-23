@@ -70,6 +70,19 @@ function deriveEntryKind(dirent, absolutePath) {
   return "attachment";
 }
 
+function deriveEntryKindFromStats(stats, absolutePath) {
+  if (stats.isDirectory()) {
+    return "directory";
+  }
+
+  const extension = path.extname(absolutePath).toLowerCase();
+  if (extension === ".md") {
+    return "note";
+  }
+
+  return "attachment";
+}
+
 function deriveDisplayTitle(entryName) {
   const extension = path.extname(entryName);
   return extension ? entryName.slice(0, -extension.length) : entryName;
@@ -103,6 +116,53 @@ async function statSafe(absolutePath) {
       }
     );
   }
+}
+
+async function pathExists(absolutePath) {
+  try {
+    await fs.access(absolutePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensureSimpleName(value, fieldName) {
+  const name = typeof value === "string" ? value.trim() : "";
+  if (
+    !name ||
+    name === "." ||
+    name === ".." ||
+    name.includes("/") ||
+    name.includes("\\") ||
+    isHiddenName(name)
+  ) {
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.invalidArgument,
+      `${fieldName} must be a visible single path segment.`,
+      {
+        field: fieldName
+      }
+    );
+  }
+
+  return name;
+}
+
+async function buildEntry(root, absolutePath, stats = null) {
+  const actualStats = stats ?? await statSafe(absolutePath);
+  const name = path.basename(absolutePath);
+  const kind = deriveEntryKindFromStats(actualStats, absolutePath);
+
+  return {
+    rel_path: toPublicRelPath(root, absolutePath),
+    name,
+    title: deriveDisplayTitle(name),
+    kind,
+    is_directory: actualStats.isDirectory(),
+    size_bytes: actualStats.isDirectory() ? 0 : Number(actualStats.size ?? 0),
+    mtime_ms: Number(actualStats.mtimeMs ?? 0)
+  };
 }
 
 async function listEntries(opts = {}) {
@@ -162,6 +222,202 @@ async function listEntries(opts = {}) {
   return {
     parent_rel_path: normalizeRelPath(parentRelPath),
     entries: entries.slice(0, clampedLimit)
+  };
+}
+
+async function createFolder(opts = {}) {
+  const {
+    vaultPath,
+    parentRelPath = "",
+    folderName
+  } = opts;
+
+  const name = ensureSimpleName(folderName, "folderName");
+  const { root, target: parentTarget } = resolveVaultPath(vaultPath, parentRelPath);
+  const parentStat = await statSafe(parentTarget);
+  if (!parentStat.isDirectory()) {
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.invalidArgument,
+      "parentRelPath must resolve to a directory inside the active vault.",
+      {
+        field: "parentRelPath"
+      }
+    );
+  }
+
+  const target = path.join(parentTarget, name);
+  if (await pathExists(target)) {
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.kernelConflict,
+      "A vault entry already exists at the requested folder path.",
+      {
+        relPath: toPublicRelPath(root, target)
+      }
+    );
+  }
+
+  try {
+    await fs.mkdir(target, { recursive: false });
+  } catch (error) {
+    if (error && error.code === "EEXIST") {
+      throw new FilesSurfaceError(
+        HOST_ERROR_CODES.kernelConflict,
+        "A vault entry already exists at the requested folder path.",
+        {
+          relPath: toPublicRelPath(root, target)
+        }
+      );
+    }
+
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.kernelIoError,
+      "Failed to create folder inside the active vault.",
+      {
+        parentRelPath: normalizeRelPath(parentRelPath),
+        folderName: name
+      }
+    );
+  }
+
+  return {
+    disposition: "created",
+    entry: await buildEntry(root, target)
+  };
+}
+
+async function renameEntry(opts = {}) {
+  const {
+    vaultPath,
+    fromRelPath,
+    toRelPath
+  } = opts;
+
+  const normalizedFrom = normalizeRelPath(fromRelPath);
+  const normalizedTo = normalizeRelPath(toRelPath);
+  if (!normalizedFrom || !normalizedTo) {
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.invalidArgument,
+      "fromRelPath and toRelPath must be non-empty vault-relative paths.",
+      {
+        field: !normalizedFrom ? "fromRelPath" : "toRelPath"
+      }
+    );
+  }
+
+  const { root, target: sourceTarget } = resolveVaultPath(vaultPath, normalizedFrom);
+  const { target: destinationTarget } = resolveVaultPath(vaultPath, normalizedTo);
+  const sourceStat = await statSafe(sourceTarget);
+
+  if (sourceTarget === destinationTarget) {
+    return {
+      disposition: "no_op",
+      entry: await buildEntry(root, sourceTarget, sourceStat)
+    };
+  }
+
+  if (await pathExists(destinationTarget)) {
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.kernelConflict,
+      "A vault entry already exists at the requested destination path.",
+      {
+        relPath: normalizedTo
+      }
+    );
+  }
+
+  const destinationParent = path.dirname(destinationTarget);
+  const destinationParentStat = await statSafe(destinationParent);
+  if (!destinationParentStat.isDirectory()) {
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.invalidArgument,
+      "The destination parent path must resolve to a directory inside the active vault.",
+      {
+        field: "toRelPath"
+      }
+    );
+  }
+
+  try {
+    await fs.rename(sourceTarget, destinationTarget);
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new FilesSurfaceError(
+        HOST_ERROR_CODES.kernelNotFound,
+        "The source vault entry was not found.",
+        {
+          relPath: normalizedFrom
+        }
+      );
+    }
+
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.kernelIoError,
+      "Failed to rename or move vault entry.",
+      {
+        fromRelPath: normalizedFrom,
+        toRelPath: normalizedTo
+      }
+    );
+  }
+
+  return {
+    disposition: "renamed",
+    entry: await buildEntry(root, destinationTarget)
+  };
+}
+
+async function deleteEntry(opts = {}) {
+  const {
+    vaultPath,
+    relPath
+  } = opts;
+
+  const normalizedRelPath = normalizeRelPath(relPath);
+  if (!normalizedRelPath) {
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.invalidArgument,
+      "relPath must point to a vault entry, not the vault root.",
+      {
+        field: "relPath"
+      }
+    );
+  }
+
+  const { target } = resolveVaultPath(vaultPath, normalizedRelPath);
+  const stats = await statSafe(target);
+  const kind = deriveEntryKindFromStats(stats, target);
+
+  try {
+    await fs.rm(target, {
+      recursive: stats.isDirectory(),
+      force: false
+    });
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new FilesSurfaceError(
+        HOST_ERROR_CODES.kernelNotFound,
+        "The requested vault entry was not found.",
+        {
+          relPath: normalizedRelPath
+        }
+      );
+    }
+
+    throw new FilesSurfaceError(
+      HOST_ERROR_CODES.kernelIoError,
+      "Failed to delete vault entry.",
+      {
+        relPath: normalizedRelPath
+      }
+    );
+  }
+
+  return {
+    disposition: "deleted",
+    deleted: true,
+    rel_path: normalizedRelPath,
+    kind,
+    is_directory: stats.isDirectory()
   };
 }
 
@@ -300,7 +556,10 @@ function deriveTitleFromBody(fileName, bodyText) {
 module.exports = {
   FILES_LIST_LIMIT_MAX,
   FilesSurfaceError,
+  createFolder,
+  deleteEntry,
   listEntries,
   listRecentNotes,
-  readNote
+  readNote,
+  renameEntry
 };

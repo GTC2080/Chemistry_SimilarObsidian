@@ -331,6 +331,8 @@ async function createMainWindow() {
             const rebuildStatusAfterOpen = await hostShell.rebuild.getStatus("smoke-rebuild-status-after-open");
             const postOpenSession = await hostShell.session.getStatus("smoke-post-open");
             const smokeWriteRelPath = ${JSON.stringify(`notes/written-${smokeRunId}-${Date.now()}.md`)};
+            const smokeFolderName = ${JSON.stringify(`ops-${smokeRunId}-${Date.now()}`)};
+            const smokeRenamedRelPath = "notes/" + smokeFolderName + "/" + ${JSON.stringify(`renamed-${smokeRunId}-${Date.now()}.md`)};
             const [filesListAfterOpen, filesReadAfterOpen, filesRecentAfterOpen, searchAfterOpen, attachmentsAfterOpen, attachmentGetAfterOpen, attachmentRefsAfterOpen, attachmentReferrersAfterOpen] = await Promise.all([
               hostShell.files.listEntries({ limit: 5 }, "smoke-files-list-after-open"),
               hostShell.files.readNote({ relPath: "notes/example.md" }, "smoke-files-read-after-open"),
@@ -353,9 +355,29 @@ async function createMainWindow() {
               { relPath: smokeWriteRelPath },
               "smoke-files-read-written-after-open"
             );
+            const filesCreateFolderAfterOpen = await hostShell.files.createFolder(
+              { parentRelPath: "notes", folderName: smokeFolderName },
+              "smoke-files-create-folder-after-open"
+            );
+            const filesRenameAfterOpen = await hostShell.files.renameEntry(
+              { fromRelPath: smokeWriteRelPath, toRelPath: smokeRenamedRelPath },
+              "smoke-files-rename-after-open"
+            );
+            const filesReadRenamedAfterOpen = await hostShell.files.readNote(
+              { relPath: smokeRenamedRelPath },
+              "smoke-files-read-renamed-after-open"
+            );
             const searchWrittenAfterOpen = await hostShell.search.query(
               { query: "Written", limit: 5 },
               "smoke-search-written-after-open"
+            );
+            const filesDeleteRenamedAfterOpen = await hostShell.files.deleteEntry(
+              { relPath: smokeRenamedRelPath },
+              "smoke-files-delete-renamed-after-open"
+            );
+            const filesDeleteFolderAfterOpen = await hostShell.files.deleteEntry(
+              { relPath: "notes/" + smokeFolderName },
+              "smoke-files-delete-folder-after-open"
             );
             const [pdfMetadataAfterOpen, pdfNoteRefsAfterOpen, pdfReferrersAfterOpen] = await Promise.all([
               hostShell.pdf.getMetadata({ attachmentRelPath: "assets/sample.pdf" }, "smoke-pdf-metadata-after-open"),
@@ -417,6 +439,11 @@ async function createMainWindow() {
               filesReadAfterOpen,
               filesWriteAfterOpen,
               filesReadWrittenAfterOpen,
+              filesCreateFolderAfterOpen,
+              filesRenameAfterOpen,
+              filesReadRenamedAfterOpen,
+              filesDeleteRenamedAfterOpen,
+              filesDeleteFolderAfterOpen,
               filesRecentAfterOpen,
               searchAfterOpen,
               searchWrittenAfterOpen,

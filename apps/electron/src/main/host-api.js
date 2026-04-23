@@ -2,9 +2,12 @@ const { app } = require("electron");
 const {
   FilesSurfaceError,
   FILES_LIST_LIMIT_MAX,
+  createFolder,
+  deleteEntry,
   listEntries,
   listRecentNotes,
-  readNote
+  readNote,
+  renameEntry
 } = require("./files-host-surface");
 const { createKernelAdapterBoundary } = require("./kernel-adapter/kernel-adapter-boundary");
 const {
@@ -18,6 +21,7 @@ const {
   mapDiagnosticsExport,
   mapDomainMetadataList,
   mapFileNoteRecord,
+  mapFileOperationResult,
   mapFilesList,
   mapKernelRebuildStatus,
   mapNoteWriteResult,
@@ -130,9 +134,12 @@ class HostApi {
     this.kernelAdapter = options.kernelAdapter ?? createKernelAdapterBoundary();
     this.getActiveVaultPath = options.getActiveVaultPath ?? (() => null);
     this.filesSurface = options.filesSurface ?? {
+      createFolder,
+      deleteEntry,
       listEntries,
       readNote,
-      listRecentNotes
+      listRecentNotes,
+      renameEntry
     };
   }
 
@@ -292,6 +299,153 @@ class HostApi {
     } catch (error) {
       return mapFilesSurfaceFailure(error, requestId);
     }
+  }
+
+  async createFolderEntry(payload = {}) {
+    const requestId = sanitizeRequestId(payload);
+    const parentRelPath = payload.parentRelPath == null
+      ? ""
+      : ensureOptionalString(payload.parentRelPath, "parentRelPath", requestId);
+    if (typeof parentRelPath !== "string") {
+      return parentRelPath;
+    }
+
+    const folderName = ensureNonEmptyString(payload.folderName, "folderName", requestId);
+    if (typeof folderName !== "string") {
+      return folderName;
+    }
+
+    const vaultPath = this.getActiveVaultPath();
+    if (!vaultPath) {
+      return fail(
+        HOST_ERROR_CODES.sessionNotOpen,
+        "Open a vault session before using this host surface.",
+        {
+          operation: "files.create_folder",
+          run_mode: getRunMode()
+        },
+        requestId
+      );
+    }
+
+    try {
+      const result = await this.filesSurface.createFolder({
+        vaultPath,
+        parentRelPath,
+        folderName
+      });
+      return ok(mapFileOperationResult(result), requestId);
+    } catch (error) {
+      return mapFilesSurfaceFailure(error, requestId);
+    }
+  }
+
+  async renameFileEntry(payload = {}) {
+    const requestId = sanitizeRequestId(payload);
+    const fromRelPath = ensureNonEmptyString(payload.fromRelPath, "fromRelPath", requestId);
+    if (typeof fromRelPath !== "string") {
+      return fromRelPath;
+    }
+
+    const toRelPath = ensureNonEmptyString(payload.toRelPath, "toRelPath", requestId);
+    if (typeof toRelPath !== "string") {
+      return toRelPath;
+    }
+
+    const vaultPath = this.getActiveVaultPath();
+    if (!vaultPath) {
+      return fail(
+        HOST_ERROR_CODES.sessionNotOpen,
+        "Open a vault session before using this host surface.",
+        {
+          operation: "files.rename_entry",
+          run_mode: getRunMode()
+        },
+        requestId
+      );
+    }
+
+    try {
+      const result = await this.filesSurface.renameEntry({
+        vaultPath,
+        fromRelPath,
+        toRelPath
+      });
+      const reconcileFailure = await this.reconcileKernelAfterFileMutation("files.rename_entry", requestId);
+      if (reconcileFailure) {
+        return reconcileFailure;
+      }
+
+      return ok(mapFileOperationResult(result), requestId);
+    } catch (error) {
+      return mapFilesSurfaceFailure(error, requestId);
+    }
+  }
+
+  async deleteFileEntry(payload = {}) {
+    const requestId = sanitizeRequestId(payload);
+    const relPath = ensureNonEmptyString(payload.relPath, "relPath", requestId);
+    if (typeof relPath !== "string") {
+      return relPath;
+    }
+
+    const vaultPath = this.getActiveVaultPath();
+    if (!vaultPath) {
+      return fail(
+        HOST_ERROR_CODES.sessionNotOpen,
+        "Open a vault session before using this host surface.",
+        {
+          operation: "files.delete_entry",
+          run_mode: getRunMode()
+        },
+        requestId
+      );
+    }
+
+    try {
+      const result = await this.filesSurface.deleteEntry({
+        vaultPath,
+        relPath
+      });
+      const reconcileFailure = await this.reconcileKernelAfterFileMutation("files.delete_entry", requestId);
+      if (reconcileFailure) {
+        return reconcileFailure;
+      }
+
+      return ok(mapFileOperationResult(result), requestId);
+    } catch (error) {
+      return mapFilesSurfaceFailure(error, requestId);
+    }
+  }
+
+  async reconcileKernelAfterFileMutation(operation, requestId) {
+    const startResult = await this.kernelAdapter.startRebuild();
+    if (!startResult.ok && startResult.error.code !== HOST_ERROR_CODES.rebuildAlreadyRunning) {
+      return fail(
+        startResult.error.code,
+        startResult.error.message,
+        {
+          ...(startResult.error.details ?? {}),
+          operation
+        },
+        requestId
+      );
+    }
+
+    const waitResult = await this.kernelAdapter.waitForRebuild({ timeoutMs: REBUILD_WAIT_DEFAULT_MS });
+    if (!waitResult.ok && waitResult.error.code !== HOST_ERROR_CODES.rebuildNotInFlight) {
+      return fail(
+        waitResult.error.code,
+        waitResult.error.message,
+        {
+          ...(waitResult.error.details ?? {}),
+          operation
+        },
+        requestId
+      );
+    }
+
+    return null;
   }
 
   async listAttachments(payload = {}) {

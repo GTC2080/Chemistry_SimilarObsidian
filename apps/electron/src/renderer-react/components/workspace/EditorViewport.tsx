@@ -9,9 +9,12 @@ interface EditorViewportProps {
   noteDirty: boolean;
   saveState: "idle" | "saving" | "saved" | "error";
   saveError: string | null;
+  fileOperationError: string | null;
   onCloseNote: () => void;
   onCreateNote: () => void;
   onSaveNote: () => void;
+  onRenameNote: () => void;
+  onDeleteNote: () => void;
   onNoteBodyChange: (value: string) => void;
 }
 
@@ -23,12 +26,16 @@ export default function EditorViewport({
   noteDirty,
   saveState,
   saveError,
+  fileOperationError,
   onCloseNote,
   onCreateNote,
   onSaveNote,
+  onRenameNote,
+  onDeleteNote,
   onNoteBodyChange
 }: EditorViewportProps) {
   const t = useT();
+  const liveTitle = deriveTitleFromBody(noteBody) || activeNote?.title || activeNote?.name || "未命名笔记";
   const saveLabel = saveState === "saving"
     ? "保存中"
     : saveState === "saved" && !noteDirty
@@ -45,9 +52,14 @@ export default function EditorViewport({
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-2 h-2 rounded-full shrink-0 bg-[var(--accent)] shadow-[0_0_8px_rgba(10,132,255,0.4)]" />
-              <h1 className="text-[15px] font-semibold truncate tracking-[-0.01em] text-[var(--text-primary)]">
-                {activeNote.name}
-              </h1>
+              <div className="min-w-0">
+                <h1 className="text-[15px] font-semibold truncate tracking-[-0.01em] text-[var(--text-primary)]">
+                  {liveTitle}
+                </h1>
+                <div className="text-[10px] mt-0.5 truncate text-[var(--text-quaternary)]">
+                  {activeNote.relPath}
+                </div>
+              </div>
               <span className="text-[11px] px-2 py-0.5 rounded-lg shrink-0 bg-[var(--subtle-surface-strong)] text-[var(--text-quaternary)]">
                 .{activeNote.fileExtension}
               </span>
@@ -75,6 +87,7 @@ export default function EditorViewport({
                   color: "#fff",
                   boxShadow: "0 6px 18px rgba(10,132,255,0.18)"
                 }}
+                title="Ctrl+S"
               >
                 {saveLabel}
               </button>
@@ -82,8 +95,25 @@ export default function EditorViewport({
                 type="button"
                 onClick={onCreateNote}
                 className="px-3 h-7 rounded-[10px] text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--subtle-surface-strong)] hover:bg-[var(--sidebar-hover)] transition-colors"
+                title="Ctrl+N"
               >
                 新建
+              </button>
+              <button
+                type="button"
+                onClick={onRenameNote}
+                className="px-3 h-7 rounded-[10px] text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--subtle-surface-strong)] hover:bg-[var(--sidebar-hover)] transition-colors"
+                title="重命名当前笔记"
+              >
+                重命名
+              </button>
+              <button
+                type="button"
+                onClick={onDeleteNote}
+                className="px-3 h-7 rounded-[10px] text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--subtle-surface-strong)] hover:text-[#ff453a] hover:bg-[rgba(255,69,58,0.08)] transition-colors"
+                title="删除当前笔记"
+              >
+                删除
               </button>
               <button
                 type="button"
@@ -111,6 +141,11 @@ export default function EditorViewport({
                 {saveError ? (
                   <div className="animate-fade-in px-4 py-2.5 rounded-xl text-[13px] bg-[rgba(255,69,58,0.08)] border-[0.5px] border-[rgba(255,69,58,0.12)] text-[#ff453a]">
                     {saveError}
+                  </div>
+                ) : null}
+                {fileOperationError ? (
+                  <div className="animate-fade-in px-4 py-2.5 rounded-xl text-[13px] bg-[rgba(255,159,10,0.08)] border-[0.5px] border-[rgba(255,159,10,0.15)] text-[#ff9f0a]">
+                    {fileOperationError}
                   </div>
                 ) : null}
                 <textarea
@@ -156,4 +191,13 @@ export default function EditorViewport({
       )}
     </main>
   );
+}
+
+function deriveTitleFromBody(bodyText: string) {
+  return bodyText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.startsWith("#") && line.replace(/^#+\s*/, "").trim())
+    ?.replace(/^#+\s*/, "")
+    .trim() ?? "";
 }

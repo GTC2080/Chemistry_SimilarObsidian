@@ -1,4 +1,4 @@
-import { listEntries, listRecentNotes, readNote, writeNote, type HostEntry, type HostNote } from "./host-shell";
+import { createFolder, deleteEntry, listEntries, listRecentNotes, readNote, renameEntry, writeNote, type HostEntry, type HostNote } from "./host-shell";
 
 export interface NoteRecord {
   id: string;
@@ -124,4 +124,16 @@ export async function loadNoteContent(relPath: string) {
 
 export async function saveNoteContent(relPath: string, bodyText: string, expectedRevision: string | null) {
   return writeNote(relPath, bodyText, expectedRevision);
+}
+
+export async function createFolderInVault(parentRelPath: string, folderName: string) {
+  return createFolder(parentRelPath, folderName);
+}
+
+export async function renameVaultEntry(fromRelPath: string, toRelPath: string) {
+  return renameEntry(fromRelPath, toRelPath);
+}
+
+export async function deleteVaultEntry(relPath: string) {
+  return deleteEntry(relPath);
 }

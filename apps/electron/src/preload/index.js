@@ -10,6 +10,9 @@ const HOST_IPC_CHANNELS = Object.freeze({
   filesReadNote: "host/files/read-note",
   filesWriteNote: "host/files/write-note",
   filesListRecent: "host/files/list-recent",
+  filesCreateFolder: "host/files/create-folder",
+  filesRenameEntry: "host/files/rename-entry",
+  filesDeleteEntry: "host/files/delete-entry",
   searchQuery: "host/search/query",
   attachmentsList: "host/attachments/list",
   attachmentsGet: "host/attachments/get",
@@ -144,6 +147,27 @@ const hostShell = Object.freeze({
 
     async listRecent(request = {}, requestId) {
       return invokeHost(HOST_IPC_CHANNELS.filesListRecent, {
+        ...request,
+        ...(requestId ? { request_id: requestId } : {})
+      });
+    },
+
+    async createFolder(request = {}, requestId) {
+      return invokeHost(HOST_IPC_CHANNELS.filesCreateFolder, {
+        ...request,
+        ...(requestId ? { request_id: requestId } : {})
+      });
+    },
+
+    async renameEntry(request = {}, requestId) {
+      return invokeHost(HOST_IPC_CHANNELS.filesRenameEntry, {
+        ...request,
+        ...(requestId ? { request_id: requestId } : {})
+      });
+    },
+
+    async deleteEntry(request = {}, requestId) {
+      return invokeHost(HOST_IPC_CHANNELS.filesDeleteEntry, {
         ...request,
         ...(requestId ? { request_id: requestId } : {})
       });
