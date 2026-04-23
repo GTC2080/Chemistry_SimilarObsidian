@@ -183,7 +183,12 @@ async function createMainWindow() {
     });
   });
 
-  mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+  mainWindow.webContents.on("console-message", (event) => {
+    const level = event.level;
+    const message = event.message;
+    const line = event.lineNumber ?? 0;
+    const sourceId = event.sourceId ?? "";
+
     // eslint-disable-next-line no-console
     console.log(`RENDERER_CONSOLE ${JSON.stringify({ level, message, line, sourceId })}`);
     appendHostDebug("renderer_console", {

@@ -11,10 +11,7 @@ interface EditorViewportProps {
   saveError: string | null;
   fileOperationError: string | null;
   onCloseNote: () => void;
-  onCreateNote: () => void;
   onSaveNote: () => void;
-  onRenameNote: () => void;
-  onDeleteNote: () => void;
   onNoteBodyChange: (value: string) => void;
 }
 
@@ -28,10 +25,7 @@ export default function EditorViewport({
   saveError,
   fileOperationError,
   onCloseNote,
-  onCreateNote,
   onSaveNote,
-  onRenameNote,
-  onDeleteNote,
   onNoteBodyChange
 }: EditorViewportProps) {
   const t = useT();
@@ -90,30 +84,6 @@ export default function EditorViewport({
                 title="Ctrl+S"
               >
                 {saveLabel}
-              </button>
-              <button
-                type="button"
-                onClick={onCreateNote}
-                className="px-3 h-7 rounded-[10px] text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--subtle-surface-strong)] hover:bg-[var(--sidebar-hover)] transition-colors"
-                title="Ctrl+N"
-              >
-                新建
-              </button>
-              <button
-                type="button"
-                onClick={onRenameNote}
-                className="px-3 h-7 rounded-[10px] text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--subtle-surface-strong)] hover:bg-[var(--sidebar-hover)] transition-colors"
-                title="重命名当前笔记"
-              >
-                重命名
-              </button>
-              <button
-                type="button"
-                onClick={onDeleteNote}
-                className="px-3 h-7 rounded-[10px] text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--subtle-surface-strong)] hover:text-[#ff453a] hover:bg-[rgba(255,69,58,0.08)] transition-colors"
-                title="删除当前笔记"
-              >
-                删除
               </button>
               <button
                 type="button"
@@ -179,13 +149,7 @@ export default function EditorViewport({
             <p className="text-[12px] mt-2 text-[var(--text-quaternary)]">
               {t("viewport.orSearch")} <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[rgba(118,118,128,0.12)] text-[var(--text-tertiary)]">Ctrl+K</kbd> {t("viewport.toSearch")}
             </p>
-            <button
-              type="button"
-              onClick={onCreateNote}
-              className="mt-5 px-4 h-9 rounded-[12px] text-[13px] font-medium text-white bg-[var(--accent)] shadow-[0_8px_22px_rgba(10,132,255,0.2)]"
-            >
-              新建笔记
-            </button>
+            <p className="text-[12px] mt-4 text-[var(--text-quaternary)]">在左侧文件区右键可以新建笔记或文件夹。</p>
           </div>
         </div>
       )}

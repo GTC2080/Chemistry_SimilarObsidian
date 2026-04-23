@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ResizeHandle from "../nexus/ResizeHandle";
 import ActivityBar from "../nexus/ActivityBar";
 import AppStatusBar from "../nexus/AppStatusBar";
@@ -30,11 +30,11 @@ interface WorkspaceShellProps {
   onBackToManager: () => void;
   onSelectNote: (relPath: string) => void;
   onClearNote: () => void;
-  onCreateNote: () => void;
-  onCreateFolder: () => void;
+  onCreateNote: (parentRelPath?: string) => void;
+  onCreateFolder: (parentRelPath?: string) => void;
   onSaveNote: () => void;
-  onRenameNote: () => void;
-  onDeleteNote: () => void;
+  onRenameNote: (relPath?: string) => void;
+  onDeleteNote: (relPath?: string) => void;
   onNoteBodyChange: (value: string) => void;
   onSearchQueryChange: (value: string) => void;
 }
@@ -132,6 +132,8 @@ export default function WorkspaceShell({
                   onSelectNote={onSelectNote}
                   onCreateNote={onCreateNote}
                   onCreateFolder={onCreateFolder}
+                  onRenameNote={onRenameNote}
+                  onDeleteNote={onDeleteNote}
                 />
               )}
             </aside>
@@ -144,10 +146,7 @@ export default function WorkspaceShell({
               contentLoading={contentLoading}
               contentError={contentError}
               onCloseNote={onClearNote}
-              onCreateNote={onCreateNote}
               onSaveNote={onSaveNote}
-              onRenameNote={onRenameNote}
-              onDeleteNote={onDeleteNote}
               onNoteBodyChange={onNoteBodyChange}
               noteDirty={noteDirty}
               saveState={saveState}
@@ -203,7 +202,9 @@ function FilesSidebar({
   activeRelPath,
   onSelectNote,
   onCreateNote,
-  onCreateFolder
+  onCreateFolder,
+  onRenameNote,
+  onDeleteNote
 }: {
   vaultPath: string;
   tree: TreeNode[];
@@ -211,13 +212,58 @@ function FilesSidebar({
   recentNotes: NoteRecord[];
   activeRelPath: string | null;
   onSelectNote: (relPath: string) => void;
-  onCreateNote: () => void;
-  onCreateFolder: () => void;
+  onCreateNote: (parentRelPath?: string) => void;
+  onCreateFolder: (parentRelPath?: string) => void;
+  onRenameNote: (relPath?: string) => void;
+  onDeleteNote: (relPath?: string) => void;
 }) {
   const vaultName = vaultPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Vault";
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    node: TreeNode | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return undefined;
+    }
+
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", close);
+    };
+  }, [contextMenu]);
+
+  function openContextMenu(event: React.MouseEvent, node: TreeNode | null) {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      node
+    });
+  }
+
+  function contextParentRelPath() {
+    if (!contextMenu?.node) {
+      return "";
+    }
+
+    if (contextMenu.node.isFolder) {
+      return contextMenu.node.relPath;
+    }
+
+    return contextMenu.node.relPath.includes("/")
+      ? contextMenu.node.relPath.split("/").slice(0, -1).join("/")
+      : "";
+  }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className="relative flex-1 min-h-0 overflow-y-auto" onContextMenu={(event) => openContextMenu(event, null)}>
       <div className="px-4 pt-4 pb-3 border-b-[0.5px] border-b-[var(--panel-border)]">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -227,25 +273,6 @@ function FilesSidebar({
           <div className="text-[11px] px-2 py-1 rounded-full bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] text-[var(--text-quaternary)]">
             {notes.length}
           </div>
-          <button
-            type="button"
-            onClick={onCreateNote}
-            className="w-7 h-7 rounded-[10px] flex items-center justify-center bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-hover)] transition-colors"
-            title="新建笔记"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            onClick={onCreateFolder}
-            className="w-7 h-7 rounded-[10px] flex items-center justify-center bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-hover)] transition-colors"
-            title="新建文件夹"
-          >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -280,11 +307,95 @@ function FilesSidebar({
               depth={0}
               activeRelPath={activeRelPath}
               onSelectNote={onSelectNote}
+              onContextMenu={openContextMenu}
             />
           ))}
         </div>
       </section>
+
+      {contextMenu ? (
+        <div
+          className="fixed z-50 min-w-[176px] rounded-[12px] border-[0.5px] border-[var(--panel-border)] bg-[var(--panel-bg)] p-1 shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {contextMenu.node?.isFolder === false ? (
+            <>
+              <ContextMenuItem
+                label="打开"
+                onClick={() => {
+                  onSelectNote(contextMenu.node?.relPath ?? "");
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="重命名"
+                onClick={() => {
+                  onRenameNote(contextMenu.node?.relPath);
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="删除"
+                danger
+                onClick={() => {
+                  onDeleteNote(contextMenu.node?.relPath);
+                  setContextMenu(null);
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <ContextMenuItem
+                label="新建笔记"
+                onClick={() => {
+                  onCreateNote(contextParentRelPath());
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="新建文件夹"
+                onClick={() => {
+                  onCreateFolder(contextParentRelPath());
+                  setContextMenu(null);
+                }}
+              />
+              {contextMenu.node ? (
+                <ContextMenuItem
+                  label="删除文件夹"
+                  danger
+                  onClick={() => {
+                    onDeleteNote(contextMenu.node?.relPath);
+                    setContextMenu(null);
+                  }}
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function ContextMenuItem({
+  label,
+  danger = false,
+  onClick
+}: {
+  label: string;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-[9px] px-3 py-2 text-left text-[12px] transition-colors hover:bg-[var(--sidebar-hover)]"
+      style={{ color: danger ? "#ff453a" : "var(--text-secondary)" }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -292,12 +403,14 @@ function TreeItem({
   node,
   depth,
   activeRelPath,
-  onSelectNote
+  onSelectNote,
+  onContextMenu
 }: {
   node: TreeNode;
   depth: number;
   activeRelPath: string | null;
   onSelectNote: (relPath: string) => void;
+  onContextMenu: (event: React.MouseEvent, node: TreeNode) => void;
 }) {
   const [expanded, setExpanded] = useState(depth < 1);
 
@@ -306,6 +419,7 @@ function TreeItem({
       <div>
         <button
           onClick={() => setExpanded((value) => !value)}
+          onContextMenu={(event) => onContextMenu(event, node)}
           className="w-full text-left py-[6px] rounded-[10px] text-[13px] transition-colors duration-150 cursor-pointer flex items-center gap-1.5 hover:bg-[var(--sidebar-hover)]"
           style={{ paddingLeft: `${10 + depth * 14}px`, paddingRight: 10 }}
         >
@@ -327,7 +441,7 @@ function TreeItem({
           <span className="truncate flex-1 text-[var(--text-secondary)] font-medium">{node.name}</span>
         </button>
         {expanded && node.children.map((child) => (
-          <TreeItem key={child.relPath} node={child} depth={depth + 1} activeRelPath={activeRelPath} onSelectNote={onSelectNote} />
+          <TreeItem key={child.relPath} node={child} depth={depth + 1} activeRelPath={activeRelPath} onSelectNote={onSelectNote} onContextMenu={onContextMenu} />
         ))}
       </div>
     );
@@ -336,6 +450,7 @@ function TreeItem({
   return (
     <button
       onClick={() => onSelectNote(node.relPath)}
+      onContextMenu={(event) => onContextMenu(event, node)}
       className="w-full text-left py-[6px] rounded-[10px] text-[13px] transition-colors duration-150 cursor-pointer flex items-center gap-2 relative hover:bg-[var(--sidebar-hover)]"
       style={{
         paddingLeft: `${24 + depth * 14}px`,

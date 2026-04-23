@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import AppTitleBar from "./components/nexus/AppTitleBar";
 import LaunchSplash from "./components/nexus/LaunchSplash";
 import VaultManagerView from "./components/nexus/VaultManagerView";
+import TextInputDialog from "./components/workspace/TextInputDialog";
 import WorkspaceShell from "./components/workspace/WorkspaceShell";
 import { getDesktopAppVersion, pickDirectory } from "./lib/desktop-shell";
 import { createFolderInVault, createNoteRecord, deleteVaultEntry, loadNoteContent, loadRecentNotes, renameVaultEntry, saveNoteContent, scanVaultTree, type NoteRecord, type TreeNode } from "./lib/files-tree";
@@ -10,6 +11,13 @@ import { closeVault, getBootstrapInfo, getRuntimeSummary, getSessionStatus, open
 
 type HostEnvelopeError = { code?: string; message?: string } | null;
 type SaveState = "idle" | "saving" | "saved" | "error";
+type TextDialogState = {
+  title: string;
+  message?: string;
+  defaultValue?: string;
+  confirmLabel?: string;
+  resolve: (value: string | null) => void;
+} | null;
 
 export default function App() {
   const [booting, setBooting] = useState(true);
@@ -34,6 +42,7 @@ export default function App() {
   const [searchQueryValue, setSearchQueryValue] = useState("");
   const [searchResults, setSearchResults] = useState<{ relPath: string; title: string }[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [textDialog, setTextDialog] = useState<TextDialogState>(null);
 
   useEffect(() => {
     const splash = document.getElementById("pre-splash");
@@ -239,13 +248,13 @@ export default function App() {
     return treeEnvelope.data.notes;
   }
 
-  function nextUntitledRelPath() {
+  function nextUntitledRelPath(parentRelPath?: string) {
     const existing = new Set(notes.map((note) => note.relPath.toLowerCase()));
     const activeFolder = activeNote?.relPath.includes("/")
       ? activeNote.relPath.split("/").slice(0, -1).join("/")
       : "";
     const hasNotesFolder = tree.some((node) => node.isFolder && node.relPath.toLowerCase() === "notes");
-    const folder = activeFolder || (hasNotesFolder ? "notes" : "");
+    const folder = parentRelPath ?? (activeFolder || (hasNotesFolder ? "notes" : ""));
 
     for (let index = 1; index < 1000; index += 1) {
       const name = index === 1 ? "新建笔记.md" : `新建笔记 ${index}.md`;
@@ -272,12 +281,12 @@ export default function App() {
     return error?.message ?? fallback;
   }
 
-  async function handleCreateNote() {
+  async function handleCreateNote(parentRelPath?: string) {
     if (!confirmDiscardUnsaved()) {
       return;
     }
 
-    const relPath = nextUntitledRelPath();
+    const relPath = nextUntitledRelPath(parentRelPath);
     const bodyText = "# 新建笔记\n\n";
     setSaveState("saving");
     setSaveError(null);
@@ -335,14 +344,34 @@ export default function App() {
     return activeNote.relPath.split("/").slice(0, -1).join("/");
   }
 
-  async function handleCreateFolder() {
-    const folderName = window.prompt("新建文件夹名称");
+  function requestTextInput(options: Omit<NonNullable<TextDialogState>, "resolve">) {
+    return new Promise<string | null>((resolve) => {
+      setTextDialog({
+        ...options,
+        resolve
+      });
+    });
+  }
+
+  function closeTextDialog(value: string | null) {
+    if (textDialog) {
+      textDialog.resolve(value);
+    }
+    setTextDialog(null);
+  }
+
+  async function handleCreateFolder(parentRelPath?: string) {
+    const folderName = await requestTextInput({
+      title: "新建文件夹",
+      message: parentRelPath ? `在 ${parentRelPath} 下创建一个文件夹。` : "在当前目录下创建一个文件夹。",
+      confirmLabel: "创建"
+    });
     if (!folderName) {
       return;
     }
 
     setFileOperationError(null);
-    const envelope = await createFolderInVault(activeFolderRelPath(), folderName);
+    const envelope = await createFolderInVault(parentRelPath ?? activeFolderRelPath(), folderName);
     if (envelope?.ok) {
       await refreshContentLists();
       return;
@@ -351,18 +380,25 @@ export default function App() {
     setFileOperationError(envelope?.error?.message ?? "新建文件夹失败。");
   }
 
-  async function handleRenameActiveNote() {
-    if (!activeNote) {
+  async function handleRenameNote(relPath?: string) {
+    const targetRelPath = relPath ?? activeNote?.relPath;
+    if (!targetRelPath) {
       return;
     }
 
-    if (noteDirty) {
+    if (noteDirty && targetRelPath === activeNote?.relPath) {
       setFileOperationError("请先保存当前笔记，再重命名。");
       return;
     }
 
-    const currentName = activeNote.name || activeNote.relPath.split("/").pop() || "Untitled.md";
-    const nextNameInput = window.prompt("新的笔记文件名", currentName);
+    const targetNote = notes.find((note) => note.relPath === targetRelPath) ?? activeNote;
+    const currentName = targetNote?.name || targetRelPath.split("/").pop() || "Untitled.md";
+    const nextNameInput = await requestTextInput({
+      title: "重命名笔记",
+      message: "只输入文件名，不需要输入路径。",
+      defaultValue: currentName,
+      confirmLabel: "重命名"
+    });
     if (!nextNameInput || !nextNameInput.trim()) {
       return;
     }
@@ -375,42 +411,51 @@ export default function App() {
     const nextName = nextNameInput.trim().endsWith(".md")
       ? nextNameInput.trim()
       : `${nextNameInput.trim()}.md`;
-    const folder = activeFolderRelPath();
+    const folder = targetRelPath.includes("/")
+      ? targetRelPath.split("/").slice(0, -1).join("/")
+      : "";
     const nextRelPath = folder ? `${folder}/${nextName}` : nextName;
-    if (nextRelPath === activeNote.relPath) {
+    if (nextRelPath === targetRelPath) {
       return;
     }
 
     setFileOperationError(null);
-    const envelope = await renameVaultEntry(activeNote.relPath, nextRelPath);
+    const envelope = await renameVaultEntry(targetRelPath, nextRelPath);
     if (envelope?.ok) {
       const refreshedNotes = await refreshContentLists(nextRelPath);
-      await openNote(nextRelPath, refreshedNotes);
+      if (targetRelPath === activeNote?.relPath) {
+        await openNote(nextRelPath, refreshedNotes);
+      }
       return;
     }
 
     setFileOperationError(envelope?.error?.message ?? "重命名失败。");
   }
 
-  async function handleDeleteActiveNote() {
-    if (!activeNote) {
+  async function handleDeleteNote(relPath?: string) {
+    const targetRelPath = relPath ?? activeNote?.relPath;
+    if (!targetRelPath) {
       return;
     }
 
-    const confirmed = window.confirm(`确认删除 ${activeNote.relPath}？此操作会删除磁盘文件。`);
+    const isActiveTarget = targetRelPath === activeNote?.relPath
+      || Boolean(activeNote?.relPath.startsWith(`${targetRelPath}/`));
+    const confirmed = window.confirm(`确认删除 ${targetRelPath}？此操作会删除磁盘文件。`);
     if (!confirmed) {
       return;
     }
 
     setFileOperationError(null);
-    const envelope = await deleteVaultEntry(activeNote.relPath);
+    const envelope = await deleteVaultEntry(targetRelPath);
     if (envelope?.ok) {
-      setActiveNote(null);
-      setNoteBody("");
-      setSavedNoteBody("");
-      setNoteRevision(null);
-      setSaveState("idle");
-      setSaveError(null);
+      if (isActiveTarget) {
+        setActiveNote(null);
+        setNoteBody("");
+        setSavedNoteBody("");
+        setNoteRevision(null);
+        setSaveState("idle");
+        setSaveError(null);
+      }
       await refreshContentLists();
       return;
     }
@@ -530,20 +575,20 @@ export default function App() {
             void openNote(relPath);
           }}
           onClearNote={clearActiveNote}
-          onCreateNote={() => {
-            void handleCreateNote();
+          onCreateNote={(parentRelPath) => {
+            void handleCreateNote(parentRelPath);
           }}
-          onCreateFolder={() => {
-            void handleCreateFolder();
+          onCreateFolder={(parentRelPath) => {
+            void handleCreateFolder(parentRelPath);
           }}
           onSaveNote={() => {
             void handleSaveNote();
           }}
-          onRenameNote={() => {
-            void handleRenameActiveNote();
+          onRenameNote={(relPath) => {
+            void handleRenameNote(relPath);
           }}
-          onDeleteNote={() => {
-            void handleDeleteActiveNote();
+          onDeleteNote={(relPath) => {
+            void handleDeleteNote(relPath);
           }}
           onNoteBodyChange={(value) => {
             setNoteBody(value);
@@ -559,6 +604,17 @@ export default function App() {
           onSearchQueryChange={setSearchQueryValue}
         />
       )}
+
+      {textDialog ? (
+        <TextInputDialog
+          title={textDialog.title}
+          message={textDialog.message}
+          defaultValue={textDialog.defaultValue}
+          confirmLabel={textDialog.confirmLabel}
+          onCancel={() => closeTextDialog(null)}
+          onSubmit={(value) => closeTextDialog(value)}
+        />
+      ) : null}
     </div>
   );
 }
