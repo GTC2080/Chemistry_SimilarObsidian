@@ -10,7 +10,9 @@ import {
 import {
   ToolActionButton,
   ToolBadge,
+  ToolBody,
   ToolContentHeader,
+  ToolDetailSection,
   ToolEmptyState,
   ToolErrorBanner,
   ToolMetaGrid,
@@ -145,17 +147,16 @@ export default function RebuildWorkspace({
             }
           />
 
-          <div className="p-6 space-y-6">
-            <section>
+          <ToolBody>
+            <ToolDetailSection title="任务摘要" subtitle="Rebuild 保持单实例语义，Renderer 只观察 host-visible state。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <ToolMetric label="In flight" value={String(status.status.inFlight)} />
+                <ToolMetric label="In flight" value={status.status.inFlight ? "yes" : "no"} hint={status.status.indexState} />
                 <ToolMetric label="Current generation" value={String(status.status.currentGeneration)} />
-                <ToolMetric label="Last completed" value={String(status.status.lastCompletedGeneration)} />
+                <ToolMetric label="Last completed" value={String(status.status.lastCompletedGeneration)} hint={status.status.lastResultCode ?? "none"} />
               </div>
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Rebuild status</h2>
+            <ToolDetailSection title="Rebuild status" subtitle="直接映射 host rebuild status，不在 renderer 自建任务队列。">
               <ToolMetaGrid
                 items={[
                   { label: "run_mode", value: status.runMode },
@@ -170,11 +171,10 @@ export default function RebuildWorkspace({
                   { label: "index_state", value: status.status.indexState }
                 ]}
               />
-            </section>
+            </ToolDetailSection>
 
             {runtime ? (
-              <section>
-                <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Runtime consistency</h2>
+              <ToolDetailSection title="Runtime consistency" subtitle="runtime summary 与 rebuild summary 的一致性检查面。">
                 <ToolMetaGrid
                   items={[
                     { label: "runtime.lifecycle", value: runtime.lifecycle_state },
@@ -185,9 +185,9 @@ export default function RebuildWorkspace({
                     { label: "runtime.rebuild.last_result_at", value: formatNsTimestamp(runtime.rebuild.last_result_at_ns ?? 0) }
                   ]}
                 />
-              </section>
+              </ToolDetailSection>
             ) : null}
-          </div>
+          </ToolBody>
         </div>
       )}
     </ToolWorkspaceShell>

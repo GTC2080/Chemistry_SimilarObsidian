@@ -11,16 +11,23 @@ import {
 import {
   ToolActionButton,
   ToolBadge,
+  ToolBody,
   ToolContentHeader,
+  ToolDevDetails,
+  ToolDetailSection,
   ToolEmptyState,
   ToolErrorBanner,
   ToolListButton,
   ToolMetaGrid,
   ToolMetric,
+  ToolReferenceCard,
   ToolSection,
   ToolWorkspaceShell,
+  formatAttachmentKind,
+  formatAttachmentKindLabel,
   formatBytes,
-  formatNsTimestamp
+  formatNsTimestamp,
+  formatPresenceLabel
 } from "./ToolingScaffold";
 
 interface AttachmentsWorkspaceProps {
@@ -168,7 +175,8 @@ export default function AttachmentsWorkspace({
                     subtitle={attachment.relPath}
                     active={attachment.relPath === selectedRelPath}
                     onClick={() => setSelectedRelPath(attachment.relPath)}
-                    trailing={<span className="text-[10px] text-[var(--text-quaternary)]">{attachment.refCount}</span>}
+                    eyebrow={formatAttachmentKindLabel(attachment.kind)}
+                    trailing={<ToolBadge label={`${attachment.refCount} 引用`} />}
                   />
                 ))
               ) : (
@@ -221,28 +229,27 @@ export default function AttachmentsWorkspace({
             subtitle={selectedAttachment.relPath}
             badges={
               <>
-                <ToolBadge label={`refs ${selectedAttachment.refCount}`} />
-                <ToolBadge label={`presence ${selectedAttachment.presence}`} />
-                <ToolBadge label={`kind ${selectedAttachment.kind}`} />
+                <ToolBadge label={`${selectedAttachment.refCount} 个引用`} />
+                <ToolBadge label={formatPresenceLabel(selectedAttachment.presence)} />
+                <ToolBadge label={formatAttachmentKindLabel(selectedAttachment.kind)} />
               </>
             }
           />
 
-          <div className="p-6 space-y-6">
+          <ToolBody>
             {loadingDetail ? (
               <div className="text-[13px] text-[var(--text-quaternary)]">正在读取附件详情…</div>
             ) : null}
 
-            <section>
+            <ToolDetailSection title="摘要" subtitle="当前附件的基础信息。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <ToolMetric label="大小" value={formatBytes(selectedAttachment.fileSize)} />
                 <ToolMetric label="修改时间" value={formatNsTimestamp(selectedAttachment.mtimeNs)} />
-                <ToolMetric label="Flags" value={String(selectedAttachment.flags)} />
+                <ToolMetric label="引用数" value={String(selectedAttachment.refCount)} hint={formatPresenceLabel(selectedAttachment.presence)} />
               </div>
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">正式 metadata</h2>
+            <ToolDevDetails subtitle="默认收起 raw contract 字段；需要排查 host/kernel 接线时再展开。">
               <ToolMetaGrid
                 items={[
                   { label: "rel_path", value: selectedAttachment.relPath },
@@ -254,36 +261,29 @@ export default function AttachmentsWorkspace({
                   { label: "flags", value: String(selectedAttachment.flags) }
                 ]}
               />
-            </section>
+            </ToolDevDetails>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Referrers</h2>
+            <ToolDetailSection title="Referrers" subtitle="哪些 live notes 正式引用了这个 attachment。">
               {referrers.length > 0 ? (
                 <div className="space-y-2">
                   {referrers.map((referrer) => (
-                    <div
+                    <ToolReferenceCard
                       key={`${referrer.noteRelPath}-${referrer.noteTitle}`}
-                      className="rounded-[12px] px-4 py-3 bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)] flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-[13px] font-medium truncate text-[var(--text-secondary)]">
-                          {referrer.noteTitle || referrer.noteRelPath}
-                        </div>
-                        <div className="text-[11px] mt-1 truncate text-[var(--text-quaternary)]">
-                          {referrer.noteRelPath}
-                        </div>
-                      </div>
-                      <ToolActionButton onClick={() => onOpenNote(referrer.noteRelPath)}>
-                        打开笔记
-                      </ToolActionButton>
-                    </div>
+                      title={referrer.noteTitle || referrer.noteRelPath}
+                      subtitle={referrer.noteRelPath}
+                      action={
+                        <ToolActionButton onClick={() => onOpenNote(referrer.noteRelPath)}>
+                          打开笔记
+                        </ToolActionButton>
+                      }
+                    />
                   ))}
                 </div>
               ) : (
                 <div className="text-[12px] text-[var(--text-quaternary)]">当前附件没有 live note referrers。</div>
               )}
-            </section>
-          </div>
+            </ToolDetailSection>
+          </ToolBody>
         </div>
       )}
     </ToolWorkspaceShell>

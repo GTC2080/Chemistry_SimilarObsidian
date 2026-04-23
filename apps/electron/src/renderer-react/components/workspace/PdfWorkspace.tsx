@@ -13,14 +13,19 @@ import {
 import {
   ToolActionButton,
   ToolBadge,
+  ToolBody,
   ToolContentHeader,
+  ToolDevDetails,
+  ToolDetailSection,
   ToolEmptyState,
   ToolErrorBanner,
   ToolListButton,
   ToolMetaGrid,
   ToolMetric,
+  ToolReferenceCard,
   ToolSection,
-  ToolWorkspaceShell
+  ToolWorkspaceShell,
+  formatPresenceLabel
 } from "./ToolingScaffold";
 
 interface PdfWorkspaceProps {
@@ -173,6 +178,8 @@ export default function PdfWorkspace({
                     subtitle={item.relPath}
                     active={item.relPath === selectedRelPath}
                     onClick={() => setSelectedRelPath(item.relPath)}
+                    eyebrow="PDF"
+                    trailing={<ToolBadge label={`${item.refCount} 引用`} />}
                   />
                 ))
               ) : (
@@ -225,28 +232,26 @@ export default function PdfWorkspace({
             subtitle={metadata.relPath}
             badges={
               <>
-                <ToolBadge label={`pages ${metadata.pageCount}`} />
-                <ToolBadge label={`presence ${metadata.presence}`} />
-                <ToolBadge label={`text ${metadata.textLayerState}`} />
+                <ToolBadge label={`${metadata.pageCount} 页`} />
+                <ToolBadge label={formatPresenceLabel(metadata.presence)} />
               </>
             }
           />
 
-          <div className="p-6 space-y-6">
+          <ToolBody>
             {loadingDetail ? (
               <div className="text-[13px] text-[var(--text-quaternary)]">正在读取 PDF metadata…</div>
             ) : null}
 
-            <section>
+            <ToolDetailSection title="摘要" subtitle="PDF 附件的基础文档信息。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <ToolMetric label="页数" value={String(metadata.pageCount)} />
-                <ToolMetric label="Outline" value={metadata.hasOutline ? "yes" : "no"} />
-                <ToolMetric label="Metadata state" value={String(metadata.metadataState)} />
+                <ToolMetric label="大纲" value={metadata.hasOutline ? "存在" : "无"} />
+                <ToolMetric label="标题" value={metadata.docTitle || "未提取"} />
               </div>
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">PDF metadata</h2>
+            <ToolDevDetails subtitle="默认收起 PDF substrate revision 和状态码，避免主界面变成调试面板。">
               <ToolMetaGrid
                 items={[
                   { label: "rel_path", value: metadata.relPath },
@@ -260,44 +265,32 @@ export default function PdfWorkspace({
                   { label: "text_layer_state", value: String(metadata.textLayerState) }
                 ]}
               />
-            </section>
+            </ToolDevDetails>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Referrers</h2>
+            <ToolDetailSection title="Referrers" subtitle="Formal PDF source refs，不混入普通 backlinks/search 语义。">
               {referrers.length > 0 ? (
                 <div className="space-y-2">
                   {referrers.map((ref) => (
-                    <div
+                    <ToolReferenceCard
                       key={`${ref.noteRelPath}-${ref.anchorSerialized}-${ref.page}`}
-                      className="rounded-[12px] px-4 py-3 bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-medium truncate text-[var(--text-secondary)]">
-                            {ref.noteTitle || ref.noteRelPath}
-                          </div>
-                          <div className="text-[11px] mt-1 truncate text-[var(--text-quaternary)]">
-                            {ref.noteRelPath}
-                          </div>
-                        </div>
+                      title={ref.noteTitle || ref.noteRelPath}
+                      subtitle={ref.noteRelPath}
+                      meta={`第 ${ref.page} 页`}
+                      action={
                         <ToolActionButton onClick={() => onOpenNote(ref.noteRelPath)}>
                           打开笔记
                         </ToolActionButton>
-                      </div>
-                      <div className="text-[12px] mt-3 text-[var(--text-tertiary)]">
-                        page {ref.page} · state {ref.state}
-                      </div>
-                      <div className="text-[11px] mt-1 break-all text-[var(--text-quaternary)]">
-                        {ref.excerptText || ref.anchorSerialized || "(no anchor text)"}
-                      </div>
-                    </div>
+                      }
+                    >
+                      {ref.excerptText || ref.anchorSerialized || "(no anchor text)"}
+                    </ToolReferenceCard>
                   ))}
                 </div>
               ) : (
                 <div className="text-[12px] text-[var(--text-quaternary)]">当前 PDF 还没有 formal PDF referrers。</div>
               )}
-            </section>
-          </div>
+            </ToolDetailSection>
+          </ToolBody>
         </div>
       )}
     </ToolWorkspaceShell>

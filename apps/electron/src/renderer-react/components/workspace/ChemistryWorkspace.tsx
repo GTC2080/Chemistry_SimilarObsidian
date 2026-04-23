@@ -14,14 +14,20 @@ import {
 import {
   ToolActionButton,
   ToolBadge,
+  ToolBody,
   ToolContentHeader,
+  ToolDevDetails,
+  ToolDetailSection,
   ToolEmptyState,
   ToolErrorBanner,
   ToolListButton,
   ToolMetaGrid,
   ToolMetric,
+  ToolReferenceCard,
   ToolSection,
-  ToolWorkspaceShell
+  ToolWorkspaceShell,
+  formatChemSourceFormat,
+  formatPresenceLabel
 } from "./ToolingScaffold";
 
 interface ChemistryWorkspaceProps {
@@ -38,6 +44,28 @@ function displayMetadataValue(entry: HostDomainMetadataEntry) {
     return String(entry.uint64Value);
   }
   return String(entry.boolValue);
+}
+
+function displayMetadataLabel(entry: HostDomainMetadataEntry) {
+  if (entry.keyName === "family") {
+    return "谱图类型";
+  }
+  if (entry.keyName === "point_count") {
+    return "数据点";
+  }
+  if (entry.keyName === "sample_label") {
+    return "样品标签";
+  }
+  if (entry.keyName === "source_format") {
+    return "来源格式";
+  }
+  if (entry.keyName === "x_axis_unit") {
+    return "X 轴单位";
+  }
+  if (entry.keyName === "y_axis_unit") {
+    return "Y 轴单位";
+  }
+  return entry.keyName;
 }
 
 export default function ChemistryWorkspace({
@@ -185,6 +213,8 @@ export default function ChemistryWorkspace({
                     subtitle={item.domainObjectKey || item.attachmentRelPath}
                     active={item.attachmentRelPath === selectedRelPath}
                     onClick={() => setSelectedRelPath(item.attachmentRelPath)}
+                    eyebrow={formatChemSourceFormat(item.sourceFormat)}
+                    trailing={<ToolBadge label={formatPresenceLabel(item.presence)} />}
                   />
                 ))
               ) : (
@@ -237,28 +267,26 @@ export default function ChemistryWorkspace({
             subtitle={spectrum.domainObjectKey || spectrum.attachmentRelPath}
             badges={
               <>
-                <ToolBadge label={`presence ${spectrum.presence}`} />
-                <ToolBadge label={`state ${spectrum.state}`} />
-                <ToolBadge label={`format ${spectrum.sourceFormat}`} />
+                <ToolBadge label={formatPresenceLabel(spectrum.presence)} />
+                <ToolBadge label={formatChemSourceFormat(spectrum.sourceFormat)} />
               </>
             }
           />
 
-          <div className="p-6 space-y-6">
+          <ToolBody>
             {loadingDetail ? (
               <div className="text-[13px] text-[var(--text-quaternary)]">正在读取 spectra 详情…</div>
             ) : null}
 
-            <section>
+            <ToolDetailSection title="谱图摘要" subtitle="当前谱图对象的基础信息。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <ToolMetric label="Subtype revision" value={String(spectrum.subtypeRevision)} />
-                <ToolMetric label="Coarse kind" value={String(spectrum.coarseKind)} />
-                <ToolMetric label="Flags" value={String(spectrum.flags)} />
+                <ToolMetric label="格式" value={formatChemSourceFormat(spectrum.sourceFormat)} />
+                <ToolMetric label="状态" value={formatPresenceLabel(spectrum.presence)} />
+                <ToolMetric label="元数据" value={`${metadataEntries.length} 项`} />
               </div>
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Subtype record</h2>
+            <ToolDevDetails subtitle="默认收起 subtype revision、flags 和内部状态码，保留给接线排查使用。">
               <ToolMetaGrid
                 items={[
                   { label: "attachment_rel_path", value: spectrum.attachmentRelPath },
@@ -271,75 +299,49 @@ export default function ChemistryWorkspace({
                   { label: "flags", value: String(spectrum.flags) }
                 ]}
               />
-            </section>
+            </ToolDevDetails>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Domain metadata</h2>
+            <ToolDetailSection title="谱图信息" subtitle="来自 chem.spectrum.* 的稳定公开字段。">
               {metadataEntries.length > 0 ? (
                 <div className="space-y-2">
                   {metadataEntries.map((entry) => (
-                    <div
+                    <ToolReferenceCard
                       key={`${entry.namespace}.${entry.keyName}`}
-                      className="rounded-[12px] px-4 py-3 bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)]"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-medium text-[var(--text-secondary)]">
-                            {entry.namespace}.{entry.keyName}
-                          </div>
-                          <div className="text-[11px] mt-1 truncate text-[var(--text-quaternary)]">
-                            carrier {entry.carrierKind} · schema {entry.publicSchemaRevision} · valueKind {entry.valueKind}
-                          </div>
-                        </div>
-                        <ToolBadge label={`flags ${entry.flags}`} />
-                      </div>
-                      <div className="text-[12px] mt-3 break-all text-[var(--text-tertiary)]">
-                        {displayMetadataValue(entry)}
-                      </div>
-                    </div>
+                      title={displayMetadataLabel(entry)}
+                      subtitle={`${entry.namespace}.${entry.keyName}`}
+                      meta={displayMetadataValue(entry)}
+                    />
                   ))}
                 </div>
               ) : (
                 <div className="text-[12px] text-[var(--text-quaternary)]">当前谱图没有公开 domain metadata。</div>
               )}
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Referrers</h2>
+            <ToolDetailSection title="Referrers" subtitle="Formal note ↔ spectrum refs，不扩展为化学工作流壳层。">
               {referrers.length > 0 ? (
                 <div className="space-y-2">
                   {referrers.map((ref) => (
-                    <div
+                    <ToolReferenceCard
                       key={`${ref.noteRelPath}-${ref.selectorSerialized}`}
-                      className="rounded-[12px] px-4 py-3 bg-[var(--subtle-surface)] border-[0.5px] border-[var(--panel-border)]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-medium truncate text-[var(--text-secondary)]">
-                            {ref.noteTitle || ref.noteRelPath}
-                          </div>
-                          <div className="text-[11px] mt-1 truncate text-[var(--text-quaternary)]">
-                            {ref.noteRelPath}
-                          </div>
-                        </div>
+                      title={ref.noteTitle || ref.noteRelPath}
+                      subtitle={ref.noteRelPath}
+                      meta={ref.previewText ? "包含谱图引用预览" : "谱图引用"}
+                      action={
                         <ToolActionButton onClick={() => onOpenNote(ref.noteRelPath)}>
                           打开笔记
                         </ToolActionButton>
-                      </div>
-                      <div className="text-[12px] mt-3 text-[var(--text-tertiary)]">
-                        selector {ref.selectorKind} · state {ref.state}
-                      </div>
-                      <div className="text-[11px] mt-1 break-all text-[var(--text-quaternary)]">
-                        {ref.previewText || ref.selectorSerialized || ref.targetBasisRevision || "(no preview text)"}
-                      </div>
-                    </div>
+                      }
+                    >
+                      {ref.previewText || ref.selectorSerialized || ref.targetBasisRevision || "(no preview text)"}
+                    </ToolReferenceCard>
                   ))}
                 </div>
               ) : (
                 <div className="text-[12px] text-[var(--text-quaternary)]">当前谱图还没有 formal chemistry referrers。</div>
               )}
-            </section>
-          </div>
+            </ToolDetailSection>
+          </ToolBody>
         </div>
       )}
     </ToolWorkspaceShell>

@@ -113,15 +113,20 @@ export function ToolContentHeader({
 
 export function ToolMetric({
   label,
-  value
+  value,
+  hint
 }: {
   label: string;
   value: string;
+  hint?: string;
 }) {
   return (
     <div className="rounded-[14px] px-4 py-3 tool-card">
       <div className="text-[11px] uppercase tracking-wider text-[var(--text-quaternary)]">{label}</div>
       <div className="text-[15px] mt-1 font-semibold tracking-[-0.01em] text-[var(--text-secondary)]">{value}</div>
+      {hint ? (
+        <div className="text-[11px] mt-1 truncate text-[var(--text-quaternary)]">{hint}</div>
+      ) : null}
     </div>
   );
 }
@@ -151,6 +156,99 @@ export function ToolMetaGrid({
         </div>
       ))}
     </div>
+  );
+}
+
+export function ToolBody({ children }: { children: ReactNode }) {
+  return (
+    <div className="p-6 space-y-7 tool-body">
+      {children}
+    </div>
+  );
+}
+
+export function ToolDetailSection({
+  title,
+  subtitle,
+  children
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-[13px] font-semibold text-[var(--text-primary)]">{title}</h2>
+        {subtitle ? (
+          <p className="text-[11px] mt-1 leading-5 text-[var(--text-quaternary)]">{subtitle}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function ToolReferenceCard({
+  title,
+  subtitle,
+  meta,
+  action,
+  children
+}: {
+  title: string;
+  subtitle?: string;
+  meta?: string;
+  action?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="rounded-[14px] px-4 py-3 tool-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[13px] font-medium truncate text-[var(--text-secondary)]">{title}</div>
+          {subtitle ? (
+            <div className="text-[11px] mt-1 truncate text-[var(--text-quaternary)]">{subtitle}</div>
+          ) : null}
+        </div>
+        {action}
+      </div>
+      {meta ? (
+        <div className="text-[12px] mt-3 text-[var(--text-tertiary)]">{meta}</div>
+      ) : null}
+      {children ? (
+        <div className="text-[11px] mt-2 break-all text-[var(--text-quaternary)]">{children}</div>
+      ) : null}
+    </div>
+  );
+}
+
+export function ToolDevDetails({
+  title = "开发详情",
+  subtitle,
+  children
+}: {
+  title?: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="rounded-[14px] px-4 py-3 tool-card group">
+      <summary className="cursor-pointer list-none">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[12px] font-medium text-[var(--text-tertiary)]">{title}</div>
+            {subtitle ? (
+              <div className="text-[11px] mt-1 text-[var(--text-quaternary)]">{subtitle}</div>
+            ) : null}
+          </div>
+          <span className="text-[11px] text-[var(--text-quinary)] group-open:rotate-90 transition-transform">›</span>
+        </div>
+      </summary>
+      <div className="mt-4">
+        {children}
+      </div>
+    </details>
   );
 }
 
@@ -216,6 +314,57 @@ export function formatBytes(value: number) {
     unitIndex += 1;
   }
   return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+export function formatCompactState(label: string, value: string | number | boolean | null | undefined) {
+  return `${label} ${value == null || value === "" ? "none" : String(value)}`;
+}
+
+export function formatPresence(value: number) {
+  if (value === 0) {
+    return "present";
+  }
+  if (value === 1) {
+    return "missing";
+  }
+  return `presence ${value}`;
+}
+
+export function formatPresenceLabel(value: number) {
+  if (value === 0) {
+    return "可用";
+  }
+  if (value === 1) {
+    return "缺失";
+  }
+  return `状态 ${value}`;
+}
+
+export function formatAttachmentKind(value: number) {
+  if (value === 3) {
+    return "pdf-like";
+  }
+  if (value === 4) {
+    return "chem-like";
+  }
+  return `kind ${value}`;
+}
+
+export function formatAttachmentKindLabel(value: number) {
+  if (value === 3) {
+    return "PDF";
+  }
+  if (value === 4) {
+    return "谱图";
+  }
+  return "附件";
+}
+
+export function formatChemSourceFormat(value: number) {
+  if (value === 1) {
+    return "JCAMP-DX";
+  }
+  return `format ${value}`;
 }
 
 export function formatNsTimestamp(value: number) {

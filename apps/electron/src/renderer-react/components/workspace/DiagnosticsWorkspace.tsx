@@ -14,7 +14,9 @@ import { pickDirectory } from "../../lib/desktop-shell";
 import {
   ToolActionButton,
   ToolBadge,
+  ToolBody,
   ToolContentHeader,
+  ToolDetailSection,
   ToolEmptyState,
   ToolErrorBanner,
   ToolMetaGrid,
@@ -181,21 +183,20 @@ export default function DiagnosticsWorkspace({
             }
           />
 
-          <div className="p-6 space-y-6">
+          <ToolBody>
             {loading ? (
               <div className="text-[13px] text-[var(--text-quaternary)]">正在刷新 diagnostics summary…</div>
             ) : null}
 
-            <section>
+            <ToolDetailSection title="健康摘要" subtitle="当前 sealed kernel / host / renderer 边界的最小状态面。">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <ToolMetric label="API groups" value={String(bootstrap.api_groups.length)} />
-                <ToolMetric label="Indexed notes" value={String(runtime.kernel_runtime.indexed_note_count ?? 0)} />
-                <ToolMetric label="Recovery ops" value={String(runtime.kernel_runtime.pending_recovery_ops ?? 0)} />
+                <ToolMetric label="API groups" value={String(bootstrap.api_groups.length)} hint={bootstrap.run_mode} />
+                <ToolMetric label="Indexed notes" value={String(runtime.kernel_runtime.indexed_note_count ?? 0)} hint={runtime.kernel_runtime.index_state} />
+                <ToolMetric label="Recovery ops" value={String(runtime.kernel_runtime.pending_recovery_ops ?? 0)} hint={runtime.kernel_runtime.session_state} />
               </div>
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Bootstrap</h2>
+            <ToolDetailSection title="Bootstrap" subtitle="安全基线、运行模式和 preload 边界。">
               <ToolMetaGrid
                 items={[
                   { label: "host_version", value: bootstrap.host_version },
@@ -208,10 +209,9 @@ export default function DiagnosticsWorkspace({
                   { label: "sandbox", value: String(bootstrap.security.sandbox) }
                 ]}
               />
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Runtime / Session</h2>
+            <ToolDetailSection title="Runtime / Session" subtitle="宿主生命周期和单 vault session 当前状态。">
               <ToolMetaGrid
                 items={[
                   { label: "lifecycle_state", value: runtime.lifecycle_state },
@@ -224,10 +224,9 @@ export default function DiagnosticsWorkspace({
                   { label: "last_window_event_at", value: runtime.last_window_event ? formatMsTimestamp(runtime.last_window_event.at_ms) : "未记录" }
                 ]}
               />
-            </section>
+            </ToolDetailSection>
 
-            <section>
-              <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Kernel binding / Rebuild</h2>
+            <ToolDetailSection title="Kernel binding / Rebuild" subtitle="真实 Node-API binding 与 rebuild lifecycle 摘要。">
               <ToolMetaGrid
                 items={[
                   { label: "binding_attached", value: String(runtime.kernel_binding.attached) },
@@ -240,17 +239,16 @@ export default function DiagnosticsWorkspace({
                   { label: "last_completed_generation", value: String(rebuild?.status.lastCompletedGeneration ?? runtime.rebuild.last_completed_generation ?? 0) }
                 ]}
               />
-            </section>
+            </ToolDetailSection>
 
             {session?.last_error ? (
-              <section>
-                <h2 className="text-[13px] font-semibold mb-3 text-[var(--text-primary)]">Last session error</h2>
+              <ToolDetailSection title="Last session error">
                 <ToolErrorBanner
                   message={`${session.last_error.code}: ${session.last_error.message} @ ${formatMsTimestamp(session.last_error.at_ms)}`}
                 />
-              </section>
+              </ToolDetailSection>
             ) : null}
-          </div>
+          </ToolBody>
         </div>
       )}
     </ToolWorkspaceShell>
