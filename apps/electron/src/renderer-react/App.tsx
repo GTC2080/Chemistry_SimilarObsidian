@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import AppTitleBar from "./components/nexus/AppTitleBar";
 import LaunchSplash from "./components/nexus/LaunchSplash";
 import VaultManagerView from "./components/nexus/VaultManagerView";
+import ConfirmDialog from "./components/workspace/ConfirmDialog";
 import TextInputDialog from "./components/workspace/TextInputDialog";
 import WorkspaceShell from "./components/workspace/WorkspaceShell";
 import { getDesktopAppVersion, pickDirectory } from "./lib/desktop-shell";
@@ -17,6 +18,13 @@ type TextDialogState = {
   defaultValue?: string;
   confirmLabel?: string;
   resolve: (value: string | null) => void;
+} | null;
+type ConfirmDialogState = {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  resolve: (value: boolean) => void;
 } | null;
 
 export default function App() {
@@ -43,6 +51,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<{ relPath: string; title: string }[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [textDialog, setTextDialog] = useState<TextDialogState>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null);
 
   useEffect(() => {
     const splash = document.getElementById("pre-splash");
@@ -190,16 +199,37 @@ export default function App() {
     }
   }
 
-  function confirmDiscardUnsaved() {
+  function requestConfirm(options: Omit<NonNullable<ConfirmDialogState>, "resolve">) {
+    return new Promise<boolean>((resolve) => {
+      setConfirmDialog({
+        ...options,
+        resolve
+      });
+    });
+  }
+
+  function closeConfirmDialog(value: boolean) {
+    if (confirmDialog) {
+      confirmDialog.resolve(value);
+    }
+    setConfirmDialog(null);
+  }
+
+  async function confirmDiscardUnsaved() {
     if (!noteDirty) {
       return true;
     }
 
-    return window.confirm("当前笔记还有未保存修改。是否放弃这些修改并继续？");
+    return requestConfirm({
+      title: "放弃未保存修改？",
+      message: "当前笔记还有未保存修改。继续操作会放弃这些修改。",
+      confirmLabel: "放弃修改",
+      danger: true
+    });
   }
 
   async function openNote(relPath: string, notePool = notes) {
-    if (activeNote?.relPath !== relPath && !confirmDiscardUnsaved()) {
+    if (activeNote?.relPath !== relPath && !(await confirmDiscardUnsaved())) {
       return;
     }
 
@@ -282,7 +312,7 @@ export default function App() {
   }
 
   async function handleCreateNote(parentRelPath?: string) {
-    if (!confirmDiscardUnsaved()) {
+    if (!(await confirmDiscardUnsaved())) {
       return;
     }
 
@@ -380,21 +410,42 @@ export default function App() {
     setFileOperationError(envelope?.error?.message ?? "新建文件夹失败。");
   }
 
-  async function handleRenameNote(relPath?: string) {
+  function findTreeNode(relPath: string, nodes = tree): TreeNode | null {
+    for (const node of nodes) {
+      if (node.relPath === relPath) {
+        return node;
+      }
+      const child = findTreeNode(relPath, node.children);
+      if (child) {
+        return child;
+      }
+    }
+
+    return null;
+  }
+
+  async function handleRenameEntry(relPath?: string) {
     const targetRelPath = relPath ?? activeNote?.relPath;
     if (!targetRelPath) {
       return;
     }
 
-    if (noteDirty && targetRelPath === activeNote?.relPath) {
-      setFileOperationError("请先保存当前笔记，再重命名。");
+    const targetNode = findTreeNode(targetRelPath);
+    const isFolder = Boolean(targetNode?.isFolder);
+    const isActiveTarget = targetRelPath === activeNote?.relPath
+      || Boolean(isFolder && activeNote?.relPath.startsWith(`${targetRelPath}/`));
+
+    if (noteDirty && isActiveTarget) {
+      setFileOperationError(isFolder ? "请先保存当前笔记，再重命名所在文件夹。" : "请先保存当前笔记，再重命名。");
       return;
     }
 
     const targetNote = notes.find((note) => note.relPath === targetRelPath) ?? activeNote;
-    const currentName = targetNote?.name || targetRelPath.split("/").pop() || "Untitled.md";
+    const currentName = isFolder
+      ? targetNode?.name || targetRelPath.split("/").pop() || "新建文件夹"
+      : targetNote?.name || targetRelPath.split("/").pop() || "Untitled.md";
     const nextNameInput = await requestTextInput({
-      title: "重命名笔记",
+      title: isFolder ? "重命名文件夹" : "重命名笔记",
       message: "只输入文件名，不需要输入路径。",
       defaultValue: currentName,
       confirmLabel: "重命名"
@@ -408,7 +459,9 @@ export default function App() {
       return;
     }
 
-    const nextName = nextNameInput.trim().endsWith(".md")
+    const nextName = isFolder
+      ? nextNameInput.trim()
+      : nextNameInput.trim().endsWith(".md")
       ? nextNameInput.trim()
       : `${nextNameInput.trim()}.md`;
     const folder = targetRelPath.includes("/")
@@ -422,9 +475,14 @@ export default function App() {
     setFileOperationError(null);
     const envelope = await renameVaultEntry(targetRelPath, nextRelPath);
     if (envelope?.ok) {
-      const refreshedNotes = await refreshContentLists(nextRelPath);
-      if (targetRelPath === activeNote?.relPath) {
-        await openNote(nextRelPath, refreshedNotes);
+      const preferredRelPath = isFolder && activeNote?.relPath.startsWith(`${targetRelPath}/`)
+        ? `${nextRelPath}${activeNote.relPath.slice(targetRelPath.length)}`
+        : targetRelPath === activeNote?.relPath
+          ? nextRelPath
+          : undefined;
+      const refreshedNotes = await refreshContentLists(preferredRelPath);
+      if (preferredRelPath) {
+        await openNote(preferredRelPath, refreshedNotes);
       }
       return;
     }
@@ -440,7 +498,13 @@ export default function App() {
 
     const isActiveTarget = targetRelPath === activeNote?.relPath
       || Boolean(activeNote?.relPath.startsWith(`${targetRelPath}/`));
-    const confirmed = window.confirm(`确认删除 ${targetRelPath}？此操作会删除磁盘文件。`);
+    const targetNode = findTreeNode(targetRelPath);
+    const confirmed = await requestConfirm({
+      title: targetNode?.isFolder ? "删除文件夹？" : "删除笔记？",
+      message: `确认删除 ${targetRelPath}？此操作会删除磁盘文件。`,
+      confirmLabel: "删除",
+      danger: true
+    });
     if (!confirmed) {
       return;
     }
@@ -494,7 +558,7 @@ export default function App() {
   }
 
   async function handleBackToManager() {
-    if (!confirmDiscardUnsaved()) {
+    if (!(await confirmDiscardUnsaved())) {
       return;
     }
 
@@ -515,8 +579,8 @@ export default function App() {
     setLauncherState("no_vault_open");
   }
 
-  function clearActiveNote() {
-    if (!confirmDiscardUnsaved()) {
+  async function clearActiveNote() {
+    if (!(await confirmDiscardUnsaved())) {
       return;
     }
 
@@ -585,7 +649,7 @@ export default function App() {
             void handleSaveNote();
           }}
           onRenameNote={(relPath) => {
-            void handleRenameNote(relPath);
+            void handleRenameEntry(relPath);
           }}
           onDeleteNote={(relPath) => {
             void handleDeleteNote(relPath);
@@ -613,6 +677,16 @@ export default function App() {
           confirmLabel={textDialog.confirmLabel}
           onCancel={() => closeTextDialog(null)}
           onSubmit={(value) => closeTextDialog(value)}
+        />
+      ) : null}
+      {confirmDialog ? (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmLabel={confirmDialog.confirmLabel}
+          danger={confirmDialog.danger}
+          onCancel={() => closeConfirmDialog(false)}
+          onConfirm={() => closeConfirmDialog(true)}
         />
       ) : null}
     </div>

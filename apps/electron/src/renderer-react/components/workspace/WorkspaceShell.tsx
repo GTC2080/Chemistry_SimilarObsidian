@@ -241,9 +241,11 @@ function FilesSidebar({
   function openContextMenu(event: React.MouseEvent, node: TreeNode | null) {
     event.preventDefault();
     event.stopPropagation();
+    const menuWidth = 190;
+    const menuHeight = node && node.isFolder ? 140 : 116;
     setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
       node
     });
   }
@@ -361,14 +363,23 @@ function FilesSidebar({
                 }}
               />
               {contextMenu.node ? (
-                <ContextMenuItem
-                  label="删除文件夹"
-                  danger
-                  onClick={() => {
-                    onDeleteNote(contextMenu.node?.relPath);
-                    setContextMenu(null);
-                  }}
-                />
+                <>
+                  <ContextMenuItem
+                    label="重命名文件夹"
+                    onClick={() => {
+                      onRenameNote(contextMenu.node?.relPath);
+                      setContextMenu(null);
+                    }}
+                  />
+                  <ContextMenuItem
+                    label="删除文件夹"
+                    danger
+                    onClick={() => {
+                      onDeleteNote(contextMenu.node?.relPath);
+                      setContextMenu(null);
+                    }}
+                  />
+                </>
               ) : null}
             </>
           )}
