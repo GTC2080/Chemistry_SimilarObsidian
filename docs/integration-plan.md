@@ -11,7 +11,8 @@
 
 - kernel work continues inside `kernel/`
 - Electron host integration lands under `apps/electron/src/main/` and `apps/electron/src/preload/`
-- renderer work lands under `apps/electron/src/renderer/`
+- current Nexus renderer work lands under `apps/electron/src/renderer-react/`
+- legacy smoke-only renderer assets remain separate from the product renderer path
 
 ## Current Rule
 
@@ -40,6 +41,9 @@ Current renderer status:
 - Files owns the default center stage after vault open
 - Search / Attachments / Chemistry / Diagnostics remain reachable as tool surfaces
 - current content selection inside Files is now backed by host-facing Files baseline reads
+- Nexus-style renderer shell is active under `apps/electron/src/renderer-react/`
+- Attachments / PDF / Chemistry consume real host surfaces and keep raw contract fields behind developer-detail sections
+- Diagnostics / Rebuild are low-frequency support surfaces, not primary workspace content
 
 Current Files baseline integration status:
 

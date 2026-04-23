@@ -8,11 +8,14 @@ Current state:
 - `src/main/` owns the main-process baseline and host runtime state
 - `src/preload/` exposes a narrow async host API through a single bridge
 - `src/shared/` freezes the current host IPC contract and security baseline
+- `src/renderer-react/` contains the current Nexus-style renderer baseline
 - native binding integration is frozen to a Node-API addon loaded only inside the host-side adapter boundary
 - the native binding is built through CMake to stay aligned with the sealed kernel's Windows/MSVC toolchain
 - runtime/session now run through the real kernel adapter
 - search, attachments, PDF, chemistry, diagnostics export, and rebuild all have real host-side wiring behind the preload bridge
-- `renderer` only shows a plain placeholder page backed by that host bridge
+- renderer consumes those host surfaces through `window.hostShell.*`; it does not touch Node, Electron, SQLite, state files, or native kernel details directly
+- Nexus launcher/workspace UI is active, including Files, Search, Attachments, PDF, Chemistry, Diagnostics, and Rebuild surfaces
+- support tooling details are demoted behind developer-detail sections instead of dominating the main workspace
 - host-side regression checks now exist for adapter request shaping and native binding resolution
 - packaged-mode native binding resolution now has a dedicated baseline check
 - a packaged host smoke now validates that the packaged Electron shell can start and load the native adapter
@@ -23,12 +26,13 @@ What this shell is for:
 - anchoring the preload bridge boundary
 - freezing the current IPC contract entry
 - freezing the current kernel adapter boundary
+- hosting the renderer bridge that Kimi can continue to consume without touching kernel internals
 
 What is not done yet:
 
-- no renderer feature UI
-- no React/Vue/Svelte stack
 - no release polish
+- no product-level editor/viewer polish
+- no plugin system, cloud sync, multi-vault, AI, or installer polish
 
 Current bridge groups:
 
@@ -76,8 +80,15 @@ Current validation entry:
 
 - `npm run smoke`
 - `npm run build:native`
+- `npm run renderer:build`
 - `npm test`
 - `npm run check:packaged-resolution`
 - `npm run package:smoke`
 
-Renderer and UI work will be added later by Kimi.
+Renderer boundary:
+
+- renderer UI lives under `src/renderer-react/`
+- renderer calls only the documented `window.hostShell.*` bridge
+- renderer never consumes raw support bundle internals or native paths as business truth
+- detailed kernel/host fields are allowed only in developer-detail sections
+- Kimi can continue UI work on top of this renderer baseline without changing `main/`, `preload/`, IPC, or kernel contracts
