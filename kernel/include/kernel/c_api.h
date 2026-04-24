@@ -140,6 +140,16 @@ kernel_status kernel_calculate_miller_plane(
     int32_t k,
     int32_t l,
     kernel_miller_plane_result* out_result);
+kernel_status kernel_build_supercell(
+    const kernel_crystal_cell_params* cell,
+    const kernel_fractional_atom_input* atoms,
+    size_t atom_count,
+    const kernel_symmetry_operation_input* symops,
+    size_t symop_count,
+    uint32_t nx,
+    uint32_t ny,
+    uint32_t nz,
+    kernel_supercell_result* out_result);
 kernel_status kernel_query_note_chem_spectrum_refs(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -212,6 +222,7 @@ void kernel_free_chem_spectrum_record(kernel_chem_spectrum_record* spectrum);
 void kernel_free_chem_spectrum_list(kernel_chem_spectrum_list* spectra);
 void kernel_free_polymerization_kinetics_result(kernel_polymerization_kinetics_result* result);
 void kernel_free_spectroscopy_data(kernel_spectroscopy_data* data);
+void kernel_free_supercell_result(kernel_supercell_result* result);
 void kernel_free_chem_spectrum_source_refs(kernel_chem_spectrum_source_refs* refs);
 void kernel_free_chem_spectrum_referrers(kernel_chem_spectrum_referrers* referrers);
 void kernel_free_domain_source_refs(kernel_domain_source_refs* refs);

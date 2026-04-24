@@ -23,6 +23,14 @@ kernel_crystal_cell_params cubic_cell(const double a) {
   return cell;
 }
 
+kernel_symmetry_operation_input identity_symop() {
+  kernel_symmetry_operation_input op{};
+  op.rot[0][0] = 1.0;
+  op.rot[1][1] = 1.0;
+  op.rot[2][2] = 1.0;
+  return op;
+}
+
 void require_ok_status(const kernel_status status, std::string_view context) {
   require_true(
       status.code == KERNEL_OK,
@@ -101,10 +109,106 @@ void test_miller_plane_rejects_invalid_inputs_with_typed_errors() {
       "miller should reject null output");
 }
 
+void test_supercell_expands_simple_cubic_cell() {
+  const auto cell = cubic_cell(3.0);
+  kernel_fractional_atom_input atom{};
+  atom.element = "Na";
+  atom.frac[0] = 0.0;
+  atom.frac[1] = 0.0;
+  atom.frac[2] = 0.0;
+  const auto symop = identity_symop();
+  kernel_supercell_result result{};
+
+  require_ok_status(
+      kernel_build_supercell(&cell, &atom, 1, &symop, 1, 2, 2, 2, &result),
+      "supercell simple cubic");
+
+  require_true(result.count == 8, "supercell should expand to eight atoms");
+  require_true(result.atoms != nullptr, "supercell should allocate atoms");
+  require_true(
+      result.atoms[0].element != nullptr && std::string(result.atoms[0].element) == "Na",
+      "supercell should preserve element");
+  require_near(result.atoms[7].cartesian_coords[0], 3.0, "supercell last x");
+  require_near(result.atoms[7].cartesian_coords[1], 3.0, "supercell last y");
+  require_near(result.atoms[7].cartesian_coords[2], 3.0, "supercell last z");
+
+  kernel_free_supercell_result(&result);
+  require_true(
+      result.atoms == nullptr && result.count == 0,
+      "supercell free should reset result");
+}
+
+void test_supercell_deduplicates_identical_symmetry_ops() {
+  const auto cell = cubic_cell(3.0);
+  kernel_fractional_atom_input atom{};
+  atom.element = "Fe";
+  atom.frac[0] = 0.0;
+  atom.frac[1] = 0.0;
+  atom.frac[2] = 0.0;
+  const kernel_symmetry_operation_input symops[2] = {identity_symop(), identity_symop()};
+  kernel_supercell_result result{};
+
+  require_ok_status(
+      kernel_build_supercell(&cell, &atom, 1, symops, 2, 1, 1, 1, &result),
+      "supercell dedup identical symops");
+
+  require_true(result.count == 1, "supercell should deduplicate identical symops");
+  require_true(
+      result.atoms[0].element != nullptr && std::string(result.atoms[0].element) == "Fe",
+      "supercell dedup should preserve element");
+  kernel_free_supercell_result(&result);
+}
+
+void test_supercell_rejects_invalid_inputs_with_typed_errors() {
+  auto cell = cubic_cell(3.0);
+  kernel_fractional_atom_input atom{};
+  atom.element = "Na";
+  const auto symop = identity_symop();
+  kernel_supercell_result result{};
+
+  require_true(
+      kernel_build_supercell(&cell, &atom, 1, &symop, 1, 50001, 1, 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "supercell should reject too many atoms");
+  require_true(
+      result.error == KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS,
+      "supercell should report too many atoms");
+  require_true(result.estimated_count == 50001, "supercell should report estimated count");
+
+  cell.gamma_deg = 0.0;
+  require_true(
+      kernel_build_supercell(&cell, &atom, 1, &symop, 1, 1, 1, 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "supercell should reject degenerate gamma");
+  require_true(
+      result.error == KERNEL_CRYSTAL_SUPERCELL_ERROR_GAMMA_TOO_SMALL,
+      "supercell should report degenerate gamma");
+
+  require_true(
+      kernel_build_supercell(nullptr, &atom, 1, &symop, 1, 1, 1, 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "supercell should reject null cell");
+  require_true(
+      kernel_build_supercell(&cell, nullptr, 1, &symop, 1, 1, 1, 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "supercell should reject null atoms when count is nonzero");
+  require_true(
+      kernel_build_supercell(&cell, &atom, 1, nullptr, 1, 1, 1, 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "supercell should reject null symops when count is nonzero");
+  require_true(
+      kernel_build_supercell(&cell, &atom, 1, &symop, 1, 1, 1, 1, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "supercell should reject null output");
+}
+
 }  // namespace
 
 void run_crystal_compute_tests() {
   test_miller_plane_100_for_cubic_cell();
   test_miller_plane_111_for_cubic_cell();
   test_miller_plane_rejects_invalid_inputs_with_typed_errors();
+  test_supercell_expands_simple_cubic_cell();
+  test_supercell_deduplicates_identical_symmetry_ops();
+  test_supercell_rejects_invalid_inputs_with_typed_errors();
 }

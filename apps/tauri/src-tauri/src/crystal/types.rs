@@ -95,13 +95,4 @@ impl CellParams {
 
         Ok([[ax, 0.0, 0.0], [bx, by, 0.0], [cx, cy, cz]])
     }
-
-    /// 分数坐标 → 笛卡尔坐标
-    pub fn frac_to_cart(&self, frac: [f64; 3], vecs: &[[f64; 3]; 3]) -> [f64; 3] {
-        [
-            frac[0] * vecs[0][0] + frac[1] * vecs[1][0] + frac[2] * vecs[2][0],
-            frac[0] * vecs[0][1] + frac[1] * vecs[1][1] + frac[2] * vecs[2][1],
-            frac[0] * vecs[0][2] + frac[1] * vecs[1][2] + frac[2] * vecs[2][2],
-        ]
-    }
 }

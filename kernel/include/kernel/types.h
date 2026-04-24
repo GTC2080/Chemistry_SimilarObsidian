@@ -493,6 +493,35 @@ typedef struct kernel_miller_plane_result {
   kernel_crystal_miller_error error;
 } kernel_miller_plane_result;
 
+typedef enum kernel_crystal_supercell_error {
+  KERNEL_CRYSTAL_SUPERCELL_ERROR_NONE = 0,
+  KERNEL_CRYSTAL_SUPERCELL_ERROR_GAMMA_TOO_SMALL = 1,
+  KERNEL_CRYSTAL_SUPERCELL_ERROR_INVALID_BASIS = 2,
+  KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS = 3
+} kernel_crystal_supercell_error;
+
+typedef struct kernel_fractional_atom_input {
+  const char* element;
+  double frac[3];
+} kernel_fractional_atom_input;
+
+typedef struct kernel_symmetry_operation_input {
+  double rot[3][3];
+  double trans[3];
+} kernel_symmetry_operation_input;
+
+typedef struct kernel_atom_node {
+  char* element;
+  double cartesian_coords[3];
+} kernel_atom_node;
+
+typedef struct kernel_supercell_result {
+  kernel_atom_node* atoms;
+  size_t count;
+  uint64_t estimated_count;
+  kernel_crystal_supercell_error error;
+} kernel_supercell_result;
+
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
   KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1

@@ -20,3 +20,13 @@ The repository must retain regression coverage for:
 - null input and null output pointers are rejected
 - Tauri Rust bridge tests continue to cover the existing command-facing
   Miller-plane behavior
+- `kernel_build_supercell(...)` expands a simple cubic cell to the expected
+  Cartesian coordinates
+- `kernel_build_supercell(...)` preserves element labels
+- supercell generation deduplicates identical symmetry operations
+- supercell generation reports `KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS`
+  and the estimated atom count when expansion exceeds `50000`
+- supercell generation reports `KERNEL_CRYSTAL_SUPERCELL_ERROR_GAMMA_TOO_SMALL`
+  for degenerate cell geometry
+- `kernel_free_supercell_result(...)` leaves the result empty and is safe on
+  partially filled data

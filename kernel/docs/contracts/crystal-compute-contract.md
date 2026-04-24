@@ -11,12 +11,12 @@ This document covers stateless crystal computation surfaces.
 Current surface:
 
 - `kernel_calculate_miller_plane(cell, h, k, l, out_result)`
+- `kernel_build_supercell(cell, atoms, atom_count, symops, symop_count, nx, ny, nz, out_result)`
+- `kernel_free_supercell_result(out_result)`
 
 Current exclusions:
 
 - CIF parsing
-- supercell expansion
-- symmetry operation expansion
 - viewer state
 - vault indexing or attachment truth
 
@@ -27,9 +27,13 @@ Frozen rules:
 - the surface is handle-free and must not read or write vault state
 - Tauri Rust may parse CIF text and own serde command marshalling
 - the kernel owns Miller-plane numeric geometry
-- output buffers are host-owned and require no kernel free call
+- the kernel owns symmetry expansion, fractional-coordinate deduplication,
+  supercell expansion, and Cartesian coordinate generation
+- Miller-plane output buffers are host-owned and require no kernel free call
+- supercell atom arrays and element strings are kernel-owned until released with
+  `kernel_free_supercell_result(...)`
 - failures return `KERNEL_ERROR_INVALID_ARGUMENT` with a typed
-  `kernel_crystal_miller_error`
+  crystal compute error
 
 ## Miller Plane Rules
 
@@ -53,6 +57,23 @@ Frozen rules:
 
 - hosts keep CIF parsing and user-facing localized error text
 - hosts must not reimplement Miller-plane geometry
+- hosts must not reimplement supercell expansion or atom deduplication
 - hosts must preserve the existing Tauri command shape for
-  `calculate_miller_plane`
+  `calculate_miller_plane` and `parse_and_build_lattice`
 - frontends continue to consume host commands rather than kernel ABI directly
+
+## Supercell Rules
+
+Frozen rules:
+
+- atom inputs use parsed element labels and fractional coordinates
+- symmetry inputs use a 3x3 rotation matrix and 3-vector translation
+- generated fractional coordinates are normalized with Euclidean remainder into
+  `[0, 1)`
+- deduplication uses the existing `1 / 0.02` fractional grid tolerance
+- deduplication key includes the element label and quantized fractional
+  coordinate
+- expanded atoms are emitted in `ix`, `iy`, `iz`, unit-atom order
+- Cartesian coordinates are calculated from the crystal cell basis
+- total emitted atoms must not exceed `50000`
+- too-large expansions report the estimated atom count

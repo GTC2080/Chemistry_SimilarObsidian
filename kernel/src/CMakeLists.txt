@@ -68,6 +68,7 @@ add_library(
   impl/chemistry/spectroscopy_parser.cpp
   impl/chemistry/stoichiometry.cpp
   impl/crystal/miller_plane.cpp
+  impl/crystal/supercell.cpp
   impl/pdf/pdf_anchor.cpp
   impl/pdf/pdf_metadata.cpp
   impl/recovery/journal_format.cpp

@@ -1,29 +1,137 @@
-use std::collections::HashSet;
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 
 use super::types::{AtomNode, CellParams, FractionalAtom, SymOp};
 
-/// 网格量化精度的倒数（1/OVERLAP_TOL）
-const GRID_SCALE: f64 = 50.0; // 1/0.02
+const KERNEL_OK: i32 = 0;
+const KERNEL_CRYSTAL_SUPERCELL_ERROR_GAMMA_TOO_SMALL: i32 = 1;
+const KERNEL_CRYSTAL_SUPERCELL_ERROR_INVALID_BASIS: i32 = 2;
+const KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS: i32 = 3;
+const MAX_ATOMS: u64 = 50_000;
 
-/// 最大原子数限制（防止前端 WebGL 崩溃）
-const MAX_ATOMS: usize = 50_000;
-
-/// 将分数坐标量化为整数网格 key，用于 O(1) 去重
-fn grid_key(element: &str, frac: &[f64; 3]) -> (String, i64, i64, i64) {
-    // 先归一化到 [0, 1)，再量化；考虑周期性边界
-    let quantize = |v: f64| -> i64 {
-        let norm = v.rem_euclid(1.0);
-        (norm * GRID_SCALE).round() as i64 % (GRID_SCALE as i64)
-    };
-    (
-        element.to_string(),
-        quantize(frac[0]),
-        quantize(frac[1]),
-        quantize(frac[2]),
-    )
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
 }
 
-/// 应用对称操作 → 生成完整单胞原子 → 扩展为超晶胞
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelCrystalCellParams {
+    a: f64,
+    b: f64,
+    c: f64,
+    alpha_deg: f64,
+    beta_deg: f64,
+    gamma_deg: f64,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelFractionalAtomInput {
+    element: *const c_char,
+    frac: [f64; 3],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelSymmetryOperationInput {
+    rot: [[f64; 3]; 3],
+    trans: [f64; 3],
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KernelAtomNode {
+    element: *mut c_char,
+    cartesian_coords: [f64; 3],
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KernelSupercellResult {
+    atoms: *mut KernelAtomNode,
+    count: usize,
+    estimated_count: u64,
+    error: i32,
+}
+
+impl Default for KernelSupercellResult {
+    fn default() -> Self {
+        Self {
+            atoms: std::ptr::null_mut(),
+            count: 0,
+            estimated_count: 0,
+            error: 0,
+        }
+    }
+}
+
+extern "C" {
+    fn kernel_build_supercell(
+        cell: *const KernelCrystalCellParams,
+        atoms: *const KernelFractionalAtomInput,
+        atom_count: usize,
+        symops: *const KernelSymmetryOperationInput,
+        symop_count: usize,
+        nx: u32,
+        ny: u32,
+        nz: u32,
+        out_result: *mut KernelSupercellResult,
+    ) -> KernelStatus;
+    fn kernel_free_supercell_result(result: *mut KernelSupercellResult);
+}
+
+fn kernel_cell_from(cell: &CellParams) -> KernelCrystalCellParams {
+    KernelCrystalCellParams {
+        a: cell.a,
+        b: cell.b,
+        c: cell.c,
+        alpha_deg: cell.alpha_deg,
+        beta_deg: cell.beta_deg,
+        gamma_deg: cell.gamma_deg,
+    }
+}
+
+fn supercell_error_message(error: i32, estimated_count: u64) -> String {
+    match error {
+        KERNEL_CRYSTAL_SUPERCELL_ERROR_GAMMA_TOO_SMALL => "晶胞参数非法：gamma 角过小".to_string(),
+        KERNEL_CRYSTAL_SUPERCELL_ERROR_INVALID_BASIS => {
+            "晶胞参数非法：无法构造有效基矢".to_string()
+        }
+        KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS => format!(
+            "超晶胞原子数 ({}) 超过上限 ({})，请减小扩展维度",
+            estimated_count, MAX_ATOMS
+        ),
+        _ => "超晶胞内核构建失败".to_string(),
+    }
+}
+
+unsafe fn atom_nodes_from_kernel(raw: &KernelSupercellResult) -> Result<Vec<AtomNode>, String> {
+    if raw.count == 0 {
+        return Ok(Vec::new());
+    }
+    if raw.atoms.is_null() {
+        return Err("超晶胞内核缺少 atoms 输出".to_string());
+    }
+
+    let raw_atoms = std::slice::from_raw_parts(raw.atoms, raw.count);
+    let mut atoms = Vec::with_capacity(raw_atoms.len());
+    for atom in raw_atoms {
+        if atom.element.is_null() {
+            return Err("超晶胞内核缺少元素输出".to_string());
+        }
+        atoms.push(AtomNode {
+            element: CStr::from_ptr(atom.element).to_string_lossy().into_owned(),
+            cartesian_coords: atom.cartesian_coords,
+        });
+    }
+    Ok(atoms)
+}
+
+/// 应用对称操作生成完整单胞原子，再扩展为超晶胞。
+///
+/// CIF 解析仍由 Tauri Rust 完成；对称展开、去重和笛卡尔坐标计算由 C++ kernel 负责。
 pub(super) fn build_supercell(
     cell: &CellParams,
     raw_atoms: &[FractionalAtom],
@@ -32,65 +140,52 @@ pub(super) fn build_supercell(
     ny: u32,
     nz: u32,
 ) -> Result<Vec<AtomNode>, String> {
-    let vecs = cell.lattice_vectors()?;
+    let element_strings: Vec<CString> = raw_atoms
+        .iter()
+        .map(|atom| {
+            CString::new(atom.element.as_str()).map_err(|_| "元素名称包含非法空字符".to_string())
+        })
+        .collect::<Result<_, _>>()?;
+    let kernel_atoms: Vec<KernelFractionalAtomInput> = raw_atoms
+        .iter()
+        .zip(element_strings.iter())
+        .map(|(atom, element)| KernelFractionalAtomInput {
+            element: element.as_ptr(),
+            frac: atom.frac,
+        })
+        .collect();
+    let kernel_symops: Vec<KernelSymmetryOperationInput> = symops
+        .iter()
+        .map(|op| KernelSymmetryOperationInput {
+            rot: op.rot,
+            trans: op.trans,
+        })
+        .collect();
 
-    // Step 1: 应用对称操作补全单胞原子（HashSet O(1) 去重）
-    let capacity = raw_atoms.len() * symops.len();
-    let mut seen: HashSet<(String, i64, i64, i64)> = HashSet::with_capacity(capacity);
-    let mut unit_atoms: Vec<FractionalAtom> = Vec::with_capacity(capacity);
-
-    for atom in raw_atoms {
-        for op in symops {
-            let mut new_frac = [0.0_f64; 3];
-            for i in 0..3 {
-                new_frac[i] = op.rot[i][0] * atom.frac[0]
-                    + op.rot[i][1] * atom.frac[1]
-                    + op.rot[i][2] * atom.frac[2]
-                    + op.trans[i];
-                new_frac[i] = new_frac[i].rem_euclid(1.0);
-            }
-
-            let key = grid_key(&atom.element, &new_frac);
-            if seen.insert(key) {
-                unit_atoms.push(FractionalAtom {
-                    element: atom.element.clone(),
-                    frac: new_frac,
-                });
-            }
-        }
+    let kernel_cell = kernel_cell_from(cell);
+    let mut raw_result = KernelSupercellResult::default();
+    let status = unsafe {
+        kernel_build_supercell(
+            &kernel_cell,
+            kernel_atoms.as_ptr(),
+            kernel_atoms.len(),
+            kernel_symops.as_ptr(),
+            kernel_symops.len(),
+            nx,
+            ny,
+            nz,
+            &mut raw_result,
+        )
+    };
+    if status.code != KERNEL_OK {
+        let message = supercell_error_message(raw_result.error, raw_result.estimated_count);
+        unsafe { kernel_free_supercell_result(&mut raw_result) };
+        return Err(message);
     }
 
-    // Step 2: 超晶胞扩展
-    let total_estimate = unit_atoms.len() * (nx as usize) * (ny as usize) * (nz as usize);
-    if total_estimate > MAX_ATOMS {
-        return Err(format!(
-            "超晶胞原子数 ({}) 超过上限 ({})，请减小扩展维度",
-            total_estimate, MAX_ATOMS
-        ));
-    }
-
-    let mut result = Vec::with_capacity(total_estimate);
-
-    for ix in 0..nx {
-        for iy in 0..ny {
-            for iz in 0..nz {
-                for atom in &unit_atoms {
-                    let shifted_frac = [
-                        atom.frac[0] + ix as f64,
-                        atom.frac[1] + iy as f64,
-                        atom.frac[2] + iz as f64,
-                    ];
-                    let cart = cell.frac_to_cart(shifted_frac, &vecs);
-                    result.push(AtomNode {
-                        element: atom.element.clone(),
-                        cartesian_coords: cart,
-                    });
-                }
-            }
-        }
-    }
-
-    Ok(result)
+    let atoms = unsafe { atom_nodes_from_kernel(&raw_result) };
+    unsafe { kernel_free_supercell_result(&mut raw_result) };
+    atoms
 }
 
 #[cfg(test)]

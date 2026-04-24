@@ -1,7 +1,6 @@
 //! 晶格解析与超晶胞生成引擎
 //!
-//! 纯 Rust 实现：解析 CIF → 对称操作展开 → 超晶胞扩展 → 密勒指数切面计算。
-//! 所有坐标转换（分数 → 笛卡尔）在此完成，前端零计算。
+//! Tauri Rust 保留 CIF 解析与 command-facing DTO，晶体学数值计算逐步桥接到 C++ kernel。
 
 mod miller;
 mod parse;
