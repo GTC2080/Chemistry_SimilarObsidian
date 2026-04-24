@@ -24,6 +24,7 @@ add_executable(
   src/api/kernel_api_tests_chemistry_diagnostics.cpp
   src/api/kernel_api_tests_chemistry_diagnostics_recount.cpp
   src/api/kernel_api_tests_chemistry_diagnostics_snapshot.cpp
+  src/api/kernel_api_tests_chemistry_kinetics.cpp
   src/api/kernel_api_tests_chemistry_metadata.cpp
   src/api/kernel_api_tests_chemistry_references.cpp
   src/api/kernel_api_tests_chemistry_subtype.cpp

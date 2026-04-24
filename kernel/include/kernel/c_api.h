@@ -122,6 +122,9 @@ kernel_status kernel_get_chem_spectrum(
     kernel_handle* handle,
     const char* attachment_rel_path,
     kernel_chem_spectrum_record* out_spectrum);
+kernel_status kernel_simulate_polymerization_kinetics(
+    const kernel_polymerization_kinetics_params* params,
+    kernel_polymerization_kinetics_result* out_result);
 kernel_status kernel_query_note_chem_spectrum_refs(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -192,6 +195,7 @@ void kernel_free_domain_object_descriptor(kernel_domain_object_descriptor* objec
 void kernel_free_domain_object_list(kernel_domain_object_list* objects);
 void kernel_free_chem_spectrum_record(kernel_chem_spectrum_record* spectrum);
 void kernel_free_chem_spectrum_list(kernel_chem_spectrum_list* spectra);
+void kernel_free_polymerization_kinetics_result(kernel_polymerization_kinetics_result* result);
 void kernel_free_chem_spectrum_source_refs(kernel_chem_spectrum_source_refs* refs);
 void kernel_free_chem_spectrum_referrers(kernel_chem_spectrum_referrers* referrers);
 void kernel_free_domain_source_refs(kernel_domain_source_refs* refs);

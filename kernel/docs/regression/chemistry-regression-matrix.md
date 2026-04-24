@@ -1,8 +1,8 @@
-<!-- Reason: This file freezes the Track 5 regression obligations so chemistry spectra grow as the first formal domain capability track through explicit repository rules instead of one-off chemistry exceptions. -->
+<!-- Reason: This file freezes the Track 5 regression obligations and adjacent stateless chemistry compute checks so chemistry grows through explicit repository rules instead of one-off exceptions. -->
 
 # Chemistry Regression Matrix
 
-Last updated: `2026-04-22`
+Last updated: `2026-04-24`
 
 ## Frozen Cross-Batch Invariants
 
@@ -18,6 +18,21 @@ The repository must retain regression coverage for:
 - chemistry refs remaining outside the existing backlinks public surface
 - chemistry refs not creating new search-hit kinds in the existing search surface
 - metadata-only changes not staling chemistry selectors unless `normalized_spectrum_basis` changes
+- stateless chemistry compute surfaces not reading or writing vault truth
+
+## Stateless Chemistry Compute Surface
+
+The repository must retain regression coverage for:
+
+- `kernel_simulate_polymerization_kinetics(...)` succeeds for valid inputs
+- result arrays all have `steps + 1` samples
+- result arrays are finite
+- `time[0] == 0` and the final time equals `time_max`
+- conversion remains bounded and increases for the baseline polymerization case
+- `pdi` remains physically bounded at `>= 1`
+- invalid physical parameters return `KERNEL_ERROR_INVALID_ARGUMENT`
+- invalid calls clear stale kernel-owned output before returning
+- `kernel_free_polymerization_kinetics_result(...)` is idempotent and leaves the result empty
 
 ## [Batch 1] Chemistry Metadata Namespace v1
 

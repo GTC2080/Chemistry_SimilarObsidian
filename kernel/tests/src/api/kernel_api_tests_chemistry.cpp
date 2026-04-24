@@ -8,4 +8,5 @@ void run_chemistry_tests() {
   run_chemistry_subtype_tests();
   run_chemistry_reference_tests();
   run_chemistry_diagnostics_tests();
+  run_chemistry_kinetics_tests();
 }

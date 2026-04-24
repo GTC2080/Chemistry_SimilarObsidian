@@ -2,7 +2,7 @@
 
 # Chemistry Capability Contract
 
-Last updated: `2026-04-22`
+Last updated: `2026-04-24`
 
 ## Scope
 
@@ -25,6 +25,42 @@ Current exclusions:
 - `chem.sample.*`
 - `chem.synthesis.*`
 - viewer or workflow state
+
+## Stateless Compute Surface
+
+The polymerization kinetics simulator is a chemistry compute surface, not a
+Track 5 persisted capability surface.
+
+It lands:
+
+- `kernel_simulate_polymerization_kinetics(params, out_result)`
+- `kernel_free_polymerization_kinetics_result(out_result)`
+
+Frozen rules:
+
+- the surface is handle-free and must not read or write vault state
+- the surface must not create chemistry truth rows, domain objects, search hits,
+  source references, diagnostics counters, or rebuild work
+- the surface returns only deterministic arrays derived from the input parameter
+  struct
+- Tauri Rust may own serde command marshalling, but not the simulation model
+- all returned arrays are kernel-owned until released with
+  `kernel_free_polymerization_kinetics_result(...)`
+
+Frozen validation bounds:
+
+- `m0 > 0`
+- `i0 >= 0`
+- `cta0 >= 0`
+- `kd >= 0`
+- `kp >= 0`
+- `kt >= 0`
+- `ktr >= 0`
+- `time_max > 0`
+- `10 <= steps <= 50000`
+
+Invalid inputs return `KERNEL_ERROR_INVALID_ARGUMENT` and leave the output
+result empty.
 
 ## Carrier Boundary
 

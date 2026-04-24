@@ -399,6 +399,26 @@ typedef struct kernel_chem_spectrum_list {
   size_t count;
 } kernel_chem_spectrum_list;
 
+typedef struct kernel_polymerization_kinetics_params {
+  double m0;
+  double i0;
+  double cta0;
+  double kd;
+  double kp;
+  double kt;
+  double ktr;
+  double time_max;
+  size_t steps;
+} kernel_polymerization_kinetics_params;
+
+typedef struct kernel_polymerization_kinetics_result {
+  double* time;
+  double* conversion;
+  double* mn;
+  double* pdi;
+  size_t count;
+} kernel_polymerization_kinetics_result;
+
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
   KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1
