@@ -2,7 +2,7 @@
 
 # Query Public Surface
 
-Last updated: `2026-04-21`
+Last updated: `2026-04-24`
 
 ## Scope
 
@@ -11,8 +11,12 @@ This document freezes the Phase 1 host-facing behavior for:
 - `kernel_search_notes(...)`
 - `kernel_search_notes_limited(...)`
 - `kernel_query_tag_notes(...)`
+- `kernel_query_tags(...)`
+- `kernel_query_graph(...)`
 - `kernel_query_backlinks(...)`
 - `kernel_free_search_results(...)`
+- `kernel_free_tag_list(...)`
+- `kernel_free_graph(...)`
 
 It is a contract for hosts.
 It is not an internal implementation guide.
@@ -23,9 +27,9 @@ Legacy note-search status:
 - Track 1 search expansion does not add `snippet / pagination / filters / ranking` behavior to these legacy entry points
 - new host-facing search expansion behavior is frozen separately in [search-query-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/search-query-contract.md)
 
-## Shared Result Contract
+## Note Hit Result Contract
 
-All four query entry points return `kernel_search_results`, which owns an array of `kernel_search_hit`.
+`kernel_search_notes(...)`, `kernel_search_notes_limited(...)`, `kernel_query_tag_notes(...)`, and `kernel_query_backlinks(...)` return `kernel_search_results`, which owns an array of `kernel_search_hit`.
 
 Each hit exposes:
 
@@ -106,6 +110,61 @@ Result semantics:
 - `title` is populated the same way as note search
 - `match_flags` is always `KERNEL_SEARCH_MATCH_NONE`
 
+## Tag Summary Contract
+
+`kernel_query_tags(...)` returns the parser-derived tag catalog from the kernel index.
+This is the only host-facing tag summary truth for the Tauri shell.
+
+Input rules:
+
+- `handle` must be non-null
+- `limit` must be greater than zero
+- `out_tags` must be non-null
+
+Tag semantics:
+
+- each `kernel_tag_record.name` is the bare stored tag text without the leading `#`
+- each `kernel_tag_record.count` is the number of live notes carrying that exact tag
+- tags are derived from the same parser output that feeds `kernel_query_tag_notes(...)`
+- hierarchy is not stored as a second truth source; hosts that need a tag tree must derive it from returned tag names
+
+Ordering and ownership:
+
+- result ordering is deterministic: count descending, then tag name ascending
+- returned strings are kernel-owned and remain valid until `kernel_free_tag_list(...)`
+- `kernel_free_tag_list(...)` is idempotent and leaves the struct empty
+
+## Graph Query Contract
+
+`kernel_query_graph(...)` returns the note relationship graph derived from live kernel state.
+This is the only host-facing graph truth for backlinks/tag/folder relationship visualization.
+
+Input rules:
+
+- `handle` must be non-null
+- `note_limit` must be greater than zero
+- `out_graph` must be non-null
+
+Node semantics:
+
+- each live note within the bounded catalog produces a non-ghost node
+- `id` is the normalized relative note path
+- `name` is the current parser-derived or filename-fallback title
+- linked-but-missing wiki targets may appear as `ghost` nodes
+
+Link semantics:
+
+- `kind = "link"` represents a parser-derived wiki link
+- `kind = "tag"` represents notes sharing an exact parser-derived tag
+- `kind = "folder"` represents sibling or adjacent folder relationships used by the current graph surface
+- duplicate undirected graph pairs are collapsed by the kernel before returning results
+
+Ordering and ownership:
+
+- node and link ordering is deterministic for regression comparison
+- returned strings are kernel-owned and remain valid until `kernel_free_graph(...)`
+- `kernel_free_graph(...)` is idempotent and leaves the struct empty
+
 ## Backlinks Query Contract
 
 `kernel_query_backlinks(...)` returns source notes that currently link to the addressed target note.
@@ -138,6 +197,7 @@ These query surfaces read the kernel's derived SQLite state, but their observabl
 - after a successful `kernel_write_note(...)`, stale search/tag/backlink rows for that note are replaced
 - after startup recovery finishes, recovered disk truth replaces stale search/tag/backlink rows
 - after rebuild finishes successfully, disk truth replaces stale search/tag/backlink rows
+- `kernel_query_tags(...)`, `kernel_query_tag_notes(...)`, `kernel_query_graph(...)`, and `kernel_query_backlinks(...)` must all agree on the same parser-derived tag/wiki-link rows
 
 Hosts should treat query results as stable only after the runtime has reached a healthy queryable state such as `READY`.
 

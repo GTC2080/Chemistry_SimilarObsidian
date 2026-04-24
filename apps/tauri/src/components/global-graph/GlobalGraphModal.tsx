@@ -6,7 +6,7 @@ import { useT } from "../../i18n";
 import "./global-graph-modal.css";
 const GlobalGraphCanvas = lazy(() => import("./GlobalGraphCanvas"));
 
-/** Rust 端 get_enriched_graph_data 返回的增强版图谱数据 */
+/** Kernel-backed get_enriched_graph_data command 返回的增强版图谱数据 */
 interface EnrichedGraphData {
   nodes: GraphNode[];
   links: GraphLink[];

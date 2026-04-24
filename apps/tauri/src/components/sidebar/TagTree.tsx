@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 
 // ===== Data Structure =====
 
-/** 标签树节点（由 Rust 后端 get_tag_tree 命令返回） */
+/** 标签树节点（由 kernel-backed get_tag_tree 命令返回） */
 export interface TagTreeNode {
   name: string;
   fullPath: string;

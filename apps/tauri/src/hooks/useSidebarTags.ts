@@ -21,7 +21,7 @@ export function useSidebarTags({ vaultPath, notes, tab }: UseSidebarTagsOptions)
 
   const refreshTags = useCallback(async () => {
     try {
-      // 直接从 Rust 获取预构建的树形结构，省去 JS 端 buildTagTree 计算
+      // 直接从 kernel-backed Tauri command 获取树形结构，省去 JS 端 buildTagTree 计算
       const tree = await invoke<TagTreeNode[]>("get_tag_tree");
       setTagTree(tree);
     } catch (e) {

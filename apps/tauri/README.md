@@ -38,9 +38,11 @@
 - **产品定位**：当前版本偏化学科研/学习场景，但 Markdown、知识图谱、搜索和 AI 能力本身是通用的
 - **数据策略**：默认完全本地，知识库和数据库都留在用户机器上
 - **性能方向**：持续追求大库可用性、交互即时反馈、低阻塞 I/O 和更稳的语义检索链路
+- **后端边界**：核心笔记读写、搜索、标签、反链、标签树与知识图谱读面以 `kernel/` C++ sealed kernel 为准；Tauri Rust 只负责命令注册、桥接、平台能力和仍在迁移中的薄壳服务
 
 ## 最近更新
 
+- **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
 - **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Rust Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
@@ -52,9 +54,24 @@
 | 前端 | React 19 + TypeScript + Tailwind CSS 4 |
 | 编辑器 | TipTap 3 + KaTeX + 3Dmol.js + Ketcher |
 | PDF | pdf.js 4 (前端渲染) + Rust 笔迹平滑 |
-| 后端 | Rust + SQLite (rusqlite) |
+| 后端 | Tauri Rust 壳层 + C++ sealed kernel + SQLite |
 | AI | OpenAI 兼容 API (Chat + Embedding) |
 | 构建 | Vite 6 |
+
+## Kernel 接线边界
+
+当前 Tauri 宿主通过 `src-tauri/native/sealed_kernel_bridge.cpp` 嵌入并调用 `kernel/` C ABI。
+
+已收口到 kernel 的关系读面：
+
+- `search_notes` -> `kernel_search_notes_limited(...)`
+- `get_backlinks` -> `kernel_query_backlinks(...)`
+- `get_all_tags` -> `kernel_query_tags(...)`
+- `get_notes_by_tag` -> `kernel_query_tag_notes(...)`
+- `get_graph_data` / `get_enriched_graph_data` -> `kernel_query_graph(...)`
+
+`get_tag_tree` 的树形结构只由 Tauri bridge 根据 `kernel_query_tags(...)` 返回的 bare tag catalog 做展示层折叠，不重新扫描 Markdown，也不访问旧 Rust DB 关系表。
+关系真相必须保持在 kernel：前端只调用 Tauri command，Rust command 只做参数校验、JSON 桥接和 UI 形状适配。
 
 ## 快速开始
 
