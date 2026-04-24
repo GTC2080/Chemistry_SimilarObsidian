@@ -2,7 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::AppResult;
 
-/// Upsert note metadata/content into the legacy embedding cache table.
+/// Upsert note metadata into the legacy embedding cache table.
 pub fn upsert_note(
     conn: &Connection,
     id: &str,
@@ -10,12 +10,11 @@ pub fn upsert_note(
     absolute_path: &str,
     created_at: i64,
     updated_at: i64,
-    content: &str,
 ) -> AppResult<()> {
     conn.execute(
         "INSERT OR REPLACE INTO notes_index (id, filename, absolute_path, created_at, updated_at, content)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, filename, absolute_path, created_at, updated_at, content],
+         VALUES (?1, ?2, ?3, ?4, ?5, '')",
+        params![id, filename, absolute_path, created_at, updated_at],
     )?;
 
     Ok(())

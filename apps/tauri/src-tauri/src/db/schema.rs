@@ -60,6 +60,12 @@ pub fn init_db(vault_path: &str) -> AppResult<Connection> {
     // ALTER TABLE ... ADD COLUMN 在列已存在时会报错，这里静默忽略即可
     let _ = conn.execute("ALTER TABLE notes_index ADD COLUMN embedding BLOB", []);
 
+    // Kernel owns note content reads now; keep the legacy cache column empty.
+    conn.execute(
+        "UPDATE notes_index SET content = '' WHERE content <> ''",
+        [],
+    )?;
+
     // 为 embedding 列建立部分索引，加速语义搜索中的 "embedding IS NOT NULL" 过滤
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_notes_has_embedding ON notes_index (id) WHERE embedding IS NOT NULL",

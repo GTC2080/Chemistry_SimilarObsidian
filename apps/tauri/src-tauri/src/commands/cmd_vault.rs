@@ -194,7 +194,6 @@ fn write_note_cache(db: &DbState, pending_upserts: &[PendingUpsert]) -> Result<(
             &upsert.abs_path,
             upsert.created_at,
             upsert.updated_at,
-            &upsert.content,
         )?;
     }
     conn.execute_batch("COMMIT")?;
@@ -383,7 +382,6 @@ pub async fn rebuild_vector_index(
                 &upsert.abs_path,
                 upsert.created_at,
                 upsert.updated_at,
-                &upsert.content,
             )?;
         }
         conn.execute_batch("COMMIT")?;
