@@ -11,6 +11,7 @@ Current surface:
 - `kernel_parse_symmetry_atoms_text(raw, raw_size, format, out_atoms)`
 - `kernel_free_symmetry_atom_list(out_atoms)`
 - `kernel_classify_point_group(axes, axis_count, planes, plane_count, has_inversion, out_result)`
+- `kernel_analyze_symmetry_shape(atoms, atom_count, out_result)`
 - `kernel_build_symmetry_render_geometry(axes, axis_count, planes, plane_count, mol_radius, out_axes, out_planes)`
 
 ## Ownership
@@ -20,8 +21,12 @@ Current surface:
 - returned symmetry atom arrays and element strings are kernel-owned until
   released with `kernel_free_symmetry_atom_list(...)`
 - the host owns input axis and plane arrays
+- the host owns shape-analysis atom input arrays and element strings
 - the kernel owns point-group classification rules
+- the kernel owns center-of-mass, radius, linearity, linear-axis, and inversion
+  matching rules for shape analysis
 - `kernel_symmetry_classification_result` is filled by value and requires no free call
+- `kernel_symmetry_shape_result` is filled by value and requires no free call
 - the host owns preallocated render axis and plane output arrays
 - the kernel owns axis endpoint and mirror-plane vertex construction
 - invalid pointer/count combinations return `KERNEL_ERROR_INVALID_ARGUMENT`
@@ -30,6 +35,7 @@ Current surface:
 
 The Tauri host keeps:
 
+- principal-axis calculation
 - candidate axis and mirror-plane search
 - render geometry ABI marshalling and command DTO construction
 - localized UI error wording
@@ -39,6 +45,10 @@ The kernel owns:
 - molecule text parsing for `XYZ`, `PDB`, and simple `CIF`
 - element normalization and atomic mass lookup for parsed symmetry atoms
 - fractional-to-cartesian conversion for simple CIF atom loops
+- mass-weighted center-of-mass calculation
+- viewer radius calculation
+- linear molecule detection and linear-axis selection
+- inversion-center operation matching
 - point-group decision ordering
 - low-symmetry classification (`C_1`, `C_s`, `C_i`)
 - cyclic, dihedral, tetrahedral, octahedral, and icosahedral point-group labels
@@ -58,6 +68,9 @@ The kernel owns:
   `_cell_angle_*` parameters
 - parser failures report typed `kernel_symmetry_parse_error` values so hosts
   keep localized command messages without owning parsing rules
+- shape analysis requires at least one atom and rejects null element pointers
+- shape analysis falls back to arithmetic center when total mass is near zero
+- shape analysis keeps the viewer radius minimum at `1.0`
 - axes must be sorted with the principal/highest-order axis first
 - axis directions and plane normals are expected to be normalized by the host
 - `has_inversion` is passed as a boolean byte

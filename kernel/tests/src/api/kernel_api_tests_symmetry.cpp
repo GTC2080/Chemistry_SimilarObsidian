@@ -36,6 +36,21 @@ kernel_symmetry_plane_input plane(const double x, const double y, const double z
   return result;
 }
 
+kernel_symmetry_atom_input atom_input(
+    const char* element,
+    const double x,
+    const double y,
+    const double z,
+    const double mass) {
+  kernel_symmetry_atom_input result{};
+  result.element = element;
+  result.position[0] = x;
+  result.position[1] = y;
+  result.position[2] = z;
+  result.mass = mass;
+  return result;
+}
+
 void require_near(const double actual, const double expected, std::string_view message) {
   require_true(
       std::abs(actual - expected) < 1.0e-8,
@@ -112,6 +127,62 @@ void test_symmetry_rejects_invalid_inputs() {
       kernel_classify_point_group(&valid_axis, 1, nullptr, 1, 0, &result).code ==
           KERNEL_ERROR_INVALID_ARGUMENT,
       "symmetry classifier should reject null planes when count is nonzero");
+}
+
+void test_symmetry_analyzes_linear_shape() {
+  const kernel_symmetry_atom_input atoms[] = {
+      atom_input("C", 0.0, 0.0, 0.0, 12.0),
+      atom_input("O", 0.0, 0.0, 1.16, 16.0),
+      atom_input("O", 0.0, 0.0, -1.16, 16.0),
+  };
+  kernel_symmetry_shape_result result{};
+
+  require_ok_status(kernel_analyze_symmetry_shape(atoms, 3, &result), "analyze linear symmetry shape");
+
+  require_near(result.center_of_mass[2], 0.0, "linear shape center z");
+  require_near(result.mol_radius, 1.16, "linear shape radius");
+  require_true(result.is_linear == 1, "CO2 shape should be linear");
+  require_near(result.linear_axis[2], 1.0, "linear shape axis z");
+  require_true(result.has_inversion == 1, "CO2 shape should have inversion");
+}
+
+void test_symmetry_analyzes_nonlinear_shape() {
+  const kernel_symmetry_atom_input atoms[] = {
+      atom_input("O", 0.0, 0.0, 0.117, 16.0),
+      atom_input("H", 0.0, 0.757, -0.469, 1.0),
+      atom_input("H", 0.0, -0.757, -0.469, 1.0),
+  };
+  kernel_symmetry_shape_result result{};
+
+  require_ok_status(
+      kernel_analyze_symmetry_shape(atoms, 3, &result),
+      "analyze nonlinear symmetry shape");
+
+  require_true(result.is_linear == 0, "water shape should be nonlinear");
+  require_true(result.has_inversion == 0, "water shape should not have inversion");
+  require_true(result.mol_radius >= 1.0, "shape radius should keep viewer minimum");
+}
+
+void test_symmetry_shape_rejects_invalid_inputs() {
+  const auto valid_atom = atom_input("He", 0.0, 0.0, 0.0, 4.0);
+  const auto null_element = atom_input(nullptr, 0.0, 0.0, 0.0, 4.0);
+  kernel_symmetry_shape_result result{};
+
+  require_true(
+      kernel_analyze_symmetry_shape(nullptr, 1, &result).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry shape should reject null atoms");
+  require_true(
+      kernel_analyze_symmetry_shape(&valid_atom, 0, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry shape should reject zero atoms");
+  require_true(
+      kernel_analyze_symmetry_shape(&valid_atom, 1, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry shape should reject null output");
+  require_true(
+      kernel_analyze_symmetry_shape(&null_element, 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry shape should reject null element");
 }
 
 void test_symmetry_builds_render_geometry() {
@@ -287,6 +358,9 @@ void run_symmetry_compute_tests() {
   test_symmetry_classifies_d2h();
   test_symmetry_classifies_low_symmetry_cases();
   test_symmetry_rejects_invalid_inputs();
+  test_symmetry_analyzes_linear_shape();
+  test_symmetry_analyzes_nonlinear_shape();
+  test_symmetry_shape_rejects_invalid_inputs();
   test_symmetry_builds_render_geometry();
   test_symmetry_render_geometry_rejects_invalid_inputs();
   test_symmetry_parses_xyz_atoms();

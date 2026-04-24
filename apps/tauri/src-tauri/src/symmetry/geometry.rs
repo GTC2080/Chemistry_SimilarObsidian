@@ -3,15 +3,6 @@ use nalgebra::{Matrix3, SymmetricEigen, Vector3};
 use super::types::Atom;
 use super::{ANGLE_TOL, TOLERANCE};
 
-pub(super) fn center_of_mass(atoms: &[Atom]) -> Vector3<f64> {
-    let total_mass: f64 = atoms.iter().map(|a| a.mass).sum();
-    if total_mass < 1e-10 {
-        let n = atoms.len() as f64;
-        return atoms.iter().map(|a| a.pos).sum::<Vector3<f64>>() / n;
-    }
-    atoms.iter().map(|a| a.pos * a.mass).sum::<Vector3<f64>>() / total_mass
-}
-
 pub(super) fn compute_principal_axes(atoms: &[Atom]) -> [Vector3<f64>; 3] {
     let mut inertia = Matrix3::<f64>::zeros();
     for atom in atoms {
@@ -36,42 +27,6 @@ pub(super) fn compute_principal_axes(atoms: &[Atom]) -> [Vector3<f64>; 3] {
         vecs.column(1).into_owned(),
         vecs.column(2).into_owned(),
     ]
-}
-
-pub(super) fn check_linear(atoms: &[Atom]) -> bool {
-    if atoms.len() <= 2 {
-        return true;
-    }
-    let p0 = &atoms[0].pos;
-    let dir = match atoms
-        .iter()
-        .skip(1)
-        .find(|a| (a.pos - p0).norm() > TOLERANCE)
-    {
-        Some(a) => (a.pos - p0).normalize(),
-        None => return true,
-    };
-
-    atoms.iter().skip(1).all(|a| {
-        let v = a.pos - p0;
-        let proj = v.dot(&dir);
-        (v - dir * proj).norm() < TOLERANCE
-    })
-}
-
-pub(super) fn find_linear_axis(atoms: &[Atom]) -> Vector3<f64> {
-    let p0 = &atoms[0].pos;
-    for a in atoms.iter().skip(1) {
-        let d = a.pos - p0;
-        if d.norm() > TOLERANCE {
-            return d.normalize();
-        }
-    }
-    Vector3::x()
-}
-
-pub(super) fn check_inversion(atoms: &[Atom]) -> bool {
-    check_operation(atoms, |v| -v)
 }
 
 pub(super) fn check_operation(

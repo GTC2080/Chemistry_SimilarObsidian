@@ -633,6 +633,20 @@ typedef struct kernel_symmetry_plane_input {
   double normal[3];
 } kernel_symmetry_plane_input;
 
+typedef struct kernel_symmetry_atom_input {
+  const char* element;
+  double position[3];
+  double mass;
+} kernel_symmetry_atom_input;
+
+typedef struct kernel_symmetry_shape_result {
+  double center_of_mass[3];
+  double mol_radius;
+  uint8_t is_linear;
+  double linear_axis[3];
+  uint8_t has_inversion;
+} kernel_symmetry_shape_result;
+
 typedef struct kernel_symmetry_render_axis {
   double vector[3];
   double center[3];

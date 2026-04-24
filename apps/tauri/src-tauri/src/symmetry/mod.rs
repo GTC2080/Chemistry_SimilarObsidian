@@ -1,6 +1,6 @@
 //! 分子点群与空间对称性推演桥接层
 //!
-//! Tauri Rust 保留候选几何搜索和命令 DTO；解析、点群分类与渲染几何已由 C++ kernel 提供。
+//! Tauri Rust 保留候选几何搜索和命令 DTO；解析、形状分析、点群分类与渲染几何已由 C++ kernel 提供。
 //! 前端零计算：几何数据（平面顶点、轴端点）在 host 命令返回前由 kernel 预计算完毕。
 
 mod classify;
@@ -8,18 +8,18 @@ mod geometry;
 mod parse;
 mod render;
 mod search;
+mod shape;
 mod types;
 
 use classify::classify_point_group;
-use geometry::{
-    center_of_mass, check_inversion, check_linear, compute_principal_axes, find_linear_axis,
-};
+use geometry::compute_principal_axes;
 use parse::parse_atoms;
 use render::build_render_geometry;
 use search::{
     find_mirror_planes, find_rotation_axes, generate_candidate_directions,
     generate_candidate_planes,
 };
+use shape::analyze_shape;
 use types::{FoundAxis, FoundPlane};
 
 pub use types::SymmetryData;
@@ -57,30 +57,27 @@ pub fn calculate(raw_data: &str, format: &str) -> Result<SymmetryData, String> {
         });
     }
 
+    let shape = analyze_shape(&atoms)?;
+
     // 平移至质心
-    let com = center_of_mass(&atoms);
+    let com = shape.center_of_mass;
     for atom in &mut atoms {
         atom.pos -= com;
     }
 
     // 分子半径（用于渲染尺寸缩放）
-    let mol_radius = atoms
-        .iter()
-        .map(|a| a.pos.norm())
-        .fold(0.0_f64, f64::max)
-        .max(1.0);
+    let mol_radius = shape.mol_radius;
 
     // 检测线性分子
-    let is_linear = check_linear(&atoms);
+    let is_linear = shape.is_linear;
 
     if is_linear {
-        let has_inv = check_inversion(&atoms);
+        let has_inv = shape.has_inversion;
         let pg = if has_inv { "D∞h" } else { "C∞v" };
 
         // 线性分子：主轴沿分子方向
-        let axis_dir = find_linear_axis(&atoms);
         let found_axes = vec![FoundAxis {
-            dir: axis_dir,
+            dir: shape.linear_axis,
             order: 0, // order=0 表示 ∞
         }];
         let (axes_render, _) = build_render_geometry(&found_axes, &[], mol_radius)?;
@@ -102,7 +99,7 @@ pub fn calculate(raw_data: &str, format: &str) -> Result<SymmetryData, String> {
     let found_axes: Vec<FoundAxis> = find_rotation_axes(&atoms, &candidate_dirs);
     let candidate_planes = generate_candidate_planes(&atoms, &found_axes, &principal_axes);
     let found_planes: Vec<FoundPlane> = find_mirror_planes(&atoms, &candidate_planes);
-    let has_inversion = check_inversion(&atoms);
+    let has_inversion = shape.has_inversion;
 
     // 点群分类
     let point_group = classify_point_group(&found_axes, &found_planes, has_inversion);

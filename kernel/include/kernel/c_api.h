@@ -180,6 +180,10 @@ kernel_status kernel_classify_point_group(
     size_t plane_count,
     uint8_t has_inversion,
     kernel_symmetry_classification_result* out_result);
+kernel_status kernel_analyze_symmetry_shape(
+    const kernel_symmetry_atom_input* atoms,
+    size_t atom_count,
+    kernel_symmetry_shape_result* out_result);
 kernel_status kernel_build_symmetry_render_geometry(
     const kernel_symmetry_axis_input* axes,
     size_t axis_count,

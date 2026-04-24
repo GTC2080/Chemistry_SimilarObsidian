@@ -33,6 +33,19 @@ Required coverage:
 - nonzero axis count with null axes returns `KERNEL_ERROR_INVALID_ARGUMENT`
 - nonzero plane count with null planes returns `KERNEL_ERROR_INVALID_ARGUMENT`
 
+## Shape Analysis
+
+Required coverage:
+
+- `kernel_analyze_symmetry_shape(...)` computes mass-weighted center of mass
+- shape analysis returns the viewer radius with the frozen minimum of `1.0`
+- linear molecules return `is_linear = true`
+- linear molecules return a normalized linear axis
+- inversion-symmetric molecules return `has_inversion = true`
+- nonlinear molecules return `is_linear = false`
+- non-inversion molecules return `has_inversion = false`
+- null atom input, zero atom count, null output, and null atom elements return `KERNEL_ERROR_INVALID_ARGUMENT`
+
 ## Render Geometry
 
 Required coverage:
@@ -52,5 +65,6 @@ Required coverage:
 
 - Tauri Rust `symmetry::parse` is a thin C ABI bridge
 - Tauri Rust `symmetry::classify` is a thin C ABI bridge
+- Tauri Rust `symmetry::shape` is a thin C ABI bridge
 - Tauri Rust `symmetry::render` is a thin C ABI bridge
-- full `calculate_symmetry` smoke tests still exercise the kernel classifier through the Rust command path
+- full `calculate_symmetry` smoke tests still exercise the kernel classifier and shape analyzer through the Rust command path
