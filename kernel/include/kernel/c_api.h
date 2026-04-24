@@ -143,6 +143,12 @@ kernel_status kernel_parse_spectroscopy_text(
     size_t raw_size,
     const char* extension,
     kernel_spectroscopy_data* out_data);
+kernel_status kernel_build_molecular_preview(
+    const char* raw,
+    size_t raw_size,
+    const char* extension,
+    size_t max_atoms,
+    kernel_molecular_preview* out_preview);
 kernel_status kernel_parse_cif_crystal(
     const char* raw,
     size_t raw_size,
@@ -244,6 +250,7 @@ void kernel_free_chem_spectrum_record(kernel_chem_spectrum_record* spectrum);
 void kernel_free_chem_spectrum_list(kernel_chem_spectrum_list* spectra);
 void kernel_free_polymerization_kinetics_result(kernel_polymerization_kinetics_result* result);
 void kernel_free_spectroscopy_data(kernel_spectroscopy_data* data);
+void kernel_free_molecular_preview(kernel_molecular_preview* preview);
 void kernel_free_crystal_parse_result(kernel_crystal_parse_result* result);
 void kernel_free_supercell_result(kernel_supercell_result* result);
 void kernel_free_chem_spectrum_source_refs(kernel_chem_spectrum_source_refs* refs);

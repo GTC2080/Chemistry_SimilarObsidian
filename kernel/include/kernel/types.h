@@ -517,6 +517,19 @@ typedef struct kernel_spectroscopy_data {
   kernel_spectroscopy_parse_error error;
 } kernel_spectroscopy_data;
 
+typedef enum kernel_molecular_preview_error {
+  KERNEL_MOLECULAR_PREVIEW_ERROR_NONE = 0,
+  KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION = 1
+} kernel_molecular_preview_error;
+
+typedef struct kernel_molecular_preview {
+  char* preview_data;
+  size_t atom_count;
+  size_t preview_atom_count;
+  uint8_t truncated;
+  kernel_molecular_preview_error error;
+} kernel_molecular_preview;
+
 typedef enum kernel_crystal_miller_error {
   KERNEL_CRYSTAL_MILLER_ERROR_NONE = 0,
   KERNEL_CRYSTAL_MILLER_ERROR_ZERO_INDEX = 1,

@@ -28,9 +28,9 @@ Current exclusions:
 
 ## Stateless Compute Surface
 
-The polymerization kinetics simulator, stoichiometry recalculation, and
-spectroscopy text parser are chemistry compute/read surfaces, not Track 5
-persisted capability surfaces.
+The polymerization kinetics simulator, stoichiometry recalculation,
+spectroscopy text parser, and molecular preview builder are chemistry
+compute/read surfaces, not Track 5 persisted capability surfaces.
 
 They land:
 
@@ -39,6 +39,8 @@ They land:
 - `kernel_recalculate_stoichiometry(rows, count, out_rows)`
 - `kernel_parse_spectroscopy_text(raw, raw_size, extension, out_data)`
 - `kernel_free_spectroscopy_data(out_data)`
+- `kernel_build_molecular_preview(raw, raw_size, extension, max_atoms, out_preview)`
+- `kernel_free_molecular_preview(out_preview)`
 
 Frozen rules:
 
@@ -51,9 +53,13 @@ Frozen rules:
   host-owned output buffer
 - the spectroscopy parser returns deterministic x/series arrays and labels
   derived only from caller-provided text and extension
+- the molecular preview builder returns deterministic PDB/XYZ/CIF preview text
+  derived only from caller-provided text, extension, and atom limit
 - Tauri Rust may own serde command marshalling, but not the simulation model
 - Tauri Rust may own file IO and serde command marshalling, but not
   spectroscopy CSV/JDX parsing rules
+- Tauri Rust may own file IO and serde command marshalling, but not PDB/XYZ
+  molecular preview construction rules
 - Tauri Rust and other hosts keep row identity, names, formulas, and UI labels;
   the kernel owns stoichiometry numeric propagation rules
 - all returned kinetics arrays are kernel-owned until released with
@@ -61,6 +67,8 @@ Frozen rules:
 - stoichiometry output rows remain host-owned and require no kernel free call
 - all returned spectroscopy arrays, labels, and titles are kernel-owned until
   released with `kernel_free_spectroscopy_data(...)`
+- returned molecular preview text is kernel-owned until released with
+  `kernel_free_molecular_preview(...)`
 
 Frozen kinetics validation bounds:
 
@@ -104,6 +112,18 @@ Frozen spectroscopy parser rules:
   spectroscopy result
 - parser failures report typed `kernel_spectroscopy_parse_error` values so
   hosts can keep localized command messages without owning parsing rules
+
+Frozen molecular preview rules:
+
+- supported extensions are `pdb`, `xyz`, and `cif`
+- PDB preview counts `ATOM` and `HETATM` records, preserves non-atom lines, and
+  emits only the first `max_atoms` atom records
+- XYZ preview ignores blank atom rows, rewrites the first line to the previewed
+  atom count, preserves the comment line, and emits only the first `max_atoms`
+  atom rows
+- CIF preview preserves raw text and does not infer atom counts through this
+  surface
+- unsupported extensions report `KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION`
 
 ## Carrier Boundary
 

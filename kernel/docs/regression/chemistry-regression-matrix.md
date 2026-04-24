@@ -56,6 +56,14 @@ The repository must retain regression coverage for:
   stale result buffers
 - `kernel_free_spectroscopy_data(...)` leaves the result empty and is safe on
   partially filled data
+- `kernel_build_molecular_preview(...)` counts and truncates PDB `ATOM` /
+  `HETATM` records while preserving non-atom lines
+- molecular preview rewrites XYZ atom counts after blank-row filtering
+- molecular preview preserves CIF text without inferring atom counts
+- unsupported molecular preview extensions report
+  `KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION`
+- `kernel_free_molecular_preview(...)` leaves the result empty and is safe on
+  partially filled data
 
 ## [Batch 1] Chemistry Metadata Namespace v1
 

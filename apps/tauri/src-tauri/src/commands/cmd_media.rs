@@ -1,4 +1,6 @@
+use std::ffi::{CStr, CString};
 use std::fs;
+use std::os::raw::c_char;
 use std::path::Path;
 
 use tauri::State;
@@ -12,6 +14,8 @@ use crate::AppError;
 const DEFAULT_PREVIEW_ATOM_LIMIT: usize = 2000;
 const MIN_PREVIEW_ATOM_LIMIT: usize = 200;
 const MAX_PREVIEW_ATOM_LIMIT: usize = 20000;
+const KERNEL_OK: i32 = 0;
+const KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION: i32 = 1;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct MolecularPreview {
@@ -19,6 +23,45 @@ pub struct MolecularPreview {
     pub atom_count: usize,
     pub preview_atom_count: usize,
     pub truncated: bool,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KernelMolecularPreview {
+    preview_data: *mut c_char,
+    atom_count: usize,
+    preview_atom_count: usize,
+    truncated: u8,
+    error: i32,
+}
+
+impl Default for KernelMolecularPreview {
+    fn default() -> Self {
+        Self {
+            preview_data: std::ptr::null_mut(),
+            atom_count: 0,
+            preview_atom_count: 0,
+            truncated: 0,
+            error: 0,
+        }
+    }
+}
+
+extern "C" {
+    fn kernel_build_molecular_preview(
+        raw: *const c_char,
+        raw_size: usize,
+        extension: *const c_char,
+        max_atoms: usize,
+        out_preview: *mut KernelMolecularPreview,
+    ) -> KernelStatus;
+    fn kernel_free_molecular_preview(preview: *mut KernelMolecularPreview);
 }
 
 #[tauri::command]
@@ -47,69 +90,57 @@ fn clamp_preview_limit(limit: Option<usize>) -> usize {
         .clamp(MIN_PREVIEW_ATOM_LIMIT, MAX_PREVIEW_ATOM_LIMIT)
 }
 
-fn build_pdb_preview(raw: &str, max_atoms: usize) -> MolecularPreview {
-    let mut atom_count = 0usize;
-    let mut preview_atom_count = 0usize;
-    let mut lines: Vec<String> = Vec::new();
-
-    for line in raw.lines() {
-        let is_atom_line = line.starts_with("ATOM") || line.starts_with("HETATM");
-        if is_atom_line {
-            atom_count += 1;
-            if preview_atom_count < max_atoms {
-                preview_atom_count += 1;
-                lines.push(line.to_string());
-            }
-            continue;
+fn molecular_preview_error_message(error: i32, extension: &str) -> String {
+    match error {
+        KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION => {
+            format!("不支持的分子文件扩展名: {}", extension)
         }
-        lines.push(line.to_string());
-    }
-
-    MolecularPreview {
-        preview_data: lines.join("\n"),
-        atom_count,
-        preview_atom_count: preview_atom_count.min(atom_count),
-        truncated: atom_count > max_atoms,
+        _ => "分子预览内核构建失败".to_string(),
     }
 }
 
-fn build_xyz_preview(raw: &str, max_atoms: usize) -> MolecularPreview {
-    let mut lines = raw.lines();
-    let _header_count = lines.next();
-    let comment = lines.next().unwrap_or("");
-    let atom_lines: Vec<&str> = lines.collect();
-    let atom_count = atom_lines
-        .iter()
-        .filter(|line| !line.trim().is_empty())
-        .count();
-    let preview_atom_count = atom_count.min(max_atoms);
-
-    let mut preview_lines: Vec<String> = Vec::with_capacity(preview_atom_count + 2);
-    preview_lines.push(preview_atom_count.to_string());
-    preview_lines.push(comment.to_string());
-    preview_lines.extend(
-        atom_lines
-            .iter()
-            .filter(|line| !line.trim().is_empty())
-            .take(preview_atom_count)
-            .map(|line| (*line).to_string()),
-    );
-
-    MolecularPreview {
-        preview_data: preview_lines.join("\n"),
-        atom_count,
-        preview_atom_count,
-        truncated: atom_count > max_atoms,
+unsafe fn molecular_preview_from_kernel(
+    raw: &KernelMolecularPreview,
+) -> Result<MolecularPreview, String> {
+    if raw.preview_data.is_null() {
+        return Err("分子预览内核缺少 preview_data 输出".to_string());
     }
+    Ok(MolecularPreview {
+        preview_data: CStr::from_ptr(raw.preview_data)
+            .to_string_lossy()
+            .into_owned(),
+        atom_count: raw.atom_count,
+        preview_atom_count: raw.preview_atom_count,
+        truncated: raw.truncated != 0,
+    })
 }
 
-fn build_cif_preview(raw: &str) -> MolecularPreview {
-    MolecularPreview {
-        preview_data: raw.to_string(),
-        atom_count: 0,
-        preview_atom_count: 0,
-        truncated: false,
+fn build_molecular_preview(
+    raw: &str,
+    extension: &str,
+    max_atoms: usize,
+) -> Result<MolecularPreview, AppError> {
+    let extension_c = CString::new(extension)
+        .map_err(|_| AppError::Custom("分子文件扩展名包含非法空字符".to_string()))?;
+    let mut result = KernelMolecularPreview::default();
+    let status = unsafe {
+        kernel_build_molecular_preview(
+            raw.as_ptr() as *const c_char,
+            raw.len(),
+            extension_c.as_ptr(),
+            max_atoms,
+            &mut result,
+        )
+    };
+    if status.code != KERNEL_OK {
+        let message = molecular_preview_error_message(result.error, extension);
+        unsafe { kernel_free_molecular_preview(&mut result) };
+        return Err(AppError::Custom(message));
     }
+
+    let preview = unsafe { molecular_preview_from_kernel(&result) }.map_err(AppError::Custom);
+    unsafe { kernel_free_molecular_preview(&mut result) };
+    preview
 }
 
 #[tauri::command]
@@ -129,14 +160,7 @@ pub async fn read_molecular_preview(
 
         let raw = read_note_sync(&file_path)?;
         let limit = clamp_preview_limit(max_atoms);
-
-        let preview = match ext.as_str() {
-            "pdb" => build_pdb_preview(&raw, limit),
-            "xyz" => build_xyz_preview(&raw, limit),
-            _ => build_cif_preview(&raw),
-        };
-
-        Ok(preview)
+        build_molecular_preview(&raw, &ext, limit)
     })
     .await
     .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
@@ -222,4 +246,34 @@ pub async fn read_note_indexed_content(
     }
 
     sealed_kernel::read_note_by_rel_path(&normalized, sealed_kernel.inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn molecular_preview_uses_kernel_for_pdb_truncation() {
+        let raw = "HEADER sample\nATOM one\nHETATM two\nATOM three\nEND\n";
+        let preview = build_molecular_preview(raw, "pdb", 2).expect("kernel molecular preview");
+
+        assert_eq!(preview.atom_count, 3);
+        assert_eq!(preview.preview_atom_count, 2);
+        assert!(preview.truncated);
+        assert!(preview.preview_data.contains("HEADER sample"));
+        assert!(preview.preview_data.contains("HETATM two"));
+        assert!(!preview.preview_data.contains("ATOM three"));
+    }
+
+    #[test]
+    fn molecular_preview_uses_kernel_for_xyz_header() {
+        let raw = "4\ncomment\nO 0 0 0\n\nH 0 1 0\nH 0 -1 0\n";
+        let preview = build_molecular_preview(raw, "xyz", 2).expect("kernel molecular preview");
+
+        assert_eq!(preview.atom_count, 3);
+        assert_eq!(preview.preview_atom_count, 2);
+        assert!(preview.truncated);
+        assert!(preview.preview_data.starts_with("2\ncomment\n"));
+        assert!(!preview.preview_data.contains("H 0 -1 0"));
+    }
 }
