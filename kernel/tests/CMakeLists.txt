@@ -64,6 +64,7 @@ add_executable(
   src/api/kernel_api_tests_core_contract_write.cpp
   src/api/kernel_api_tests_core_contract_parser.cpp
   src/api/kernel_api_tests_core_note_catalog.cpp
+  src/api/kernel_api_tests_core_file_tree.cpp
   src/api/kernel_api_tests_core_tag_catalog.cpp
   src/api/kernel_api_tests_core_graph_catalog.cpp
   src/api/kernel_api_tests_core_vault_entries.cpp

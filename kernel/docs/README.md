@@ -34,6 +34,8 @@
 
 - search
   - [contracts/search-query-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/search-query-contract.md)
+- file tree
+  - [contracts/file-tree-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/file-tree-contract.md)
 - attachment
   - [contracts/attachment-query-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/attachment-query-contract.md)
   - [contracts/attachment-metadata-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/attachment-metadata-contract.md)
@@ -51,6 +53,7 @@
 ## Regression Matrices
 
 - [regression/search-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/search-regression-matrix.md)
+- [regression/file-tree-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/file-tree-regression-matrix.md)
 - [regression/attachment-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/attachment-regression-matrix.md)
 - [regression/pdf-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/pdf-regression-matrix.md)
 - [regression/domain-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/domain-regression-matrix.md)

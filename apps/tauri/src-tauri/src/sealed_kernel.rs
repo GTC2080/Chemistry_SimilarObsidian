@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::State;
 
-use crate::models::{EnrichedGraphData, GraphData, NoteInfo, TagInfo, TagTreeNode};
+use crate::models::{EnrichedGraphData, FileTreeNode, GraphData, NoteInfo, TagInfo, TagTreeNode};
 use crate::{AppError, AppResult};
 
 #[repr(C)]
@@ -41,6 +41,12 @@ extern "C" {
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_query_notes_json(
+        session: *mut SealedKernelBridgeSession,
+        limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_file_tree_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
         out_json: *mut *mut c_char,
@@ -165,6 +171,32 @@ struct SealedKernelTagRecord {
 #[derive(Deserialize)]
 struct SealedKernelReadNoteResult {
     content: String,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelFileTreeCatalog {
+    nodes: Vec<SealedKernelFileTreeNode>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SealedKernelFileTreeNode {
+    name: String,
+    full_name: String,
+    relative_path: String,
+    is_folder: bool,
+    note: Option<SealedKernelFileTreeNote>,
+    children: Vec<SealedKernelFileTreeNode>,
+    file_count: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SealedKernelFileTreeNote {
+    rel_path: String,
+    name: String,
+    extension: String,
+    mtime_ns: u64,
 }
 
 fn take_bridge_string(ptr: *mut c_char) -> String {
@@ -371,6 +403,39 @@ fn note_info_from_record(vault_path: &str, record: SealedKernelNoteRecord) -> No
     }
 }
 
+fn note_info_from_tree_note(vault_path: &str, note: SealedKernelFileTreeNote) -> NoteInfo {
+    let rel_path = note.rel_path.replace('\\', "/");
+    let abs_path = Path::new(vault_path).join(&rel_path);
+    let updated_at = (note.mtime_ns / 1_000_000_000) as i64;
+
+    NoteInfo {
+        id: rel_path,
+        name: note.name,
+        path: abs_path.to_string_lossy().into_owned(),
+        created_at: updated_at,
+        updated_at,
+        file_extension: note.extension,
+    }
+}
+
+fn file_tree_node_from_kernel(vault_path: &str, node: SealedKernelFileTreeNode) -> FileTreeNode {
+    FileTreeNode {
+        name: node.name,
+        full_name: node.full_name,
+        relative_path: node.relative_path,
+        is_folder: node.is_folder,
+        note: node
+            .note
+            .map(|note| note_info_from_tree_note(vault_path, note)),
+        children: node
+            .children
+            .into_iter()
+            .map(|child| file_tree_node_from_kernel(vault_path, child))
+            .collect(),
+        file_count: node.file_count,
+    }
+}
+
 pub fn query_note_infos(
     vault_path: &str,
     state: &SealedKernelState,
@@ -383,6 +448,41 @@ pub fn query_note_infos(
         .notes
         .into_iter()
         .map(|record| note_info_from_record(vault_path, record))
+        .collect())
+}
+
+pub fn query_file_tree(
+    vault_path: &str,
+    state: &SealedKernelState,
+    limit: u64,
+) -> AppResult<Vec<FileTreeNode>> {
+    ensure_vault_open(vault_path, state)?;
+    wait_for_catalog_ready(active_session(state)?)?;
+
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "limit must be greater than zero.".to_string(),
+        ));
+    }
+
+    let session = active_session(state)?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_query_file_tree_json(session, limit, &mut raw_json, &mut error)
+    };
+    if code != 0 {
+        return Err(bridge_error("sealed_kernel_query_file_tree", code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    let catalog: SealedKernelFileTreeCatalog = serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!("sealed kernel file tree JSON is invalid: {err}"))
+    })?;
+    Ok(catalog
+        .nodes
+        .into_iter()
+        .map(|node| file_tree_node_from_kernel(vault_path, node))
         .collect())
 }
 

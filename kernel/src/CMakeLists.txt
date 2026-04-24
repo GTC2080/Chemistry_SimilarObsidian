@@ -10,6 +10,7 @@ add_library(
   impl/core/kernel_rebuild.cpp
   impl/core/kernel_note_io.cpp
   impl/core/kernel_note_catalog_api.cpp
+  impl/core/kernel_file_tree_api.cpp
   impl/core/kernel_vault_entry_api.cpp
   impl/core/kernel_query_api.cpp
   impl/core/kernel_attachment_api_shared.cpp

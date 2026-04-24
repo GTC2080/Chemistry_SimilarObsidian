@@ -87,6 +87,32 @@ typedef struct kernel_note_list {
   size_t count;
 } kernel_note_list;
 
+typedef struct kernel_file_tree_note {
+  char* rel_path;
+  char* name;
+  char* extension;
+  uint64_t mtime_ns;
+} kernel_file_tree_note;
+
+typedef struct kernel_file_tree_node kernel_file_tree_node;
+
+struct kernel_file_tree_node {
+  char* name;
+  char* full_name;
+  char* relative_path;
+  uint8_t is_folder;
+  uint8_t has_note;
+  kernel_file_tree_note note;
+  kernel_file_tree_node* children;
+  size_t child_count;
+  uint32_t file_count;
+};
+
+typedef struct kernel_file_tree {
+  kernel_file_tree_node* nodes;
+  size_t count;
+} kernel_file_tree;
+
 typedef struct kernel_tag_record {
   char* name;
   uint32_t count;

@@ -203,6 +203,41 @@ void AppendNoteHitJson(
   json += "\"mtime_ns\":" + std::to_string(mtime_ns) + "}";
 }
 
+void AppendFileTreeNoteJson(std::string& json, const kernel_file_tree_note& note) {
+  const std::string rel_path_utf8 = ActiveCodePageToUtf8(note.rel_path);
+  const std::string name_utf8 = ActiveCodePageToUtf8(note.name);
+  json += "{\"relPath\":\"" + JsonEscape(rel_path_utf8.c_str()) + "\",";
+  json += "\"name\":\"" + JsonEscape(name_utf8.c_str()) + "\",";
+  json += "\"extension\":\"" + JsonEscape(note.extension) + "\",";
+  json += "\"mtimeNs\":" + std::to_string(note.mtime_ns) + "}";
+}
+
+void AppendFileTreeNodeJson(std::string& json, const kernel_file_tree_node& node) {
+  const std::string name_utf8 = ActiveCodePageToUtf8(node.name);
+  const std::string full_name_utf8 = ActiveCodePageToUtf8(node.full_name);
+  const std::string relative_path_utf8 = ActiveCodePageToUtf8(node.relative_path);
+
+  json += "{\"name\":\"" + JsonEscape(name_utf8.c_str()) + "\",";
+  json += "\"fullName\":\"" + JsonEscape(full_name_utf8.c_str()) + "\",";
+  json += "\"relativePath\":\"" + JsonEscape(relative_path_utf8.c_str()) + "\",";
+  json += "\"isFolder\":";
+  json += node.is_folder != 0 ? "true" : "false";
+  json += ",\"note\":";
+  if (node.has_note != 0) {
+    AppendFileTreeNoteJson(json, node.note);
+  } else {
+    json += "null";
+  }
+  json += ",\"children\":[";
+  for (size_t index = 0; index < node.child_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendFileTreeNodeJson(json, node.children[index]);
+  }
+  json += "],\"fileCount\":" + std::to_string(node.file_count) + "}";
+}
+
 }  // namespace
 
 char* sealed_kernel_bridge_info_json(void) {
@@ -318,6 +353,44 @@ int32_t sealed_kernel_bridge_query_notes_json(
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "failed to allocate note catalog JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_file_tree_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0) {
+    SetError(out_error, "sealed kernel session is not open or file tree arguments are invalid.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_file_tree tree{};
+  const kernel_status status =
+      kernel_query_file_tree(session->handle, static_cast<size_t>(limit), &tree);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_query_file_tree", out_error);
+  }
+
+  std::string json = "{\"nodes\":[";
+  for (size_t index = 0; index < tree.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendFileTreeNodeJson(json, tree.nodes[index]);
+  }
+  json += "],\"count\":" + std::to_string(tree.count) + "}";
+
+  kernel_free_file_tree(&tree);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "failed to allocate file tree JSON.");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);
