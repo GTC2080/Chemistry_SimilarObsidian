@@ -1,9 +1,44 @@
 use tauri::{AppHandle, State};
 
 use crate::ai;
-use crate::db::{self, DbState};
+use crate::db::DbState;
+use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::read_ai_config;
 use crate::AppError;
+
+fn note_display_name(note_id: &str) -> String {
+    std::path::Path::new(note_id)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(note_id)
+        .to_string()
+}
+
+fn collect_rag_note_contents(
+    note_ids: impl IntoIterator<Item = String>,
+    kernel_state: &SealedKernelState,
+) -> Vec<(String, String)> {
+    let mut seen = std::collections::HashSet::new();
+    let mut contents = Vec::new();
+
+    for note_id in note_ids {
+        let normalized = note_id.trim().replace('\\', "/");
+        if normalized.is_empty() || !seen.insert(normalized.clone()) {
+            continue;
+        }
+
+        match sealed_kernel::read_note_by_rel_path(&normalized, kernel_state) {
+            Ok(content) if !content.trim().is_empty() => {
+                contents.push((note_display_name(&normalized), content));
+            }
+            Ok(_) => {}
+            Err(err) => eprintln!("[ask_vault] 跳过 RAG 笔记 [{}]: {}", normalized, err),
+        }
+    }
+
+    contents
+}
 
 #[tauri::command]
 pub async fn test_ai_connection(
@@ -37,28 +72,23 @@ pub async fn ask_vault(
     db: State<'_, DbState>,
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
     vector_cache: State<'_, ai::VectorCacheState>,
+    sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<(), AppError> {
     let config = read_ai_config(&app)?;
     let query_embedding =
         ai::fetch_embedding_cached(&question, &config, embedding_runtime.inner()).await?;
+    sealed_kernel::active_vault_path(sealed_kernel.inner())?;
 
     let top_notes = {
         let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
         vector_cache.top_k(&query_embedding, 5, active_note_id.as_deref(), &conn)?
     };
 
-    let top_ids: Vec<String> = top_notes.iter().map(|n| n.id.clone()).collect();
-
-    let mut note_contents = Vec::new();
-    {
-        let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        if let Some(ref aid) = active_note_id {
-            let active_contents = db::get_notes_content_by_ids(&conn, std::slice::from_ref(aid))?;
-            note_contents.extend(active_contents);
-        }
-        let related_contents = db::get_notes_content_by_ids(&conn, &top_ids)?;
-        note_contents.extend(related_contents);
-    }
+    let related_ids = top_notes.iter().map(|note| note.id.clone());
+    let note_contents = collect_rag_note_contents(
+        active_note_id.iter().cloned().chain(related_ids),
+        sealed_kernel.inner(),
+    );
 
     let context = ai::build_rag_context(&note_contents);
     ai::stream_chat_with_context(&question, &context, &config, |chunk| {

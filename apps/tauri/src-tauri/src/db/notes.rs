@@ -1,4 +1,4 @@
-use rusqlite::{params, types::ToSql, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::AppResult;
 
@@ -56,40 +56,4 @@ pub fn get_all_note_timestamps(
         map.insert(id, ts);
     }
     Ok(map)
-}
-
-/// 批量获取笔记的内容和文件名，用于 RAG 上下文组装。
-/// 返回 Vec<(filename, content)>。
-pub fn get_notes_content_by_ids(
-    conn: &Connection,
-    ids: &[String],
-) -> AppResult<Vec<(String, String)>> {
-    if ids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    // 动态构建 IN 子句的占位符
-    let placeholders: Vec<String> = ids
-        .iter()
-        .enumerate()
-        .map(|(i, _)| format!("?{}", i + 1))
-        .collect();
-    let sql = format!(
-        "SELECT filename, content FROM notes_index WHERE id IN ({})",
-        placeholders.join(", ")
-    );
-
-    let mut stmt = conn.prepare(&sql)?;
-
-    let params: Vec<&dyn ToSql> = ids.iter().map(|id| id as &dyn ToSql).collect();
-
-    let rows = stmt.query_map(params.as_slice(), |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    })?;
-
-    let mut results = Vec::new();
-    for row in rows {
-        results.push(row?);
-    }
-    Ok(results)
 }
