@@ -10,6 +10,7 @@ void run_chemistry_tests() {
   run_chemistry_diagnostics_tests();
   run_chemistry_kinetics_tests();
   run_chemistry_molecular_preview_tests();
+  run_chemistry_retrosynthesis_tests();
   run_chemistry_spectroscopy_tests();
   run_chemistry_stoichiometry_tests();
 }

@@ -28,6 +28,7 @@ add_executable(
   src/api/kernel_api_tests_chemistry_metadata.cpp
   src/api/kernel_api_tests_chemistry_molecular_preview.cpp
   src/api/kernel_api_tests_chemistry_references.cpp
+  src/api/kernel_api_tests_chemistry_retrosynthesis.cpp
   src/api/kernel_api_tests_chemistry_spectroscopy.cpp
   src/api/kernel_api_tests_chemistry_stoichiometry.cpp
   src/api/kernel_api_tests_chemistry_subtype.cpp

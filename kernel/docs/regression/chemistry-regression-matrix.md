@@ -45,6 +45,14 @@ The repository must retain regression coverage for:
   from previous positive `mass / volume`
 - stoichiometry rejects null input or output buffers when `count > 0`
 - stoichiometry accepts zero-count null buffers without allocation
+- `kernel_generate_mock_retrosynthesis(...)` emits an amide pathway for
+  `C(=O)N` targets
+- retrosynthesis target ids use the `retro_` prefix
+- retrosynthesis preserves precursor roles
+- retrosynthesis clamps depth to the frozen `1..4` range
+- retrosynthesis rejects null or empty targets
+- `kernel_free_retro_tree(...)` leaves the tree empty and is safe on filled
+  output
 - `kernel_parse_spectroscopy_text(...)` parses CSV x values and multiple y
   series
 - spectroscopy CSV parsing preserves header-derived x and series labels

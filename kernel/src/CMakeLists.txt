@@ -26,6 +26,7 @@ add_library(
   impl/core/kernel_chemistry_public_api.cpp
   impl/core/kernel_chemistry_kinetics_public_api.cpp
   impl/core/kernel_chemistry_stoichiometry_public_api.cpp
+  impl/core/kernel_chemistry_retrosynthesis_public_api.cpp
   impl/core/kernel_chemistry_spectroscopy_public_api.cpp
   impl/core/kernel_chemistry_molecular_preview_public_api.cpp
   impl/core/kernel_crystal_public_api.cpp
@@ -70,6 +71,7 @@ add_library(
   impl/chemistry/chemistry_spectrum_selector.cpp
   impl/chemistry/molecular_preview.cpp
   impl/chemistry/polymerization_kinetics.cpp
+  impl/chemistry/retrosynthesis.cpp
   impl/chemistry/spectroscopy_parser.cpp
   impl/chemistry/stoichiometry.cpp
   impl/crystal/cif_parser.cpp

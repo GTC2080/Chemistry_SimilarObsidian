@@ -138,6 +138,10 @@ kernel_status kernel_recalculate_stoichiometry(
     const kernel_stoichiometry_row_input* rows,
     size_t count,
     kernel_stoichiometry_row_output* out_rows);
+kernel_status kernel_generate_mock_retrosynthesis(
+    const char* target_smiles,
+    uint8_t depth,
+    kernel_retro_tree* out_tree);
 kernel_status kernel_parse_spectroscopy_text(
     const char* raw,
     size_t raw_size,
@@ -249,6 +253,7 @@ void kernel_free_domain_object_list(kernel_domain_object_list* objects);
 void kernel_free_chem_spectrum_record(kernel_chem_spectrum_record* spectrum);
 void kernel_free_chem_spectrum_list(kernel_chem_spectrum_list* spectra);
 void kernel_free_polymerization_kinetics_result(kernel_polymerization_kinetics_result* result);
+void kernel_free_retro_tree(kernel_retro_tree* tree);
 void kernel_free_spectroscopy_data(kernel_spectroscopy_data* data);
 void kernel_free_molecular_preview(kernel_molecular_preview* preview);
 void kernel_free_crystal_parse_result(kernel_crystal_parse_result* result);

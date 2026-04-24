@@ -43,6 +43,7 @@
 ## 最近更新
 
 - **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
+- **v1.0.6-dev** — 化学无状态计算继续内核化：高分子动力学、化学计量、波谱解析、分子预览、逆合成 mock pathway 规则均通过 `kernel/` C ABI 提供；Tauri Rust 只保留 PubChem HTTP 查询、命令 DTO 映射和 kernel 内存释放桥接。
 - **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Rust Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
@@ -72,6 +73,16 @@
 
 `get_tag_tree` 的树形结构只由 Tauri bridge 根据 `kernel_query_tags(...)` 返回的 bare tag catalog 做展示层折叠，不重新扫描 Markdown，也不访问旧 Rust DB 关系表。
 关系真相必须保持在 kernel：前端只调用 Tauri command，Rust command 只做参数校验、JSON 桥接和 UI 形状适配。
+
+已收口到 kernel 的化学无状态计算面：
+
+- `simulate_polymerization` -> `kernel_simulate_polymerization_kinetics(...)`
+- `recalculate_stoichiometry` -> `kernel_recalculate_stoichiometry(...)`
+- `parse_spectroscopy` -> `kernel_parse_spectroscopy_text(...)`
+- `read_molecular_preview` -> `kernel_build_molecular_preview(...)`
+- `retrosynthesize_target` -> `kernel_generate_mock_retrosynthesis(...)`
+
+`fetch_compound_info` 仍是 Tauri Rust 的网络适配层；逆合成 pathway 规则不再由 Rust 构造。
 
 ## 快速开始
 
@@ -224,27 +235,23 @@ src-tauri/src/          # Rust 后端
 │   ├── cmd_media.rs    # 媒体与波谱解析命令
 │   ├── cmd_pdf.rs      # PDF 命令（文件读取/笔迹平滑/批注持久化）
 │   ├── cmd_symmetry.rs # 分子对称性分析命令（点群/轴/镜面）
-│   └── cmd_crystal.rs  # 晶格解析与密勒面计算命令（CIF → 超晶胞 → 切割面）
+│   └── cmd_crystal.rs  # 晶格解析与密勒面计算命令（桥接 kernel 计算面）
 ├── commands.rs         # 命令注册入口
-├── crystal/            # 晶格引擎模块
+├── crystal/            # 晶格 kernel bridge 模块
 │   ├── mod.rs          # 公开接口（parse_and_build_lattice / calculate_miller_plane）
 │   ├── types.rs        # 晶格数据协议（LatticeData / UnitCellBox / AtomNode / MillerPlaneData）
-│   ├── parse.rs        # CIF 全量解析（晶胞参数 / 分数坐标 / 对称操作）
-│   ├── supercell.rs    # 对称操作展开 + HashSet O(1) 去重 + 超晶胞扩展
-│   └── miller.rs       # 密勒指数 → 倒格矢法向量 + 面间距 + 可视化顶点
+│   ├── parse.rs        # CIF 解析 ABI 映射
+│   ├── supercell.rs    # 超晶胞 ABI 映射
+│   └── miller.rs       # 密勒面 ABI 映射
 ├── pdf/                # PDF 模块（渲染已迁移至前端 pdf.js）
 │   ├── mod.rs          # 模块入口
 │   ├── annotations.rs  # 批注数据结构与 JSON 持久化
 │   └── ink.rs          # 笔迹平滑算法（Douglas-Peucker + Catmull-Rom）
-├── kinetics.rs         # 高分子动力学求解器（矩方法 + RK4）
+├── kinetics.rs         # 高分子动力学 kernel bridge
 ├── db.rs               # SQLite 数据库管理
 ├── db/                 # 数据库子模块
 │   ├── schema.rs       # 表结构与迁移
-│   ├── notes.rs        # 笔记读写
-│   ├── embeddings.rs   # 向量索引与 Embedding 存储
-│   ├── relations.rs    # 双链关系维护
-│   ├── parsing.rs      # 标签/链接提取与解析
-│   ├── graph.rs        # 图谱查询（wikilink + 标签共现 + 同文件夹三维关联）
+│   ├── embeddings.rs   # 向量索引、Embedding 存储与 embedding cache metadata
 │   ├── study.rs        # 学习模块入口（子模块: session / stats / truth）
 │   ├── study/          # 学习模块子目录
 │   │   ├── session.rs  # 会话 CRUD（start / tick / end）

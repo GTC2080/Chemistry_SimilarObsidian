@@ -491,6 +491,25 @@ typedef struct kernel_stoichiometry_row_output {
   uint8_t is_reference;
 } kernel_stoichiometry_row_output;
 
+typedef struct kernel_retro_precursor {
+  char* id;
+  char* smiles;
+  char* role;
+} kernel_retro_precursor;
+
+typedef struct kernel_retro_pathway {
+  char* target_id;
+  char* reaction_name;
+  char* conditions;
+  kernel_retro_precursor* precursors;
+  size_t precursor_count;
+} kernel_retro_pathway;
+
+typedef struct kernel_retro_tree {
+  kernel_retro_pathway* pathways;
+  size_t pathway_count;
+} kernel_retro_tree;
+
 typedef enum kernel_spectroscopy_parse_error {
   KERNEL_SPECTROSCOPY_PARSE_ERROR_NONE = 0,
   KERNEL_SPECTROSCOPY_PARSE_ERROR_UNSUPPORTED_EXTENSION = 1,

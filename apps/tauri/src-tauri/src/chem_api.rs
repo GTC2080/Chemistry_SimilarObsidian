@@ -1,5 +1,6 @@
-use std::collections::{HashSet, VecDeque};
-use std::hash::{Hash, Hasher};
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
+use std::slice;
 use std::time::Duration;
 
 use reqwest::{Client, StatusCode, Url};
@@ -31,6 +32,57 @@ pub struct ReactionPathway {
 #[derive(Debug, Serialize, Clone)]
 pub struct RetroTreeData {
     pub pathways: Vec<ReactionPathway>,
+}
+
+const KERNEL_OK: i32 = 0;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelRetroPrecursor {
+    id: *mut c_char,
+    smiles: *mut c_char,
+    role: *mut c_char,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelRetroPathway {
+    target_id: *mut c_char,
+    reaction_name: *mut c_char,
+    conditions: *mut c_char,
+    precursors: *mut KernelRetroPrecursor,
+    precursor_count: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelRetroTree {
+    pathways: *mut KernelRetroPathway,
+    pathway_count: usize,
+}
+
+impl Default for KernelRetroTree {
+    fn default() -> Self {
+        Self {
+            pathways: std::ptr::null_mut(),
+            pathway_count: 0,
+        }
+    }
+}
+
+extern "C" {
+    fn kernel_generate_mock_retrosynthesis(
+        target_smiles: *const c_char,
+        depth: u8,
+        out_tree: *mut KernelRetroTree,
+    ) -> KernelStatus;
+    fn kernel_free_retro_tree(tree: *mut KernelRetroTree);
 }
 
 #[derive(Debug, Deserialize)]
@@ -141,117 +193,69 @@ fn normalized_smiles(smiles: &str) -> String {
     smiles.split_whitespace().collect::<String>()
 }
 
-fn node_id_from_smiles(smiles: &str) -> String {
-    let normalized = normalized_smiles(smiles);
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    normalized.hash(&mut hasher);
-    format!("retro_{:x}", hasher.finish())
+unsafe fn kernel_string(ptr: *const c_char, label: &str) -> Result<String, String> {
+    if ptr.is_null() {
+        return Err(format!("kernel retrosynthesis returned null {}", label));
+    }
+    CStr::from_ptr(ptr)
+        .to_str()
+        .map(|value| value.to_string())
+        .map_err(|_| format!("kernel retrosynthesis returned invalid UTF-8 {}", label))
 }
 
-fn fallback_pathway(smiles: &str) -> ReactionPathway {
-    let target_id = node_id_from_smiles(smiles);
-    ReactionPathway {
-        target_id,
-        reaction_name: "Generic Bond Disconnection".to_string(),
-        conditions: "Base-mediated two-component assembly".to_string(),
-        precursors: vec![
-            PrecursorNode {
-                id: node_id_from_smiles("C1=CC=CC=C1"),
-                smiles: "C1=CC=CC=C1".to_string(),
-                role: "reactant".to_string(),
-            },
-            PrecursorNode {
-                id: node_id_from_smiles("O=C(O)C"),
-                smiles: "O=C(O)C".to_string(),
-                role: "reactant".to_string(),
-            },
-            PrecursorNode {
-                id: node_id_from_smiles("K2CO3"),
-                smiles: "K2CO3".to_string(),
-                role: "reagent".to_string(),
-            },
-        ],
-    }
+unsafe fn precursor_from_kernel(raw: &KernelRetroPrecursor) -> Result<PrecursorNode, String> {
+    Ok(PrecursorNode {
+        id: kernel_string(raw.id, "precursor id")?,
+        smiles: kernel_string(raw.smiles, "precursor smiles")?,
+        role: kernel_string(raw.role, "precursor role")?,
+    })
 }
 
-fn infer_mock_pathway(smiles: &str) -> ReactionPathway {
-    let normalized = normalized_smiles(smiles);
-    let target_id = node_id_from_smiles(&normalized);
+unsafe fn pathway_from_kernel(raw: &KernelRetroPathway) -> Result<ReactionPathway, String> {
+    let precursor_slice = if raw.precursor_count == 0 {
+        &[][..]
+    } else {
+        if raw.precursors.is_null() {
+            return Err("kernel retrosynthesis returned null precursor list".to_string());
+        }
+        slice::from_raw_parts(raw.precursors, raw.precursor_count)
+    };
 
-    if normalized.contains("C(=O)N") {
-        return ReactionPathway {
-            target_id,
-            reaction_name: "Amide Coupling".to_string(),
-            conditions: "EDC·HCl, DIPEA, DMF, rt".to_string(),
-            precursors: vec![
-                PrecursorNode {
-                    id: node_id_from_smiles("O=C(O)C1=CC=CC=C1"),
-                    smiles: "O=C(O)C1=CC=CC=C1".to_string(),
-                    role: "reactant".to_string(),
-                },
-                PrecursorNode {
-                    id: node_id_from_smiles("NCC1=CC=CC=C1"),
-                    smiles: "NCC1=CC=CC=C1".to_string(),
-                    role: "reactant".to_string(),
-                },
-                PrecursorNode {
-                    id: node_id_from_smiles("HATU"),
-                    smiles: "HATU".to_string(),
-                    role: "reagent".to_string(),
-                },
-            ],
-        };
+    let mut precursors = Vec::with_capacity(precursor_slice.len());
+    for precursor in precursor_slice {
+        precursors.push(precursor_from_kernel(precursor)?);
     }
 
-    if normalized.contains("C(=O)O") {
-        return ReactionPathway {
-            target_id,
-            reaction_name: "Fischer Esterification".to_string(),
-            conditions: "H2SO4 (cat.), EtOH, reflux".to_string(),
-            precursors: vec![
-                PrecursorNode {
-                    id: node_id_from_smiles("O=C(O)C1=CC=CC=C1"),
-                    smiles: "O=C(O)C1=CC=CC=C1".to_string(),
-                    role: "reactant".to_string(),
-                },
-                PrecursorNode {
-                    id: node_id_from_smiles("CCO"),
-                    smiles: "CCO".to_string(),
-                    role: "reactant".to_string(),
-                },
-            ],
-        };
-    }
-
-    if normalized.contains("Br") || normalized.contains("I") || normalized.contains("B(") {
-        return ReactionPathway {
-            target_id,
-            reaction_name: "Suzuki-Miyaura Coupling".to_string(),
-            conditions: "Pd(PPh3)4, K2CO3, THF, 80°C".to_string(),
-            precursors: vec![
-                PrecursorNode {
-                    id: node_id_from_smiles("B(O)Oc1ccccc1"),
-                    smiles: "B(O)Oc1ccccc1".to_string(),
-                    role: "reactant".to_string(),
-                },
-                PrecursorNode {
-                    id: node_id_from_smiles("Brc1ccccc1"),
-                    smiles: "Brc1ccccc1".to_string(),
-                    role: "reactant".to_string(),
-                },
-                PrecursorNode {
-                    id: node_id_from_smiles("[Pd]"),
-                    smiles: "[Pd]".to_string(),
-                    role: "catalyst".to_string(),
-                },
-            ],
-        };
-    }
-
-    fallback_pathway(&normalized)
+    Ok(ReactionPathway {
+        target_id: kernel_string(raw.target_id, "target id")?,
+        reaction_name: kernel_string(raw.reaction_name, "reaction name")?,
+        conditions: kernel_string(raw.conditions, "conditions")?,
+        precursors,
+    })
 }
 
-pub async fn retrosynthesize_target(
+unsafe fn retro_tree_from_kernel(raw: &KernelRetroTree) -> Result<RetroTreeData, String> {
+    let pathway_slice = if raw.pathway_count == 0 {
+        &[][..]
+    } else {
+        if raw.pathways.is_null() {
+            return Err("kernel retrosynthesis returned null pathway list".to_string());
+        }
+        slice::from_raw_parts(raw.pathways, raw.pathway_count)
+    };
+
+    let mut pathways = Vec::with_capacity(pathway_slice.len());
+    for pathway in pathway_slice {
+        pathways.push(pathway_from_kernel(pathway)?);
+    }
+    if pathways.is_empty() {
+        return Err("未生成可用逆合成路径".to_string());
+    }
+
+    Ok(RetroTreeData { pathways })
+}
+
+fn retrosynthesize_target_from_kernel(
     target_smiles: String,
     depth: u8,
 ) -> Result<RetroTreeData, String> {
@@ -260,42 +264,47 @@ pub async fn retrosynthesize_target(
         return Err("请输入目标分子 SMILES".to_string());
     }
 
-    let max_depth = depth.clamp(1, 4);
-    let mut pathways: Vec<ReactionPathway> = Vec::new();
-    let mut queue: VecDeque<(String, String, u8)> = VecDeque::new();
-    let mut expanded: HashSet<String> = HashSet::new();
-
-    let root_id = node_id_from_smiles(&root_smiles);
-    queue.push_back((root_id, root_smiles, 0));
-
-    while let Some((target_id, smiles, level)) = queue.pop_front() {
-        if level >= max_depth {
-            continue;
-        }
-        if !expanded.insert(target_id.clone()) {
-            continue;
-        }
-
-        let mut pathway = infer_mock_pathway(&smiles);
-        pathway.target_id = target_id.clone();
-        pathways.push(pathway.clone());
-
-        let next_level = level + 1;
-        if next_level >= max_depth {
-            continue;
-        }
-
-        for precursor in pathway.precursors {
-            if precursor.role != "reactant" {
-                continue;
-            }
-            queue.push_back((precursor.id, precursor.smiles, next_level));
-        }
-    }
-
-    if pathways.is_empty() {
+    let c_smiles =
+        CString::new(root_smiles).map_err(|_| "目标分子 SMILES 包含无效字符".to_string())?;
+    let mut raw_tree = KernelRetroTree::default();
+    let status =
+        unsafe { kernel_generate_mock_retrosynthesis(c_smiles.as_ptr(), depth, &mut raw_tree) };
+    if status.code != KERNEL_OK {
+        unsafe { kernel_free_retro_tree(&mut raw_tree) };
         return Err("未生成可用逆合成路径".to_string());
     }
 
-    Ok(RetroTreeData { pathways })
+    let result = unsafe { retro_tree_from_kernel(&raw_tree) };
+    unsafe { kernel_free_retro_tree(&mut raw_tree) };
+    result
+}
+
+pub async fn retrosynthesize_target(
+    target_smiles: String,
+    depth: u8,
+) -> Result<RetroTreeData, String> {
+    retrosynthesize_target_from_kernel(target_smiles, depth)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retrosynthesis_uses_kernel_amide_rules() {
+        let result =
+            retrosynthesize_target_from_kernel(" CC(=O)NCC1=CC=CC=C1 ".to_string(), 2).unwrap();
+
+        assert!(!result.pathways.is_empty());
+        assert_eq!(result.pathways[0].reaction_name, "Amide Coupling");
+        assert!(result.pathways[0].target_id.starts_with("retro_"));
+        assert_eq!(result.pathways[0].precursors[2].role, "reagent");
+    }
+
+    #[test]
+    fn retrosynthesis_rejects_empty_smiles_before_kernel_call() {
+        let err = retrosynthesize_target_from_kernel("   ".to_string(), 2).unwrap_err();
+
+        assert_eq!(err, "请输入目标分子 SMILES");
+    }
 }
