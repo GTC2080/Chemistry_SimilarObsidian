@@ -125,6 +125,10 @@ kernel_status kernel_get_chem_spectrum(
 kernel_status kernel_simulate_polymerization_kinetics(
     const kernel_polymerization_kinetics_params* params,
     kernel_polymerization_kinetics_result* out_result);
+kernel_status kernel_recalculate_stoichiometry(
+    const kernel_stoichiometry_row_input* rows,
+    size_t count,
+    kernel_stoichiometry_row_output* out_rows);
 kernel_status kernel_query_note_chem_spectrum_refs(
     kernel_handle* handle,
     const char* note_rel_path,

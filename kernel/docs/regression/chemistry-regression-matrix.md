@@ -33,6 +33,18 @@ The repository must retain regression coverage for:
 - invalid physical parameters return `KERNEL_ERROR_INVALID_ARGUMENT`
 - invalid calls clear stale kernel-owned output before returning
 - `kernel_free_polymerization_kinetics_result(...)` is idempotent and leaves the result empty
+- `kernel_recalculate_stoichiometry(...)` uses the first marked reference row
+- `kernel_recalculate_stoichiometry(...)` defaults row `0` as reference when no
+  row is marked
+- stoichiometry reference rows force `eq = 1`
+- stoichiometry dependent rows derive moles, mass, and volume from the
+  reference row
+- stoichiometry clamps non-finite or non-positive `mw`, `eq`, and reference
+  `moles`
+- stoichiometry preserves explicit positive density and infers missing density
+  from previous positive `mass / volume`
+- stoichiometry rejects null input or output buffers when `count > 0`
+- stoichiometry accepts zero-count null buffers without allocation
 
 ## [Batch 1] Chemistry Metadata Namespace v1
 

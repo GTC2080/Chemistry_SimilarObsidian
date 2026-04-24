@@ -207,8 +207,50 @@ pub fn build_semantic_context(content: String) -> String {
 }
 
 // ──────────────────────────────────────────
-// 化学计量计算（从前端 JS 迁移到 Rust）
+// 化学计量计算（Rust 桥接 C++ kernel）
 // ──────────────────────────────────────────
+
+const KERNEL_OK: i32 = 0;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStoichiometryRowInput {
+    mw: f64,
+    eq: f64,
+    moles: f64,
+    mass: f64,
+    volume: f64,
+    density: f64,
+    has_density: u8,
+    is_reference: u8,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+struct KernelStoichiometryRowOutput {
+    mw: f64,
+    eq: f64,
+    moles: f64,
+    mass: f64,
+    volume: f64,
+    density: f64,
+    has_density: u8,
+    is_reference: u8,
+}
+
+extern "C" {
+    fn kernel_recalculate_stoichiometry(
+        rows: *const KernelStoichiometryRowInput,
+        count: usize,
+        out_rows: *mut KernelStoichiometryRowOutput,
+    ) -> KernelStatus;
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -226,11 +268,16 @@ pub struct StoichiometryRow {
     pub density: Option<f64>,
 }
 
-fn to_non_negative(v: f64) -> f64 {
-    if v.is_finite() && v > 0.0 {
-        v
-    } else {
-        0.0
+fn kernel_stoichiometry_input_from(row: &StoichiometryRow) -> KernelStoichiometryRowInput {
+    KernelStoichiometryRowInput {
+        mw: row.mw,
+        eq: row.eq,
+        moles: row.moles,
+        mass: row.mass,
+        volume: row.volume,
+        density: row.density.unwrap_or(0.0),
+        has_density: u8::from(row.density.is_some()),
+        is_reference: u8::from(row.is_reference),
     }
 }
 
@@ -240,42 +287,30 @@ pub fn recalculate_stoichiometry(rows: Vec<StoichiometryRow>) -> Vec<Stoichiomet
         return rows;
     }
 
-    let reference_index = rows.iter().position(|r| r.is_reference).unwrap_or(0);
-    let reference_moles = to_non_negative(rows[reference_index].moles);
+    let input: Vec<KernelStoichiometryRowInput> =
+        rows.iter().map(kernel_stoichiometry_input_from).collect();
+    let mut output = vec![KernelStoichiometryRowOutput::default(); input.len()];
+    let status = unsafe {
+        kernel_recalculate_stoichiometry(input.as_ptr(), input.len(), output.as_mut_ptr())
+    };
+    if status.code != KERNEL_OK {
+        return rows;
+    }
 
     rows.into_iter()
-        .enumerate()
-        .map(|(i, mut row)| {
-            let is_ref = i == reference_index;
-            let eq = if is_ref { 1.0 } else { to_non_negative(row.eq) };
-            let moles = if is_ref {
-                reference_moles
-            } else {
-                reference_moles * eq
-            };
-            let mw = to_non_negative(row.mw);
-            let mass = moles * mw;
-
-            let inferred_density = if row.density.map_or(false, |d| d > 0.0) {
-                row.density
-            } else if row.mass > 0.0 && row.volume > 0.0 {
-                Some(row.mass / row.volume)
+        .zip(output)
+        .map(|(mut row, out)| {
+            row.is_reference = out.is_reference != 0;
+            row.eq = out.eq;
+            row.moles = out.moles;
+            row.mw = out.mw;
+            row.mass = out.mass;
+            row.volume = out.volume;
+            row.density = if out.has_density != 0 {
+                Some(out.density)
             } else {
                 None
             };
-
-            let volume = inferred_density
-                .filter(|d| *d > 0.0)
-                .map(|d| mass / d)
-                .unwrap_or(0.0);
-
-            row.is_reference = is_ref;
-            row.eq = eq;
-            row.moles = moles;
-            row.mw = mw;
-            row.mass = mass;
-            row.volume = volume;
-            row.density = inferred_density;
             row
         })
         .collect()
@@ -422,5 +457,74 @@ pub fn normalize_database(input: serde_json::Value) -> DatabasePayload {
     DatabasePayload {
         columns: safe_columns,
         rows,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn stoich_row(
+        id: &str,
+        mw: f64,
+        eq: f64,
+        moles: f64,
+        mass: f64,
+        volume: f64,
+        is_reference: bool,
+        density: Option<f64>,
+    ) -> StoichiometryRow {
+        StoichiometryRow {
+            id: id.to_string(),
+            name: id.to_string(),
+            formula: String::new(),
+            mw,
+            eq,
+            moles,
+            mass,
+            volume,
+            is_reference,
+            density,
+        }
+    }
+
+    #[test]
+    fn recalculate_stoichiometry_uses_kernel_reference_row() {
+        let result = recalculate_stoichiometry(vec![
+            stoich_row("a", 50.0, 2.0, 99.0, 0.0, 0.0, false, None),
+            stoich_row("b", 100.0, 7.0, 0.25, 9.0, 3.0, true, Some(2.0)),
+            stoich_row("c", 10.0, 3.0, 99.0, 8.0, 4.0, true, None),
+        ]);
+
+        assert!(!result[0].is_reference);
+        assert!(result[1].is_reference);
+        assert!(!result[2].is_reference);
+        assert_eq!(result[1].eq, 1.0);
+        assert_eq!(result[1].moles, 0.25);
+        assert_eq!(result[1].mass, 25.0);
+        assert_eq!(result[1].density, Some(2.0));
+        assert_eq!(result[1].volume, 12.5);
+        assert_eq!(result[2].eq, 3.0);
+        assert_eq!(result[2].moles, 0.75);
+        assert_eq!(result[2].mass, 7.5);
+        assert_eq!(result[2].density, Some(2.0));
+        assert_eq!(result[2].volume, 3.75);
+    }
+
+    #[test]
+    fn recalculate_stoichiometry_defaults_first_row_as_reference() {
+        let result = recalculate_stoichiometry(vec![
+            stoich_row("a", 20.0, 4.0, 0.5, 0.0, 0.0, false, Some(5.0)),
+            stoich_row("b", 30.0, 2.0, 7.0, 0.0, 0.0, false, None),
+        ]);
+
+        assert!(result[0].is_reference);
+        assert_eq!(result[0].eq, 1.0);
+        assert_eq!(result[0].moles, 0.5);
+        assert_eq!(result[0].mass, 10.0);
+        assert_eq!(result[0].volume, 2.0);
+        assert!(!result[1].is_reference);
+        assert_eq!(result[1].moles, 1.0);
+        assert_eq!(result[1].mass, 30.0);
     }
 }

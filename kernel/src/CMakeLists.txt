@@ -24,6 +24,7 @@ add_library(
   impl/core/kernel_chemistry_query_shared.cpp
   impl/core/kernel_chemistry_public_api.cpp
   impl/core/kernel_chemistry_kinetics_public_api.cpp
+  impl/core/kernel_chemistry_stoichiometry_public_api.cpp
   impl/core/kernel_chemistry_reference_resolution.cpp
   impl/core/kernel_chemistry_reference_api_reset.cpp
   impl/core/kernel_chemistry_reference_api_fill.cpp
@@ -62,6 +63,7 @@ add_library(
   impl/chemistry/chemistry_spectrum_metadata.cpp
   impl/chemistry/chemistry_spectrum_selector.cpp
   impl/chemistry/polymerization_kinetics.cpp
+  impl/chemistry/stoichiometry.cpp
   impl/pdf/pdf_anchor.cpp
   impl/pdf/pdf_metadata.cpp
   impl/recovery/journal_format.cpp

@@ -27,6 +27,7 @@ add_executable(
   src/api/kernel_api_tests_chemistry_kinetics.cpp
   src/api/kernel_api_tests_chemistry_metadata.cpp
   src/api/kernel_api_tests_chemistry_references.cpp
+  src/api/kernel_api_tests_chemistry_stoichiometry.cpp
   src/api/kernel_api_tests_chemistry_subtype.cpp
   src/api/kernel_api_tests_domain_surface.cpp
   src/api/kernel_api_tests_domain_surface_attachment.cpp

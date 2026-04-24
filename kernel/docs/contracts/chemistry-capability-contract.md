@@ -28,26 +28,32 @@ Current exclusions:
 
 ## Stateless Compute Surface
 
-The polymerization kinetics simulator is a chemistry compute surface, not a
-Track 5 persisted capability surface.
+The polymerization kinetics simulator and stoichiometry recalculation are
+chemistry compute surfaces, not Track 5 persisted capability surfaces.
 
-It lands:
+They land:
 
 - `kernel_simulate_polymerization_kinetics(params, out_result)`
 - `kernel_free_polymerization_kinetics_result(out_result)`
+- `kernel_recalculate_stoichiometry(rows, count, out_rows)`
 
 Frozen rules:
 
-- the surface is handle-free and must not read or write vault state
-- the surface must not create chemistry truth rows, domain objects, search hits,
+- compute surfaces are handle-free and must not read or write vault state
+- compute surfaces must not create chemistry truth rows, domain objects, search hits,
   source references, diagnostics counters, or rebuild work
-- the surface returns only deterministic arrays derived from the input parameter
+- the kinetics surface returns only deterministic arrays derived from the input parameter
   struct
+- the stoichiometry surface writes deterministic numeric row outputs into a
+  host-owned output buffer
 - Tauri Rust may own serde command marshalling, but not the simulation model
-- all returned arrays are kernel-owned until released with
+- Tauri Rust and other hosts keep row identity, names, formulas, and UI labels;
+  the kernel owns stoichiometry numeric propagation rules
+- all returned kinetics arrays are kernel-owned until released with
   `kernel_free_polymerization_kinetics_result(...)`
+- stoichiometry output rows remain host-owned and require no kernel free call
 
-Frozen validation bounds:
+Frozen kinetics validation bounds:
 
 - `m0 > 0`
 - `i0 >= 0`
@@ -61,6 +67,20 @@ Frozen validation bounds:
 
 Invalid inputs return `KERNEL_ERROR_INVALID_ARGUMENT` and leave the output
 result empty.
+
+Frozen stoichiometry rules:
+
+- the first row marked `is_reference` is the reference row
+- if no row is marked `is_reference`, row `0` is the reference row
+- the reference row has `eq = 1`
+- dependent rows derive `moles = reference_moles * eq`
+- non-finite or non-positive `mw`, `eq`, or reference `moles` normalize to `0`
+- explicit positive density is preserved
+- missing or non-positive density may be inferred from previous positive
+  `mass / volume`
+- output `mass = moles * mw`
+- output `volume = mass / density` when positive density is available,
+  otherwise `0`
 
 ## Carrier Boundary
 

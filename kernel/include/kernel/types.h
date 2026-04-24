@@ -419,6 +419,28 @@ typedef struct kernel_polymerization_kinetics_result {
   size_t count;
 } kernel_polymerization_kinetics_result;
 
+typedef struct kernel_stoichiometry_row_input {
+  double mw;
+  double eq;
+  double moles;
+  double mass;
+  double volume;
+  double density;
+  uint8_t has_density;
+  uint8_t is_reference;
+} kernel_stoichiometry_row_input;
+
+typedef struct kernel_stoichiometry_row_output {
+  double mw;
+  double eq;
+  double moles;
+  double mass;
+  double volume;
+  double density;
+  uint8_t has_density;
+  uint8_t is_reference;
+} kernel_stoichiometry_row_output;
+
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
   KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1
