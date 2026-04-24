@@ -187,7 +187,7 @@ fn write_note_cache(db: &DbState, pending_upserts: &[PendingUpsert]) -> Result<(
     let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
     conn.execute_batch("BEGIN")?;
     for upsert in pending_upserts {
-        db::upsert_note(
+        db::upsert_embedding_note_metadata(
             &conn,
             &upsert.id,
             &upsert.name,
@@ -306,7 +306,7 @@ pub fn index_vault_content(
         .filter(|config| !config.api_key.trim().is_empty());
     let existing_timestamps = {
         let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        db::get_all_note_timestamps(&conn)?
+        db::get_embedding_note_timestamps(&conn)?
     };
 
     let pending_upserts = collect_kernel_note_upserts(
@@ -375,7 +375,7 @@ pub async fn rebuild_vector_index(
         db::clear_all_embeddings(&conn)?;
         conn.execute_batch("BEGIN")?;
         for upsert in &pending_upserts {
-            db::upsert_note(
+            db::upsert_embedding_note_metadata(
                 &conn,
                 &upsert.id,
                 &upsert.name,
@@ -489,7 +489,7 @@ pub fn index_changed_entries(
 
     let existing_timestamps = {
         let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        db::get_all_note_timestamps(&conn)?
+        db::get_embedding_note_timestamps(&conn)?
     };
 
     let pending_upserts = collect_kernel_changed_upserts(

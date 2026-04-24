@@ -5,6 +5,40 @@ use crate::AppResult;
 
 use super::common::{ext_from_path, QueryTimer};
 
+/// Upsert note metadata into the legacy embedding cache table.
+pub fn upsert_embedding_note_metadata(
+    conn: &Connection,
+    id: &str,
+    filename: &str,
+    absolute_path: &str,
+    created_at: i64,
+    updated_at: i64,
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO notes_index (id, filename, absolute_path, created_at, updated_at, content)
+         VALUES (?1, ?2, ?3, ?4, ?5, '')",
+        params![id, filename, absolute_path, created_at, updated_at],
+    )?;
+
+    Ok(())
+}
+
+/// Batch-read note timestamps from the legacy embedding cache table.
+pub fn get_embedding_note_timestamps(
+    conn: &Connection,
+) -> AppResult<std::collections::HashMap<String, i64>> {
+    let mut stmt = conn.prepare("SELECT id, updated_at FROM notes_index")?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+    })?;
+    let mut map = std::collections::HashMap::new();
+    for row in rows {
+        let (id, ts) = row?;
+        map.insert(id, ts);
+    }
+    Ok(map)
+}
+
 /// 将向量化结果（Vec<f32>）写入指定笔记的 embedding 字段。
 ///
 /// # Vec<f32> -> BLOB 序列化方案
