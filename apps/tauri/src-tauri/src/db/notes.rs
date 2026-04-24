@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 
 use crate::AppResult;
 
@@ -18,17 +18,6 @@ pub fn upsert_note(
     )?;
 
     Ok(())
-}
-
-#[allow(dead_code)]
-pub fn get_note_updated_at(conn: &Connection, id: &str) -> AppResult<Option<i64>> {
-    conn.query_row(
-        "SELECT updated_at FROM notes_index WHERE id = ?1",
-        params![id],
-        |row| row.get(0),
-    )
-    .optional()
-    .map_err(Into::into)
 }
 
 /// Batch-read all note updated_at timestamps into a HashMap.
