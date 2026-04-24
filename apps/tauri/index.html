@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
+    <title>Nexus</title>
+    <script>
+      // Polyfill Node.js globals required by dependencies (Ketcher, 3Dmol, etc.)
+      if (typeof global === "undefined") window.global = window;
+      if (typeof process === "undefined") window.process = { env: { NODE_ENV: "production" } };
+      if (typeof Buffer === "undefined") window.Buffer = { isBuffer: function() { return false; } };
+      if (typeof module === "undefined") window.module = { exports: {} };
+      if (typeof exports === "undefined") window.exports = {};
+      if (typeof require === "undefined") window.require = function() { return {}; };
+    </script>
+    <style>
+      /* 内联启动画面 — React 加载前零延迟显示 */
+      body { margin: 0; background: #0A0A0A; overflow: hidden; }
+      #pre-splash {
+        position: fixed; inset: 0; z-index: 99999;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 24px;
+        background: #0A0A0A;
+        animation: _splashIn 0.5s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      #pre-splash .glow {
+        position: absolute; inset: -16px;
+        border-radius: 28px;
+        background: radial-gradient(circle, rgba(10,132,255,0.35) 0%, transparent 70%);
+        animation: _splashGlow 2.4s ease-in-out infinite;
+      }
+      #pre-splash .logo-wrap { position: relative; }
+      #pre-splash .logo {
+        width: 64px; height: 64px; border-radius: 16px; position: relative; z-index: 1;
+        animation: _splashIn 0.6s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+      }
+      #pre-splash .bar-track {
+        width: 96px; height: 2px; border-radius: 2px; overflow: hidden;
+        background: rgba(255,255,255,0.06);
+      }
+      #pre-splash .bar {
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, #0A84FF, transparent);
+        animation: _splashBar 1.4s cubic-bezier(0.45,0,0.55,1) infinite;
+      }
+      /* 淡出动画 — React 接管时触发 */
+      #pre-splash.fade-out {
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.3s ease-out;
+      }
+      @keyframes _splashIn {
+        from { opacity: 0; transform: scale(0.92); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+      @keyframes _splashGlow {
+        0%, 100% { opacity: 0.25; transform: scale(1); }
+        50%      { opacity: 0.6;  transform: scale(1.15); }
+      }
+      @keyframes _splashBar {
+        0%   { transform: translateX(-100%); }
+        50%  { transform: translateX(0%); }
+        100% { transform: translateX(100%); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 纯 HTML 启动画面：窗口打开即渲染，不依赖 JS/React -->
+    <div id="pre-splash">
+      <div class="logo-wrap">
+        <div class="glow"></div>
+        <svg class="logo" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1024" height="1024" rx="224" fill="#0A0A0A"/>
+          <rect x="8" y="8" width="1008" height="1008" rx="216" stroke="#222222" stroke-width="16"/>
+          <path d="M512 256 L768 512 L512 768 L256 512 Z" stroke="#333333" stroke-width="32" stroke-linejoin="round"/>
+          <path d="M256 512 L768 512" stroke="#333333" stroke-width="32" stroke-linecap="round"/>
+          <path d="M512 256 L512 768" stroke="#333333" stroke-width="32" stroke-linecap="round"/>
+          <circle cx="512" cy="256" r="48" fill="#EDEDED"/>
+          <circle cx="768" cy="512" r="48" fill="#EDEDED"/>
+          <circle cx="512" cy="768" r="48" fill="#EDEDED"/>
+          <circle cx="256" cy="512" r="48" fill="#EDEDED"/>
+          <circle cx="512" cy="512" r="80" fill="#3B82F6"/>
+          <circle cx="512" cy="512" r="32" fill="#FFFFFF"/>
+        </svg>
+      </div>
+      <div class="bar-track"><div class="bar"></div></div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

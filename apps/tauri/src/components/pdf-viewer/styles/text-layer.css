@@ -1,0 +1,12 @@
+/* === Text selection layer === */
+
+.pdf-text-layer {
+  position: absolute; inset: 0;
+  overflow: hidden; line-height: 1;
+  pointer-events: all; opacity: 0.25;
+}
+.pdf-text-layer span {
+  position: absolute; white-space: pre;
+  transform-origin: 0% 0%; cursor: text; color: transparent;
+}
+.pdf-text-layer ::selection { background: var(--accent-soft); }

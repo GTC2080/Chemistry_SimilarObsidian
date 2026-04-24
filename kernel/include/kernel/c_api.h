@@ -19,6 +19,10 @@ kernel_status kernel_read_note(
     const char* rel_path,
     kernel_owned_buffer* out_buffer,
     kernel_note_metadata* out_metadata);
+kernel_status kernel_query_notes(
+    kernel_handle* handle,
+    size_t limit,
+    kernel_note_list* out_notes);
 kernel_status kernel_write_note(
     kernel_handle* handle,
     const char* rel_path,
@@ -27,6 +31,16 @@ kernel_status kernel_write_note(
     const char* expected_revision,
     kernel_note_metadata* out_metadata,
     kernel_write_disposition* out_disposition);
+kernel_status kernel_create_folder(kernel_handle* handle, const char* folder_rel_path);
+kernel_status kernel_delete_entry(kernel_handle* handle, const char* target_rel_path);
+kernel_status kernel_rename_entry(
+    kernel_handle* handle,
+    const char* source_rel_path,
+    const char* new_name);
+kernel_status kernel_move_entry(
+    kernel_handle* handle,
+    const char* source_rel_path,
+    const char* dest_folder_rel_path);
 kernel_status kernel_search_notes(
     kernel_handle* handle,
     const char* query,
@@ -45,6 +59,14 @@ kernel_status kernel_query_tag_notes(
     const char* tag,
     size_t limit,
     kernel_search_results* out_results);
+kernel_status kernel_query_tags(
+    kernel_handle* handle,
+    size_t limit,
+    kernel_tag_list* out_tags);
+kernel_status kernel_query_graph(
+    kernel_handle* handle,
+    size_t note_limit,
+    kernel_graph* out_graph);
 kernel_status kernel_query_backlinks(
     kernel_handle* handle,
     const char* rel_path,
@@ -153,6 +175,9 @@ kernel_status kernel_join_rebuild_index(kernel_handle* handle);
 kernel_status kernel_rebuild_index(kernel_handle* handle);
 kernel_status kernel_export_diagnostics(kernel_handle* handle, const char* output_path);
 void kernel_free_buffer(kernel_owned_buffer* buffer);
+void kernel_free_note_list(kernel_note_list* notes);
+void kernel_free_tag_list(kernel_tag_list* tags);
+void kernel_free_graph(kernel_graph* graph);
 void kernel_free_search_results(kernel_search_results* results);
 void kernel_free_search_page(kernel_search_page* page);
 void kernel_free_attachment_record(kernel_attachment_record* attachment);

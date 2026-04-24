@@ -1,0 +1,102 @@
+/* === Side panels: outline + annotation + search bar === */
+
+/* --- Outline panel --- */
+.pdf-outline-panel {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 260px; z-index: 40;
+  background: rgba(24,31,44,0.82);
+  border-right: 0.5px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  overflow-y: auto;
+  animation: slideInLeft 0.25s cubic-bezier(0.22,1,0.36,1) both;
+}
+:root[data-theme="light"] .pdf-outline-panel { background: rgba(255,255,255,0.88); }
+
+.pdf-outline-header {
+  padding: 14px 16px 10px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-quaternary); border-bottom: 0.5px solid var(--panel-border);
+}
+.pdf-outline-item {
+  display: block; width: 100%; padding: 6px 16px; border: none;
+  background: transparent; color: var(--text-secondary);
+  font-size: 12px; line-height: 1.5; text-align: left; cursor: pointer;
+  transition: background 0.12s ease;
+  text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+}
+.pdf-outline-item:hover { background: rgba(255,255,255,0.06); }
+:root[data-theme="light"] .pdf-outline-item:hover { background: rgba(0,0,0,0.04); }
+.pdf-outline-empty { padding: 32px 16px; text-align: center; color: var(--text-quaternary); font-size: 12px; }
+
+/* --- Annotation panel --- */
+.pdf-annotation-panel {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 280px; z-index: 40;
+  background: rgba(24,31,44,0.82);
+  border-left: 0.5px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  overflow-y: auto;
+  animation: slideInLeft 0.25s cubic-bezier(0.22,1,0.36,1) both;
+}
+:root[data-theme="light"] .pdf-annotation-panel { background: rgba(255,255,255,0.88); }
+
+.pdf-annotation-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-quaternary); border-bottom: 0.5px solid var(--panel-border);
+}
+.pdf-annotation-panel-empty { padding: 32px 16px; text-align: center; color: var(--text-quaternary); font-size: 12px; }
+.pdf-annotation-panel-list { padding: 8px 0; }
+.pdf-annotation-panel-group { margin-bottom: 4px; }
+.pdf-annotation-panel-page-label {
+  padding: 8px 16px 4px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-quaternary);
+}
+.pdf-annotation-panel-item {
+  display: flex; align-items: flex-start; gap: 8px; width: 100%;
+  padding: 6px 16px; border: none; background: transparent;
+  text-align: left; cursor: pointer; transition: background 0.12s ease;
+}
+.pdf-annotation-panel-item:hover { background: rgba(255,255,255,0.06); }
+:root[data-theme="light"] .pdf-annotation-panel-item:hover { background: rgba(0,0,0,0.04); }
+.pdf-annotation-panel-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+.pdf-annotation-panel-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pdf-annotation-panel-item-type { font-size: 11px; font-weight: 500; color: var(--text-secondary); }
+.pdf-annotation-panel-item-text { font-size: 11px; color: var(--text-tertiary); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pdf-annotation-panel-item-note { font-size: 10px; color: var(--text-quaternary); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pdf-annotation-panel-item-row { display: flex; align-items: stretch; }
+.pdf-annotation-panel-item-row .pdf-annotation-panel-item { flex: 1; min-width: 0; }
+.pdf-annotation-delete-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; flex-shrink: 0; border: none; background: transparent;
+  color: var(--text-quaternary); cursor: pointer;
+  opacity: 0; transition: opacity 0.15s, color 0.15s;
+}
+.pdf-annotation-panel-item-row:hover .pdf-annotation-delete-btn { opacity: 1; }
+.pdf-annotation-delete-btn:hover { color: #ff453a; }
+
+/* --- Search bar --- */
+.pdf-search-bar {
+  position: absolute; top: 12px; right: 12px; z-index: 50;
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(24,31,44,0.78);
+  border: 0.5px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  animation: fadeIn 0.2s ease both;
+}
+:root[data-theme="light"] .pdf-search-bar { background: rgba(255,255,255,0.82); }
+
+.pdf-search-input {
+  width: 180px; height: 26px; padding: 0 8px;
+  border: 1px solid var(--glass-border); border-radius: 6px;
+  background: rgba(255,255,255,0.06); color: var(--text-primary);
+  font-size: 12px; outline: none; transition: border-color 0.15s ease;
+}
+:root[data-theme="light"] .pdf-search-input { background: rgba(0,0,0,0.04); }
+.pdf-search-input:focus { border-color: var(--accent); }
+.pdf-search-count { font-size: 11px; color: var(--text-quaternary); white-space: nowrap; min-width: 32px; text-align: center; }

@@ -41,6 +41,66 @@ void reset_search_results(kernel_search_results* out_results) {
   out_results->count = 0;
 }
 
+void free_tag_list_impl(kernel_tag_list* tags) {
+  if (tags == nullptr) {
+    return;
+  }
+
+  if (tags->tags != nullptr) {
+    for (size_t index = 0; index < tags->count; ++index) {
+      delete[] tags->tags[index].name;
+      tags->tags[index].name = nullptr;
+      tags->tags[index].count = 0;
+    }
+    delete[] tags->tags;
+  }
+
+  tags->tags = nullptr;
+  tags->count = 0;
+}
+
+void reset_tag_list(kernel_tag_list* out_tags) {
+  free_tag_list_impl(out_tags);
+}
+
+void free_graph_impl(kernel_graph* graph) {
+  if (graph == nullptr) {
+    return;
+  }
+
+  if (graph->nodes != nullptr) {
+    for (size_t index = 0; index < graph->node_count; ++index) {
+      delete[] graph->nodes[index].id;
+      delete[] graph->nodes[index].name;
+      graph->nodes[index].id = nullptr;
+      graph->nodes[index].name = nullptr;
+      graph->nodes[index].ghost = 0;
+    }
+    delete[] graph->nodes;
+  }
+
+  if (graph->links != nullptr) {
+    for (size_t index = 0; index < graph->link_count; ++index) {
+      delete[] graph->links[index].source;
+      delete[] graph->links[index].target;
+      delete[] graph->links[index].kind;
+      graph->links[index].source = nullptr;
+      graph->links[index].target = nullptr;
+      graph->links[index].kind = nullptr;
+    }
+    delete[] graph->links;
+  }
+
+  graph->nodes = nullptr;
+  graph->node_count = 0;
+  graph->links = nullptr;
+  graph->link_count = 0;
+}
+
+void reset_graph(kernel_graph* out_graph) {
+  free_graph_impl(out_graph);
+}
+
 void free_search_page_impl(kernel_search_page* page) {
   if (page == nullptr) {
     return;
@@ -97,6 +157,105 @@ kernel_status fill_note_list_results(
         out_results->hits[index].title == nullptr) {
       kernel::core::free_search_results_impl(out_results);
       return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+    }
+  }
+
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+kernel_status fill_tag_list_results(
+    const std::vector<kernel::storage::TagSummaryRecord>& records,
+    kernel_tag_list* out_tags) {
+  if (records.empty()) {
+    return kernel::core::make_status(KERNEL_OK);
+  }
+
+  auto* owned_tags = new (std::nothrow) kernel_tag_record[records.size()];
+  if (owned_tags == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+
+  for (size_t index = 0; index < records.size(); ++index) {
+    owned_tags[index].name = nullptr;
+    owned_tags[index].count = 0;
+  }
+
+  out_tags->tags = owned_tags;
+  out_tags->count = records.size();
+
+  for (size_t index = 0; index < records.size(); ++index) {
+    out_tags->tags[index].name = kernel::core::duplicate_c_string(records[index].name);
+    out_tags->tags[index].count = records[index].count;
+    if (out_tags->tags[index].name == nullptr) {
+      free_tag_list_impl(out_tags);
+      return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+    }
+  }
+
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+kernel_status fill_graph_results(
+    const kernel::storage::GraphRecord& record,
+    kernel_graph* out_graph) {
+  if (!record.nodes.empty()) {
+    auto* owned_nodes = new (std::nothrow) kernel_graph_node[record.nodes.size()];
+    if (owned_nodes == nullptr) {
+      return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+    }
+
+    for (size_t index = 0; index < record.nodes.size(); ++index) {
+      owned_nodes[index].id = nullptr;
+      owned_nodes[index].name = nullptr;
+      owned_nodes[index].ghost = 0;
+    }
+
+    out_graph->nodes = owned_nodes;
+    out_graph->node_count = record.nodes.size();
+
+    for (size_t index = 0; index < record.nodes.size(); ++index) {
+      out_graph->nodes[index].id =
+          kernel::core::duplicate_c_string(record.nodes[index].id);
+      out_graph->nodes[index].name =
+          kernel::core::duplicate_c_string(record.nodes[index].name);
+      out_graph->nodes[index].ghost = record.nodes[index].ghost ? 1 : 0;
+      if (out_graph->nodes[index].id == nullptr ||
+          out_graph->nodes[index].name == nullptr) {
+        free_graph_impl(out_graph);
+        return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+      }
+    }
+  }
+
+  if (!record.links.empty()) {
+    auto* owned_links = new (std::nothrow) kernel_graph_link[record.links.size()];
+    if (owned_links == nullptr) {
+      free_graph_impl(out_graph);
+      return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+    }
+
+    for (size_t index = 0; index < record.links.size(); ++index) {
+      owned_links[index].source = nullptr;
+      owned_links[index].target = nullptr;
+      owned_links[index].kind = nullptr;
+    }
+
+    out_graph->links = owned_links;
+    out_graph->link_count = record.links.size();
+
+    for (size_t index = 0; index < record.links.size(); ++index) {
+      out_graph->links[index].source =
+          kernel::core::duplicate_c_string(record.links[index].source);
+      out_graph->links[index].target =
+          kernel::core::duplicate_c_string(record.links[index].target);
+      out_graph->links[index].kind =
+          kernel::core::duplicate_c_string(record.links[index].kind);
+      if (out_graph->links[index].source == nullptr ||
+          out_graph->links[index].target == nullptr ||
+          out_graph->links[index].kind == nullptr) {
+        free_graph_impl(out_graph);
+        return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+      }
     }
   }
 
@@ -313,6 +472,50 @@ extern "C" kernel_status kernel_query_tag_notes(
   return fill_note_list_results(hits, out_results);
 }
 
+extern "C" kernel_status kernel_query_tags(
+    kernel_handle* handle,
+    size_t limit,
+    kernel_tag_list* out_tags) {
+  reset_tag_list(out_tags);
+  if (handle == nullptr || limit == 0 || out_tags == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<kernel::storage::TagSummaryRecord> records;
+  {
+    std::lock_guard lock(handle->storage_mutex);
+    const std::error_code ec =
+        kernel::storage::list_tag_summaries(handle->storage, limit, records);
+    if (ec) {
+      return kernel::core::make_status(kernel::core::map_error(ec));
+    }
+  }
+
+  return fill_tag_list_results(records, out_tags);
+}
+
+extern "C" kernel_status kernel_query_graph(
+    kernel_handle* handle,
+    size_t note_limit,
+    kernel_graph* out_graph) {
+  reset_graph(out_graph);
+  if (handle == nullptr || note_limit == 0 || out_graph == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel::storage::GraphRecord graph;
+  {
+    std::lock_guard lock(handle->storage_mutex);
+    const std::error_code ec =
+        kernel::storage::build_note_graph(handle->storage, note_limit, graph);
+    if (ec) {
+      return kernel::core::make_status(kernel::core::map_error(ec));
+    }
+  }
+
+  return fill_graph_results(graph, out_graph);
+}
+
 extern "C" kernel_status kernel_query_backlinks(
     kernel_handle* handle,
     const char* rel_path,
@@ -355,6 +558,14 @@ extern "C" void kernel_free_buffer(kernel_owned_buffer* buffer) {
 
 extern "C" void kernel_free_search_results(kernel_search_results* results) {
   kernel::core::free_search_results_impl(results);
+}
+
+extern "C" void kernel_free_tag_list(kernel_tag_list* tags) {
+  free_tag_list_impl(tags);
+}
+
+extern "C" void kernel_free_graph(kernel_graph* graph) {
+  free_graph_impl(graph);
 }
 
 extern "C" void kernel_free_search_page(kernel_search_page* page) {

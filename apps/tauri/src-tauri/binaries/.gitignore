@@ -1,0 +1,5 @@
+# pdfium.dll is a large binary that must be downloaded locally via:
+#   bash src-tauri/scripts/download-pdfium.sh
+#
+# It is intentionally excluded from version control.
+pdfium.dll

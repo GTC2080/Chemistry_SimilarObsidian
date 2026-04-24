@@ -1,0 +1,611 @@
+/* ── Ketcher Absolute Minimalism Dark Theme ── */
+/* Targets Ketcher CSS Module hashed class names with [class*="..."] patterns */
+
+/* ═══ Root App Container ═══ */
+.chemdraw-container [class*="App-module_app"] {
+  background-color: #0A0A0A !important;
+}
+
+.chemdraw-container [class*="App-module_canvas"] {
+  background-color: #0A0A0A !important;
+}
+
+/* ═══ Top Toolbar ═══ */
+.chemdraw-container [class*="App-module_top"] {
+  background-color: #0E0E0E !important;
+  border-bottom: 1px solid #1A1A1A !important;
+}
+
+.chemdraw-container [class*="App-module_top"] button {
+  background-color: transparent !important;
+  border: none !important;
+  color: #888 !important;
+}
+
+.chemdraw-container [class*="App-module_top"] button:hover {
+  background-color: #1A1A1A !important;
+  color: #EDEDED !important;
+}
+
+.chemdraw-container [class*="App-module_top"] button svg {
+  fill: #888 !important;
+}
+
+.chemdraw-container [class*="App-module_top"] button:hover svg {
+  fill: #EDEDED !important;
+}
+
+/* ═══ Left Toolbar ═══ */
+.chemdraw-container [class*="LeftToolbar-module_root"] {
+  background-color: #0E0E0E !important;
+  border-right: 1px solid #1A1A1A !important;
+}
+
+.chemdraw-container [class*="LeftToolbar-module_buttons"] {
+  background-color: transparent !important;
+}
+
+.chemdraw-container [class*="LeftToolbar-module_group"] {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.chemdraw-container [class*="LeftToolbar-module"] button {
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 4px !important;
+  color: #777 !important;
+}
+
+.chemdraw-container [class*="LeftToolbar-module"] button:hover {
+  background-color: #1A1A1A !important;
+  color: #EDEDED !important;
+}
+
+.chemdraw-container [class*="LeftToolbar-module"] button svg {
+  fill: #777 !important;
+}
+
+.chemdraw-container [class*="LeftToolbar-module"] button:hover svg {
+  fill: #EDEDED !important;
+}
+
+/* ═══ Right Toolbar (Atom Buttons: H, C, N, O...) ═══ */
+.chemdraw-container [class*="RightToolbar-module_root"] {
+  background-color: #0E0E0E !important;
+  border-left: 1px solid #1A1A1A !important;
+}
+
+.chemdraw-container [class*="RightToolbar-module_buttons"],
+.chemdraw-container [class*="RightToolbar-module_atomsList"] {
+  background-color: transparent !important;
+}
+
+.chemdraw-container [class*="RightToolbar-module_group"] {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.chemdraw-container [class*="RightToolbar-module"] button {
+  background-color: #141414 !important;
+  border: 1px solid #1E1E1E !important;
+  border-radius: 4px !important;
+  color: #999 !important;
+  font-weight: 500 !important;
+}
+
+.chemdraw-container [class*="RightToolbar-module"] button:hover {
+  background-color: #1E1E1E !important;
+  border-color: #333 !important;
+  color: #EDEDED !important;
+}
+
+.chemdraw-container [class*="RightToolbar-module"] button svg {
+  fill: #999 !important;
+}
+
+.chemdraw-container [class*="RightToolbar-module"] button:hover svg {
+  fill: #EDEDED !important;
+}
+
+/* ═══ Bottom Toolbar (Shape Selector) ═══ */
+.chemdraw-container [class*="BottomToolbar-module_root"] {
+  background-color: #0E0E0E !important;
+  border-top: 1px solid #1A1A1A !important;
+}
+
+.chemdraw-container [class*="BottomToolbar-module_group"] {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.chemdraw-container [class*="BottomToolbar-module"] button {
+  background-color: transparent !important;
+  border: none !important;
+  color: #777 !important;
+}
+
+.chemdraw-container [class*="BottomToolbar-module"] button:hover {
+  background-color: #1A1A1A !important;
+  color: #EDEDED !important;
+}
+
+.chemdraw-container [class*="BottomToolbar-module"] button svg {
+  fill: #777 !important;
+}
+
+.chemdraw-container [class*="BottomToolbar-module"] button:hover svg {
+  fill: #EDEDED !important;
+}
+
+/* ═══ Selected / Active State (All Toolbars) ═══ */
+.chemdraw-container [class*="ActionButton-module_selected"],
+.chemdraw-container button[class*="selected"],
+.chemdraw-container button[class*="Selected"],
+.chemdraw-container button[aria-pressed="true"] {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  color: #3B82F6 !important;
+}
+
+.chemdraw-container [class*="ActionButton-module_selected"] svg,
+.chemdraw-container button[class*="selected"] svg,
+.chemdraw-container button[class*="Selected"] svg,
+.chemdraw-container button[aria-pressed="true"] svg {
+  fill: #3B82F6 !important;
+}
+
+/* ═══ Multi-Tool Items (Toolbar sub-groups) ═══ */
+.chemdraw-container [class*="ToolbarMultiToolItem-module_root"] {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.chemdraw-container [class*="ToolbarMultiToolItem-module_portal"] {
+  background-color: #141414 !important;
+  border: 1px solid #222 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+.chemdraw-container [class*="ToolbarMultiToolItem-module_icon"] {
+  color: #777 !important;
+}
+
+.chemdraw-container [class*="ToolbarMultiToolItem-module_iconSelected"] {
+  color: #3B82F6 !important;
+}
+
+/* ═══ Floating Tools ═══ */
+.chemdraw-container [class*="FloatingTools-module_wrapper"] {
+  background-color: #141414 !important;
+  border: 1px solid #222 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+.chemdraw-container [class*="FloatingTools-module_item"] button {
+  background-color: transparent !important;
+  border: none !important;
+  color: #999 !important;
+}
+
+.chemdraw-container [class*="FloatingTools-module_item"] button:hover {
+  background-color: #1E1E1E !important;
+  color: #EDEDED !important;
+}
+
+/* ═══ Info Panel ═══ */
+.chemdraw-container [class*="InfoPanel-module"] {
+  background-color: #0E0E0E !important;
+  border-color: #1A1A1A !important;
+  color: #777 !important;
+}
+
+/* ═══ Editor Wrapper ═══ */
+.chemdraw-container [class*="Editor-module_editor"] {
+  background-color: #0A0A0A !important;
+}
+
+/* ═══ Canvas SVG styling ═══ */
+.chemdraw-container svg[class*="canvas"],
+.chemdraw-container [class*="Canvas"] {
+  background-color: #0A0A0A !important;
+}
+
+/* ═══ Canvas SVG atom labels & bonds — 深色主题适配 ═══ */
+.chemdraw-container svg text {
+  fill: #EDEDED !important;
+}
+
+.chemdraw-container svg line,
+.chemdraw-container svg path:not([fill]) {
+  stroke: #BBBBBB !important;
+}
+
+/* 保留有颜色的原子（如 O=红, N=蓝, S=黄, Cl=绿 等）不被覆盖 */
+.chemdraw-container svg text[fill]:not([fill="#000000"]):not([fill="#000"]):not([fill="black"]):not([fill="rgb(0, 0, 0)"]) {
+  fill: unset !important;
+}
+
+.chemdraw-container svg path[fill]:not([fill="none"]):not([fill="#000000"]):not([fill="#000"]):not([fill="black"]) {
+  stroke: unset !important;
+}
+
+/* 选中状态高亮 */
+.chemdraw-container svg [class*="highlight"],
+.chemdraw-container svg [class*="selected"],
+.chemdraw-container svg [class*="Selected"] {
+  fill: #3B82F6 !important;
+  stroke: #3B82F6 !important;
+}
+
+/* Grid lines */
+.chemdraw-container [class*="grid"] line,
+.chemdraw-container line[class*="grid"] {
+  stroke: #1A1A1A !important;
+}
+
+/* ═══ Dialogs / Modals ═══ */
+.chemdraw-container [class*="Dialog-module"],
+.chemdraw-container [class*="Modal-module"] {
+  background-color: #141414 !important;
+  border-color: #222 !important;
+  color: #EDEDED !important;
+}
+
+.chemdraw-container [class*="Modal-module"] [class*="overlay"],
+.chemdraw-container [class*="Dialog-module"] [class*="overlay"] {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ═══ Inputs & Selects ═══ */
+.chemdraw-container input,
+.chemdraw-container select,
+.chemdraw-container textarea {
+  background-color: #1A1A1A !important;
+  border-color: #333 !important;
+  color: #EDEDED !important;
+}
+
+.chemdraw-container input:focus,
+.chemdraw-container select:focus,
+.chemdraw-container textarea:focus {
+  border-color: #3B82F6 !important;
+  outline: none !important;
+}
+
+/* ═══ Tabs ═══ */
+.chemdraw-container [class*="Tabs-module"],
+.chemdraw-container [class*="TabPanel-module"] {
+  background-color: #141414 !important;
+  border-color: #222 !important;
+}
+
+/* ═══ Dropdown / Context Menu ═══ */
+.chemdraw-container [class*="ContextMenu-module"] {
+  background-color: #141414 !important;
+  border: 1px solid #222 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+  color: #EDEDED !important;
+}
+
+/* ═══ Scrollbars ═══ */
+.chemdraw-container ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chemdraw-container ::-webkit-scrollbar-track {
+  background: #0A0A0A;
+}
+
+.chemdraw-container ::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.chemdraw-container ::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* ═══ Dividers ═══ */
+.chemdraw-container [class*="divider"],
+.chemdraw-container [class*="Divider"],
+.chemdraw-container hr {
+  border-color: #1A1A1A !important;
+  background-color: #1A1A1A !important;
+}
+
+/* ═══ Toast Notifications ═══ */
+.chemdraw-container [class*="toastNotification"] {
+  background-color: #1A1A1A !important;
+  border: 1px solid #333 !important;
+  color: #EDEDED !important;
+}
+
+/* ═══ Catch-all: any remaining backgrounds ═══ */
+.chemdraw-container [class*="module_root"] {
+  background-color: #0E0E0E !important;
+}
+
+/* ═══ Elements Table (Periodic Table popup) ═══ */
+.chemdraw-container [class*="ElementsTable-module_table"] {
+  background-color: #141414 !important;
+}
+
+.chemdraw-container [class*="ElementsTable-module_table"] button {
+  background-color: #1A1A1A !important;
+  border: 1px solid #222 !important;
+  color: #EDEDED !important;
+}
+
+.chemdraw-container [class*="ElementsTable-module_table"] button:hover {
+  background-color: #222 !important;
+}
+
+.chemdraw-container [class*="ElementsTable-module_selected"] {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  border-color: #3B82F6 !important;
+}
+
+/* ══════════════════════════════════════════════════
+   Light Theme Overrides
+   ══════════════════════════════════════════════════ */
+
+:root[data-theme="light"] .chemdraw-container [class*="App-module_app"] {
+  background-color: #f8f9fa !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="App-module_canvas"] {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="App-module_top"] {
+  background-color: #f0f2f5 !important;
+  border-bottom: 1px solid #e0e3e8 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="App-module_top"] button {
+  background-color: transparent !important;
+  color: #666 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="App-module_top"] button:hover {
+  background-color: #e4e7ec !important;
+  color: #111 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="App-module_top"] button svg {
+  fill: #666 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="App-module_top"] button:hover svg {
+  fill: #111 !important;
+}
+
+/* Left Toolbar — Light */
+:root[data-theme="light"] .chemdraw-container [class*="LeftToolbar-module_root"] {
+  background-color: #f0f2f5 !important;
+  border-right: 1px solid #e0e3e8 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="LeftToolbar-module"] button {
+  background-color: transparent !important;
+  border: none !important;
+  color: #666 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="LeftToolbar-module"] button:hover {
+  background-color: #e4e7ec !important;
+  color: #111 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="LeftToolbar-module"] button svg {
+  fill: #666 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="LeftToolbar-module"] button:hover svg {
+  fill: #111 !important;
+}
+
+/* Right Toolbar — Light */
+:root[data-theme="light"] .chemdraw-container [class*="RightToolbar-module_root"] {
+  background-color: #f0f2f5 !important;
+  border-left: 1px solid #e0e3e8 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="RightToolbar-module"] button {
+  background-color: #ffffff !important;
+  border: 1px solid #e0e3e8 !important;
+  color: #444 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="RightToolbar-module"] button:hover {
+  background-color: #e8ebf0 !important;
+  border-color: #cdd1d8 !important;
+  color: #111 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="RightToolbar-module"] button svg {
+  fill: #444 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="RightToolbar-module"] button:hover svg {
+  fill: #111 !important;
+}
+
+/* Bottom Toolbar — Light */
+:root[data-theme="light"] .chemdraw-container [class*="BottomToolbar-module_root"] {
+  background-color: #f0f2f5 !important;
+  border-top: 1px solid #e0e3e8 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="BottomToolbar-module"] button {
+  background-color: transparent !important;
+  color: #666 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="BottomToolbar-module"] button:hover {
+  background-color: #e4e7ec !important;
+  color: #111 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="BottomToolbar-module"] button svg {
+  fill: #666 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="BottomToolbar-module"] button:hover svg {
+  fill: #111 !important;
+}
+
+/* Selected state — Light */
+:root[data-theme="light"] .chemdraw-container [class*="ActionButton-module_selected"],
+:root[data-theme="light"] .chemdraw-container button[class*="selected"],
+:root[data-theme="light"] .chemdraw-container button[class*="Selected"],
+:root[data-theme="light"] .chemdraw-container button[aria-pressed="true"] {
+  background-color: rgba(10, 132, 255, 0.1) !important;
+  border-color: rgba(10, 132, 255, 0.25) !important;
+  color: #0A84FF !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="ActionButton-module_selected"] svg,
+:root[data-theme="light"] .chemdraw-container button[class*="selected"] svg,
+:root[data-theme="light"] .chemdraw-container button[class*="Selected"] svg,
+:root[data-theme="light"] .chemdraw-container button[aria-pressed="true"] svg {
+  fill: #0A84FF !important;
+}
+
+/* Multi-tool portals — Light */
+:root[data-theme="light"] .chemdraw-container [class*="ToolbarMultiToolItem-module_portal"] {
+  background-color: #ffffff !important;
+  border: 1px solid #e0e3e8 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Floating Tools — Light */
+:root[data-theme="light"] .chemdraw-container [class*="FloatingTools-module_wrapper"] {
+  background-color: #ffffff !important;
+  border: 1px solid #e0e3e8 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="FloatingTools-module_item"] button {
+  color: #666 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="FloatingTools-module_item"] button:hover {
+  background-color: #f0f2f5 !important;
+  color: #111 !important;
+}
+
+/* Info Panel — Light */
+:root[data-theme="light"] .chemdraw-container [class*="InfoPanel-module"] {
+  background-color: #f5f7fa !important;
+  border-color: #e0e3e8 !important;
+  color: #666 !important;
+}
+
+/* Editor — Light */
+:root[data-theme="light"] .chemdraw-container [class*="Editor-module_editor"] {
+  background-color: #ffffff !important;
+}
+
+/* Canvas — Light */
+:root[data-theme="light"] .chemdraw-container svg[class*="canvas"],
+:root[data-theme="light"] .chemdraw-container [class*="Canvas"] {
+  background-color: #ffffff !important;
+}
+
+/* Canvas SVG — Light (恢复默认黑色) */
+:root[data-theme="light"] .chemdraw-container svg text {
+  fill: #000000 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container svg line,
+:root[data-theme="light"] .chemdraw-container svg path:not([fill]) {
+  stroke: #000000 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container svg text[fill]:not([fill="#000000"]):not([fill="#000"]):not([fill="black"]):not([fill="rgb(0, 0, 0)"]) {
+  fill: unset !important;
+}
+
+/* Dialogs — Light */
+:root[data-theme="light"] .chemdraw-container [class*="Dialog-module"],
+:root[data-theme="light"] .chemdraw-container [class*="Modal-module"] {
+  background-color: #ffffff !important;
+  border-color: #e0e3e8 !important;
+  color: #111 !important;
+}
+
+/* Inputs — Light */
+:root[data-theme="light"] .chemdraw-container input,
+:root[data-theme="light"] .chemdraw-container select,
+:root[data-theme="light"] .chemdraw-container textarea {
+  background-color: #f5f7fa !important;
+  border-color: #d1d5dc !important;
+  color: #111 !important;
+}
+
+/* Tabs — Light */
+:root[data-theme="light"] .chemdraw-container [class*="Tabs-module"],
+:root[data-theme="light"] .chemdraw-container [class*="TabPanel-module"] {
+  background-color: #ffffff !important;
+  border-color: #e0e3e8 !important;
+}
+
+/* Context Menu — Light */
+:root[data-theme="light"] .chemdraw-container [class*="ContextMenu-module"] {
+  background-color: #ffffff !important;
+  border: 1px solid #e0e3e8 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  color: #111 !important;
+}
+
+/* Scrollbars — Light */
+:root[data-theme="light"] .chemdraw-container ::-webkit-scrollbar-track {
+  background: #f5f7fa;
+}
+
+:root[data-theme="light"] .chemdraw-container ::-webkit-scrollbar-thumb {
+  background: #cdd1d8;
+}
+
+:root[data-theme="light"] .chemdraw-container ::-webkit-scrollbar-thumb:hover {
+  background: #adb3bd;
+}
+
+/* Dividers — Light */
+:root[data-theme="light"] .chemdraw-container [class*="divider"],
+:root[data-theme="light"] .chemdraw-container [class*="Divider"],
+:root[data-theme="light"] .chemdraw-container hr {
+  border-color: #e0e3e8 !important;
+  background-color: #e0e3e8 !important;
+}
+
+/* Catch-all roots — Light */
+:root[data-theme="light"] .chemdraw-container [class*="module_root"] {
+  background-color: #f0f2f5 !important;
+}
+
+/* Elements Table — Light */
+:root[data-theme="light"] .chemdraw-container [class*="ElementsTable-module_table"] {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="ElementsTable-module_table"] button {
+  background-color: #f5f7fa !important;
+  border: 1px solid #e0e3e8 !important;
+  color: #111 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="ElementsTable-module_table"] button:hover {
+  background-color: #e8ebf0 !important;
+}
+
+:root[data-theme="light"] .chemdraw-container [class*="ElementsTable-module_selected"] {
+  background-color: rgba(10, 132, 255, 0.12) !important;
+  border-color: #0A84FF !important;
+}

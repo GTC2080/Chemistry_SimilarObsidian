@@ -23,6 +23,36 @@ struct NoteListHit {
   std::string title;
 };
 
+struct TagSummaryRecord {
+  std::string name;
+  std::uint32_t count = 0;
+};
+
+struct GraphNodeRecord {
+  std::string id;
+  std::string name;
+  bool ghost = false;
+};
+
+struct GraphLinkRecord {
+  std::string source;
+  std::string target;
+  std::string kind;
+};
+
+struct GraphRecord {
+  std::vector<GraphNodeRecord> nodes;
+  std::vector<GraphLinkRecord> links;
+};
+
+struct NoteCatalogRecord {
+  std::string rel_path;
+  std::string title;
+  std::uint64_t file_size = 0;
+  std::uint64_t mtime_ns = 0;
+  std::string content_revision;
+};
+
 struct AttachmentMetadataRecord {
   std::uint64_t file_size = 0;
   std::uint64_t mtime_ns = 0;
@@ -140,6 +170,10 @@ std::error_code rename_note_metadata(
     const kernel::parser::ParseResult& parse_result,
     std::string_view body_text);
 std::error_code list_note_paths(Database& db, std::vector<std::string>& out_paths);
+std::error_code list_note_catalog_records(
+    Database& db,
+    std::size_t limit,
+    std::vector<NoteCatalogRecord>& out_records);
 std::error_code upsert_attachment_metadata(
     Database& db,
     std::string_view rel_path,
@@ -239,6 +273,14 @@ std::error_code list_notes_by_tag(
     std::string_view tag,
     std::size_t limit,
     std::vector<NoteListHit>& out_hits);
+std::error_code list_tag_summaries(
+    Database& db,
+    std::size_t limit,
+    std::vector<TagSummaryRecord>& out_records);
+std::error_code build_note_graph(
+    Database& db,
+    std::size_t note_limit,
+    GraphRecord& out_graph);
 std::error_code list_backlinks_for_rel_path(
     Database& db,
     std::string_view rel_path,

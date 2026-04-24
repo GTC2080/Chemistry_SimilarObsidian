@@ -58,6 +58,10 @@ add_executable(
   src/api/kernel_api_tests_core_contract_state.cpp
   src/api/kernel_api_tests_core_contract_write.cpp
   src/api/kernel_api_tests_core_contract_parser.cpp
+  src/api/kernel_api_tests_core_note_catalog.cpp
+  src/api/kernel_api_tests_core_tag_catalog.cpp
+  src/api/kernel_api_tests_core_graph_catalog.cpp
+  src/api/kernel_api_tests_core_vault_entries.cpp
   src/api/kernel_api_tests_runtime_diagnostics.cpp
   src/api/kernel_api_tests_runtime_diagnostics_core.cpp
   src/api/kernel_api_tests_runtime_diagnostics_events_recovery.cpp

@@ -1,0 +1,283 @@
+<p align="center">
+  <a href="README_EN.md">English</a> | 简体中文
+</p>
+
+<p align="center">
+  <img src=".logo/Logo.png" width="120" alt="Nexus Logo" />
+</p>
+
+<h1 align="center">Nexus · 星枢</h1>
+
+<p align="center">
+  本地优先的智能知识管理工具，类 Obsidian 体验，内置 AI 能力。
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Tauri-2.x-blue?logo=tauri" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/React-19-61dafb?logo=react" alt="React 19" />
+  <img src="https://img.shields.io/badge/Rust-2021-orange?logo=rust" alt="Rust" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
+</p>
+
+---
+
+## 核心亮点
+
+- **本地优先知识库** — Markdown + SQLite + 本地文件系统，支持 `[[双向链接]]`、`#标签`、LaTeX 数学公式与图片/PDF 预览
+- **AI 知识工作流** — 语义搜索、语义共鸣、RAG 问答一体化，支持 OpenAI 兼容接口
+- **PDF 阅读与批注** — pdf.js 前端渲染（秒开）、文本高亮（5 色）、手绘涂写（压感 + Rust 笔迹平滑）、目录导航、全文搜索、阅读位置记忆、批注持久化与删除
+- **化学工作台** — Ketcher 2D 分子编辑、3D 结构查看、点群对称性、晶格解析、波谱可视化、高分子动力学沙盘
+- **论文与发刊** — `.paper` 工作台支持拖拽组装内容，并通过 Pandoc + XeLaTeX 生成 PDF
+- **关系化浏览** — 文件树、标签树、知识图谱、学习时间轴共同构成”写作 + 复习 + 回溯”闭环
+- **桌面端性能优化** — Tauri + Rust 负责重计算与 I/O；PDF 渲染已迁移至前端 pdf.js（零 IPC 渲染），PDFium 已完全移除
+- **完整应用体验** — 引导流程、主题系统、中英双语、可调布局、TRUTH_SYSTEM 看板已打通
+
+## 当前状态
+
+- **当前开发目标**：`v1.0.5`
+- **产品定位**：当前版本偏化学科研/学习场景，但 Markdown、知识图谱、搜索和 AI 能力本身是通用的
+- **数据策略**：默认完全本地，知识库和数据库都留在用户机器上
+- **性能方向**：持续追求大库可用性、交互即时反馈、低阻塞 I/O 和更稳的语义检索链路
+
+## 最近更新
+
+- **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Rust Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
+- **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
+
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 框架 | Tauri 2 |
+| 前端 | React 19 + TypeScript + Tailwind CSS 4 |
+| 编辑器 | TipTap 3 + KaTeX + 3Dmol.js + Ketcher |
+| PDF | pdf.js 4 (前端渲染) + Rust 笔迹平滑 |
+| 后端 | Rust + SQLite (rusqlite) |
+| AI | OpenAI 兼容 API (Chat + Embedding) |
+| 构建 | Vite 6 |
+
+## 快速开始
+
+### 环境要求
+
+- [Node.js](https://nodejs.org/) >= 18
+- [Rust](https://rustup.rs/) >= 1.77
+- [Tauri 2 CLI 前置依赖](https://v2.tauri.app/start/prerequisites/)
+
+### 安装 & 运行
+
+```bash
+# 克隆仓库
+git clone https://github.com/GTC2080/Nexus.git
+cd Nexus
+
+# 安装前端依赖
+npm install
+
+# 开发模式启动（自动编译 Rust + 启动前端）
+npx tauri dev
+
+# 构建生产包
+npx tauri build
+```
+
+## AI 配置
+
+在应用内点击左下角「设置」(⌘,)，填入：
+
+- **Chat 模型** — API Key、Base URL、模型名称（默认 `gpt-4o-mini`）
+- **Embedding 模型** — 可选，留空则复用 Chat 配置（默认 `text-embedding-3-small`）
+
+支持任何 OpenAI 兼容的 API 端点。
+
+## 波谱数据支持
+
+支持直接打开科学仪器导出的光谱/波谱数据文件：
+
+| 格式 | 说明 |
+|------|------|
+| `.csv` | 逗号/制表符分隔的波谱数据（支持 UTF-8 和 UTF-16 LE 编码） |
+| `.jdx` | JCAMP-DX 标准格式（化学界通用交换格式） |
+
+- 自动识别多列数据（如多次扫描），每列渲染为独立曲线
+- NMR 数据自动检测并反转 x 轴（化学位移从高场到低场）
+- 波谱文件不参与数据库内容索引和 Embedding 向量化，避免海量浮点数造成 Token 浪费
+
+## 3D 分子结构支持
+
+应用当前为化学专注模式，可直接打开以下三维结构文件：
+
+| 格式 | 说明 |
+|------|------|
+| `.pdb` | Protein Data Bank 蛋白质/小分子结构 |
+| `.xyz` | XYZ 坐标系格式（计算化学常用） |
+| `.cif` | Crystallographic Information File 晶体学数据 |
+
+- 小分子（≤500 原子）默认 ball+stick 渲染，蛋白质自动切换 cartoon 模式
+- 深色融合背景，Jmol 科学标准原子配色
+- `.cif` 文件支持「结构 / 对称性 / 晶格」三视图：晶格视图提供超晶胞扩展控制（1-5×）与密勒指数切割器，非 CIF 文件保持「结构 / 对称性」双视图
+- 在对称性视图中显示点群 HUD、旋转轴与镜像平面（可独立开关）
+- 对称性计算由 Rust 引擎完成：支持 PDB / XYZ / CIF 输入，CIF 晶胞参数支持“标签同一行”与“值在下一行”两种写法
+- 分子文件不参与数据库内容索引和 Embedding 向量化，防止海量坐标数据污染语义检索
+
+## 高分子动力学沙盘
+
+化学模式下，在 Markdown 编辑视图点击 `POLYMER KINETICS` 按钮可打开全屏暗色沙盘：
+
+- 左侧通过滑块和数值输入调节参数：`[M]0`、`[I]0`、`[CTA]0`、`kd`、`kp`、`kt`、`ktr`、`timeMax`、`steps`
+- 前端使用 `150ms` 防抖触发 IPC，避免滑块拖动造成调用拥塞
+- Rust 后端追踪自由基、单体与 0/1/2 阶矩，返回 `time / conversion / Mn / PDI`
+- 图表区显示两张实时曲线：
+  - `Conversion vs Time`
+  - `Mn / PDI vs Conversion`（`PDI` 使用右侧 y 轴）
+- 初始阶段自动阻断除零异常：链尚未形成时强制 `Mn = 0`、`PDI = 1.0`
+
+## 项目结构
+
+```
+src/                    # React 前端
+├── assets/             # 静态资源（Logo / 图标）
+├── components/         # UI 组件
+│   ├── app/            # 工作区壳层与视口编排（Shell / Runtime / Viewport / LaunchSplash / Modals）
+│   ├── ai/             # AI 助手子组件（ChatBubble / AIContextPanel）
+│   ├── KineticsSimulator.tsx  # 高分子动力学沙盘（化学模式）
+│   ├── CrystalViewer3D.tsx   # 晶格 3D 渲染器（超晶胞 + 密勒面切割，化学模式）
+│   ├── AIAssistantSidebar.tsx # AI 助手侧边栏（编排层，逻辑下沉到 hooks）
+│   ├── MarkdownEditor.tsx     # 主 Markdown 编辑器（编排层，扩展配置下沉到 hook）
+│   ├── onboarding/     # 首次启动引导向导
+│   ├── study-timeline/ # 自动学习时间轴面板（热力图/统计/每日记录）
+│   ├── chem-editor/    # Ketcher 化学绘图板组件
+│   ├── editor/         # 编辑器相关界面组件
+│   ├── global-graph/   # 全局知识图谱视图
+│   ├── markdown-editor/ # Markdown 编辑器菜单、BubbleMenuBar、上下文操作与辅助工具
+│   ├── pdf-viewer/    # PDF 阅读器（模块化拆分）
+│   │   ├── PdfViewer.tsx          # 纯渲染壳层（128 行）
+│   │   ├── usePdfViewerState.ts   # 状态组合层（组装 4 个子 hook）
+│   │   ├── hooks/                 # 按职责拆分的子 hook
+│   │   │   ├── useViewerNav.ts    # 导航/缩放/滚动/IO 观察
+│   │   │   ├── useAnnotations.ts  # 批注 CRUD/选区工具栏
+│   │   │   ├── useDrawing.ts      # 绘图模式/笔画平滑
+│   │   │   └── usePdfOutline.ts   # 目录加载
+│   │   ├── PdfDrawingLayer.tsx    # Canvas 手绘叠层
+│   │   ├── PdfAnnotationLayer.tsx # 高亮/ink/区域渲染
+│   │   ├── PdfDrawingToolbar.tsx  # 画笔工具栏
+│   │   └── styles/                # 按组件拆分的 CSS（7 个文件）
+│   ├── media-viewer/   # 图片/波谱预览组件
+│   ├── publish-studio/ # 论文/笔记装配与发布工作台
+│   ├── search/         # 搜索结果与语义检索 UI
+│   ├── settings/       # 设置面板（按职责拆分为 5 个独立面板：常规/功能/编辑器/AI/知识库 + 共享组件）
+│   └── sidebar/        # 侧边栏文件树/标签树/工具入口
+├── i18n/               # 国际化（i18n）
+│   ├── zh-CN.ts        # 中文翻译字典
+│   ├── en.ts           # 英文翻译字典
+│   ├── context.tsx     # LanguageProvider / useT / useLanguage
+│   └── types.ts        # 语言类型定义
+├── editor/             # TipTap 编辑器扩展
+│   └── extensions/     # WikiLink / Tag / Math / ChemDraw
+├── hooks/              # React Hooks
+│   ├── useVaultSession.ts           # 会话编排入口（组合索引、内容、保存与预览 hooks）
+│   ├── useVaultIndex.ts             # 知识库扫描、重建索引与活动文件校正
+│   ├── useActiveNoteContent.ts      # 当前笔记内容、预览与学科视图状态
+│   ├── useAIChatStream.ts           # AI 聊天流式逻辑（消息历史/流式渲染/IPC 通道）
+│   ├── useMarkdownEditorExtensions.ts # TipTap 扩展配置（memoized）
+│   ├── useSettingsModal.ts          # 设置弹窗状态管理与操作逻辑
+│   ├── useFileTreeDragDrop.ts       # 文件树拖拽逻辑
+│   ├── useInlineRename.ts           # 行内重命名逻辑
+│   ├── useSidebarTags.ts            # 标签面板加载与筛选逻辑
+│   ├── useSemanticResonance.ts      # 语义共鸣上下文提取、缓存与自适应防抖
+│   ├── useNotePersistence.ts        # 保存去重、排队写盘与 flush 控制
+│   ├── useStudyTracker.ts           # 自动学习计时 Hook（活跃检测 + Tauri IPC）
+│   ├── useRuntimeSettings.ts        # 设置读取与保存
+│   ├── useTruthSystem.ts            # TRUTH_SYSTEM 看板数据与交互
+│   └── ...                          # 其余性能与交互 hooks
+├── models/             # 前端领域模型
+├── types/              # 拆分类型定义
+├── *.test.ts           # Vitest 单元测试入口（类型、设置、语义推荐等）
+├── utils/              # 工具函数（解析/格式化/通用算法）
+└── types.ts            # 历史兼容类型入口
+
+src-tauri/src/          # Rust 后端
+├── commands/           # Tauri 命令分模块
+│   ├── cmd_vault.rs    # 知识库生命周期与文件操作命令
+│   ├── cmd_tree.rs     # 文件树/标签树构建与查询命令
+│   ├── cmd_search.rs   # 搜索/FTS/语义检索命令
+│   ├── cmd_ai.rs       # AI 问答与推理命令
+│   ├── cmd_study.rs    # 学习时间轴记录与统计命令
+│   ├── cmd_compute.rs  # TRUTH diff 等计算命令
+│   ├── cmd_media.rs    # 媒体与波谱解析命令
+│   ├── cmd_pdf.rs      # PDF 命令（文件读取/笔迹平滑/批注持久化）
+│   ├── cmd_symmetry.rs # 分子对称性分析命令（点群/轴/镜面）
+│   └── cmd_crystal.rs  # 晶格解析与密勒面计算命令（CIF → 超晶胞 → 切割面）
+├── commands.rs         # 命令注册入口
+├── crystal/            # 晶格引擎模块
+│   ├── mod.rs          # 公开接口（parse_and_build_lattice / calculate_miller_plane）
+│   ├── types.rs        # 晶格数据协议（LatticeData / UnitCellBox / AtomNode / MillerPlaneData）
+│   ├── parse.rs        # CIF 全量解析（晶胞参数 / 分数坐标 / 对称操作）
+│   ├── supercell.rs    # 对称操作展开 + HashSet O(1) 去重 + 超晶胞扩展
+│   └── miller.rs       # 密勒指数 → 倒格矢法向量 + 面间距 + 可视化顶点
+├── pdf/                # PDF 模块（渲染已迁移至前端 pdf.js）
+│   ├── mod.rs          # 模块入口
+│   ├── annotations.rs  # 批注数据结构与 JSON 持久化
+│   └── ink.rs          # 笔迹平滑算法（Douglas-Peucker + Catmull-Rom）
+├── kinetics.rs         # 高分子动力学求解器（矩方法 + RK4）
+├── db.rs               # SQLite 数据库管理
+├── db/                 # 数据库子模块
+│   ├── schema.rs       # 表结构与迁移
+│   ├── notes.rs        # 笔记读写
+│   ├── embeddings.rs   # 向量索引与 Embedding 存储
+│   ├── relations.rs    # 双链关系维护
+│   ├── parsing.rs      # 标签/链接提取与解析
+│   ├── graph.rs        # 图谱查询（wikilink + 标签共现 + 同文件夹三维关联）
+│   ├── study.rs        # 学习模块入口（子模块: session / stats / truth）
+│   ├── study/          # 学习模块子目录
+│   │   ├── session.rs  # 会话 CRUD（start / tick / end）
+│   │   ├── stats.rs    # 统计聚合查询（热力图/每日/排行）
+│   │   └── truth.rs    # TruthState 经验等级推导
+│   ├── lifecycle.rs    # 初始化/清理/维护流程
+│   └── common.rs       # DB 公共工具
+├── shared/             # 公共 helper 与跨模块共享逻辑
+├── services/           # 领域服务层
+├── symmetry/           # 对称性引擎模块（parse/geometry/search/classify/render）
+├── watcher/            # 文件系统增量监听模块
+│   ├── mod.rs          # WatcherState 生命周期管理（start/stop）
+│   ├── filter.rs       # 路径过滤规则（隐藏文件/扩展名白名单/忽略文件夹）
+│   └── handler.rs      # 事件回调（分类/去重/IPC 发送）
+├── ai/                 # AI 模块（按职责拆分）
+│   ├── mod.rs          # AiConfig 定义与统一 re-export
+│   ├── embedding.rs    # Embedding 请求、LRU 缓存与并发控制
+│   ├── chat.rs         # 流式 RAG 对话与 Ponder 节点生成
+│   ├── similarity.rs   # 余弦相似度计算
+│   └── vector_cache.rs # 向量内存缓存与 top-k BinaryHeap 查询
+├── error.rs            # 类型化错误处理（AppError / AppResult）
+├── models.rs           # 数据模型
+└── lib.rs              # 应用入口
+```
+
+## 架构演进（近期）
+
+- **PDF 渲染引擎迁移（v1.0.5）**：PDFium → pdf.js，渲染完全在前端 Canvas 完成（零 IPC），秒开体验；移除 pdfium-render / webp / base64 三个 crate，二进制更小编译更快；新增手绘涂写批注（Pointer Events + 压感），笔迹平滑算法（Douglas-Peucker 简化 + Catmull-Rom 插值）在 Rust `spawn_blocking` 中执行；PDF Viewer 模块化拆分为纯渲染壳层 + 4 个子 hook + 7 个 CSS 子文件
+- **全量性能优化（v1.0.5）**：15 项优化，补齐 `VectorCacheState` top-k 堆顺序与缓存生命周期同步，纳入晶格引擎。包括保存队列 Map 化、增量监听链路替代全库扫描、向量检索内存缓存 + top-k BinaryHeap、面板拖拽 CSS var 零渲染、图谱/文件树 FNV-1a 指纹修正，以及 Rust `crystal/` 模块（CIF 解析 + 对称操作展开 + 超晶胞生成 + 密勒面计算）
+- **计算层 Rust 迁移（v1.0.4）**：6 项前端重计算（语义提取、标签树、图谱索引、热力图、化学计量、数据库归一化）下沉到 Rust 后端，新增 7 个 Tauri 命令
+- **架构级优化（v1.0.4）**：修复双重 scan_vault、事件驱动替代轮询、全局笔记缓存、乐观 UI、批量 SQL、复合索引、FTS 延迟填充
+- **渲染层优化（v1.0.4）**：CSS hover 替代 DOM 操作、关键组件 memo、文件树 memoize
+- **组件拆分与 Hook 提取（v1.0.4）**：6 个 300-510 行的”上帝组件”按单一职责拆分，新增 11 个文件（6 个 hooks + 5 个子组件），每个文件只做一件事
+- **前端 App 容器瘦身**：`App.tsx` 已从”状态 + 业务 + 渲染”混合体拆分为编排层，核心逻辑下沉到 hooks 与 app-level 组件
+- **前端职责拆分**：`components/app/` 继续细化为工作区壳层、运行时、编辑视口与 `ActiveNoteContent`，降低渲染分发复杂度
+- **会话逻辑分层**：`useVaultSession` 现在负责编排，扫描、活动内容、二进制预览、保存队列分别下沉到独立 hooks
+- **保存链路增强**：新增保存指纹去重、排队写盘与显式 flush，减少频繁写盘和切换文件时的状态风险
+- **语义与 AI 性能优化**：语义共鸣改为上下文提取 + 缓存 + 自适应防抖，AI 侧边栏改为历史消息与流式消息分离渲染
+- **测试基建补齐**：引入 `Vitest + jsdom`，为类型、设置和语义推荐逻辑提供基础单元测试
+- **跨界面一致性**：主题变量体系覆盖浅色/深色，TRUTH_SYSTEM、设置页、侧边栏等模块统一适配
+- **Rust 命令模块化**：`commands.rs` 从集中式文件拆分到 `commands/` 子模块，便于按领域维护与测试
+- **AI 模块拆分**：`ai.rs` 按职责拆分为 `ai/` 子模块（embedding / chat / similarity），提升可维护性
+- **共享与服务层**：`shared/` 与 `services/` 承担公共能力与领域逻辑，降低命令层重复代码
+- **多语言系统**：`i18n/` 基于 React Context 的轻量翻译方案，`useT()` hook 驱动全组件树翻译切换，支持参数化插值
+- **类型化错误处理**：Rust 侧引入 `thiserror` 定义 `AppError` 枚举，替换全部 `Result<T, String>`，错误类型可序列化传递给前端
+- **React Compiler**：集成编译器自动优化，消除手动 `useMemo`/`useCallback` 的维护负担
+- **全局错误边界**：`ErrorBoundary` 组件包裹所有 Suspense 区域，确保单一模块崩溃不影响全局
+- **测试基建扩充**：测试用例从 13 增至 38，覆盖核心 hooks（持久化、防抖、文件操作）和 ErrorBoundary
+- **化学绘图板**：移除 @xyflow/react 通用画布，引入 Ketcher 专业分子编辑器（.mol 格式），CSS 穿透实现绝对极简暗色主题，/chemdraw 斜杠命令支持 Markdown 内联分子插入
+
+## License
+
+[MIT](LICENSE)

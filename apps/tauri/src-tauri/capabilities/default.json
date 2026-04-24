@@ -1,0 +1,15 @@
+{
+  "identifier": "default",
+  "description": "默认应用权限",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging",
+    "dialog:default",
+    "dialog:allow-open",
+    "store:default"
+  ]
+}

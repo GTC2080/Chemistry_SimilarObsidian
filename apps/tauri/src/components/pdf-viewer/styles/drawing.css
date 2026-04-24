@@ -1,0 +1,30 @@
+/* === Drawing layer + drawing toolbar === */
+
+.pdf-drawing-layer { position: absolute; top: 0; left: 0; z-index: 15; touch-action: none; }
+
+.pdf-drawing-toolbar {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px;
+  background: var(--bg-secondary, #1e1e1e);
+  border: 1px solid var(--border-primary, #333);
+  border-radius: 8px; padding: 6px 10px; z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.pdf-drawing-color-btn {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer;
+  transition: border-color 0.15s;
+}
+.pdf-drawing-color-btn:hover { border-color: rgba(255,255,255,0.4); }
+.pdf-drawing-color-active { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+
+.pdf-drawing-width-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border-radius: 4px; border: 1px solid transparent;
+  background: transparent; cursor: pointer; color: var(--text-secondary);
+}
+.pdf-drawing-width-btn:hover { background: var(--bg-tertiary, #2a2a2a); }
+.pdf-drawing-width-active { border-color: var(--text-secondary); background: var(--bg-tertiary, #2a2a2a); }
+
+.pdf-drawing-width-dot { display: block; border-radius: 50%; background: var(--text-primary, #fff); }

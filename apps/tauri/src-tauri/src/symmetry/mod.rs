@@ -1,0 +1,165 @@
+//! 分子点群与空间对称性推演引擎
+//!
+//! 纯 Rust 高性能实现：解析原子坐标 → 质心平移 → 惯性张量对角化 →
+//! 穷举对称操作匹配 → 点群分类 → 输出结构化渲染指令 (JSON)。
+//! 前端零计算：所有几何数据（平面顶点、轴端点）均在此预计算完毕。
+
+mod classify;
+pub(crate) mod elements;
+mod geometry;
+mod parse;
+mod render;
+mod search;
+mod types;
+
+use classify::classify_point_group;
+use geometry::{
+    center_of_mass, check_inversion, check_linear, compute_principal_axes, find_linear_axis,
+};
+use parse::parse_atoms;
+use render::{build_axis, build_plane};
+use search::{
+    find_mirror_planes, find_rotation_axes, generate_candidate_directions,
+    generate_candidate_planes,
+};
+use types::{FoundAxis, FoundPlane, RotationAxis, SymmetryPlane};
+
+pub use types::SymmetryData;
+
+// ===== 容差与限制 =====
+pub(super) const TOLERANCE: f64 = 0.30; // Å，原子匹配容差
+pub(super) const ANGLE_TOL: f64 = 0.10; // rad，方向向量去重容差
+const MAX_ATOMS_FOR_SYMMETRY: usize = 500;
+
+// ===== 公开接口 =====
+
+pub fn calculate(raw_data: &str, format: &str) -> Result<SymmetryData, String> {
+    let mut atoms = parse_atoms(raw_data, format)?;
+    if atoms.is_empty() {
+        return Err("未找到任何原子坐标".into());
+    }
+    if atoms.len() > MAX_ATOMS_FOR_SYMMETRY {
+        return Err(format!(
+            "原子数 ({}) 超过对称性分析上限 ({})，请使用较小的分子",
+            atoms.len(),
+            MAX_ATOMS_FOR_SYMMETRY
+        ));
+    }
+
+    let atom_count = atoms.len();
+
+    // 单原子特殊处理
+    if atom_count == 1 {
+        return Ok(SymmetryData {
+            point_group: "K_h".into(),
+            planes: vec![],
+            axes: vec![],
+            has_inversion: true,
+            atom_count,
+        });
+    }
+
+    // 平移至质心
+    let com = center_of_mass(&atoms);
+    for atom in &mut atoms {
+        atom.pos -= com;
+    }
+
+    // 分子半径（用于渲染尺寸缩放）
+    let mol_radius = atoms
+        .iter()
+        .map(|a| a.pos.norm())
+        .fold(0.0_f64, f64::max)
+        .max(1.0);
+
+    // 检测线性分子
+    let is_linear = check_linear(&atoms);
+
+    if is_linear {
+        let has_inv = check_inversion(&atoms);
+        let pg = if has_inv { "D∞h" } else { "C∞v" };
+
+        // 线性分子：主轴沿分子方向
+        let axis_dir = find_linear_axis(&atoms);
+        let axis = build_axis(&axis_dir, 0, mol_radius); // order=0 表示 ∞
+
+        return Ok(SymmetryData {
+            point_group: pg.into(),
+            planes: vec![],
+            axes: vec![axis],
+            has_inversion: has_inv,
+            atom_count,
+        });
+    }
+
+    // 惯性张量 → 主轴
+    let principal_axes = compute_principal_axes(&atoms);
+
+    // 穷举对称操作
+    let candidate_dirs = generate_candidate_directions(&atoms, &principal_axes);
+    let found_axes: Vec<FoundAxis> = find_rotation_axes(&atoms, &candidate_dirs);
+    let candidate_planes = generate_candidate_planes(&atoms, &found_axes, &principal_axes);
+    let found_planes: Vec<FoundPlane> = find_mirror_planes(&atoms, &candidate_planes);
+    let has_inversion = check_inversion(&atoms);
+
+    // 点群分类
+    let point_group = classify_point_group(&found_axes, &found_planes, has_inversion);
+
+    // 构建渲染数据
+    let axes_render: Vec<RotationAxis> = found_axes
+        .iter()
+        .map(|a| build_axis(&a.dir, a.order, mol_radius))
+        .collect();
+
+    let planes_render: Vec<SymmetryPlane> = found_planes
+        .iter()
+        .map(|p| build_plane(&p.normal, mol_radius))
+        .collect();
+
+    Ok(SymmetryData {
+        point_group,
+        planes: planes_render,
+        axes: axes_render,
+        has_inversion,
+        atom_count,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::elements::normalize_element;
+    use super::*;
+
+    #[test]
+    fn test_water_c2v() {
+        let xyz =
+            "3\nwater\nO  0.000  0.000  0.117\nH  0.000  0.757 -0.469\nH  0.000 -0.757 -0.469\n";
+        let result = calculate(xyz, "xyz").unwrap();
+        assert_eq!(result.point_group, "C_2v");
+        assert!(!result.axes.is_empty());
+        assert!(!result.planes.is_empty());
+    }
+
+    #[test]
+    fn test_co2_linear() {
+        let xyz =
+            "3\nCO2\nC  0.000  0.000  0.000\nO  0.000  0.000  1.160\nO  0.000  0.000 -1.160\n";
+        let result = calculate(xyz, "xyz").unwrap();
+        assert_eq!(result.point_group, "D∞h");
+        assert!(result.has_inversion);
+    }
+
+    #[test]
+    fn test_single_atom() {
+        let xyz = "1\nHe\nHe  0.0  0.0  0.0\n";
+        let result = calculate(xyz, "xyz").unwrap();
+        assert_eq!(result.point_group, "K_h");
+    }
+
+    #[test]
+    fn test_normalize_element() {
+        assert_eq!(normalize_element("FE"), "Fe");
+        assert_eq!(normalize_element("h"), "H");
+        assert_eq!(normalize_element("CA"), "Ca");
+    }
+}

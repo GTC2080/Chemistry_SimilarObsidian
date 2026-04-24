@@ -1,0 +1,58 @@
+[package]
+name = "nexus"
+version = "1.0.4"
+edition = "2021"
+description = "Nexus (星枢) - 本地智能知识管理软件"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+# SQLite 数据库引擎，bundled 特性内嵌 SQLite 源码，确保跨平台编译无需系统级依赖
+rusqlite = { version = "0.35", features = ["bundled"] }
+# 正则表达式引擎，用于从 Markdown 文本中提取 [[双向链接]] 和 #标签 语法
+regex = "1"
+# YAML 解析器，用于解析 Frontmatter 中的标签等元数据
+serde_yaml = "0.9"
+# HTTP 客户端，用于调用 AI Embedding API
+# rustls-tls: 使用纯 Rust TLS 实现，避免依赖系统 OpenSSL
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], default-features = false }
+# 异步流处理，用于解析 SSE 格式的流式 AI 响应
+futures-util = "0.3"
+# 异步运行时，reqwest 底层依赖 tokio（编译管线需要 process/fs/io）
+tokio = { version = "1", features = ["macros", "process", "fs", "io-util", "sync"] }
+# PDF 文本提取，用于从 PDF 文件中提取纯文本供 AI 检索和向量化
+pdf-extract = "0.7"
+# 高性能线性代数库，用于对称性推演中的惯性张量对角化和旋转矩阵运算
+nalgebra = "0.33"
+# 类型化错误处理，用 derive 宏自动生成 Display / Error / From 实现
+thiserror = "2"
+# SHA-2 哈希算法，用于 PDF 渲染缓存的内容寻址键生成
+sha2 = "0.10"
+# 文件系统监听，用于增量监听 Vault 文件变更（替代全盘扫描）
+notify = "7"
+# notify 的去抖包装，合并短时间内的连续事件
+notify-debouncer-mini = "0.5"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+cc = "1"
+
+[lib]
+name = "nexus_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+# ===== 性能优化 =====
+# dev 模式下对依赖库开启优化，大幅提升启动速度和运行性能
+# 自身代码保持不优化以保留快速增量编译
+[profile.dev.package."*"]
+opt-level = 2
+
+# release 模式开启 LTO 和单 codegen unit，最大化优化
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

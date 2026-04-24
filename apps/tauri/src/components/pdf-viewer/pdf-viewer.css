@@ -1,0 +1,10 @@
+/* PDF Viewer — 样式索引（按组件拆分到 styles/ 目录） */
+
+@import "./styles/viewer.css";
+@import "./styles/page.css";
+@import "./styles/toolbar.css";
+@import "./styles/text-layer.css";
+@import "./styles/annotation.css";
+@import "./styles/panels.css";
+@import "./styles/selection.css";
+@import "./styles/drawing.css";

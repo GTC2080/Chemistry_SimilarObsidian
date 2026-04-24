@@ -167,7 +167,8 @@ std::error_code mark_note_fts_deleted(sqlite3* db, const sqlite3_int64 note_id) 
 
 std::error_code insert_note_tag(sqlite3* db, const sqlite3_int64 note_id, std::string_view tag) {
   sqlite3_stmt* stmt = nullptr;
-  std::error_code ec = prepare(db, "INSERT INTO note_tags(note_id, tag) VALUES(?1, ?2);", &stmt);
+  std::error_code ec =
+      prepare(db, "INSERT OR IGNORE INTO note_tags(note_id, tag) VALUES(?1, ?2);", &stmt);
   if (ec) {
     return ec;
   }

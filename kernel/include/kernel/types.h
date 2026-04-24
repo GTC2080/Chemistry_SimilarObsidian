@@ -73,6 +73,48 @@ typedef struct kernel_note_metadata {
   char content_revision[KERNEL_REVISION_MAX];
 } kernel_note_metadata;
 
+typedef struct kernel_note_record {
+  char* rel_path;
+  char* title;
+  uint64_t file_size;
+  uint64_t mtime_ns;
+  char content_revision[KERNEL_REVISION_MAX];
+} kernel_note_record;
+
+typedef struct kernel_note_list {
+  kernel_note_record* notes;
+  size_t count;
+} kernel_note_list;
+
+typedef struct kernel_tag_record {
+  char* name;
+  uint32_t count;
+} kernel_tag_record;
+
+typedef struct kernel_tag_list {
+  kernel_tag_record* tags;
+  size_t count;
+} kernel_tag_list;
+
+typedef struct kernel_graph_node {
+  char* id;
+  char* name;
+  uint8_t ghost;
+} kernel_graph_node;
+
+typedef struct kernel_graph_link {
+  char* source;
+  char* target;
+  char* kind;
+} kernel_graph_link;
+
+typedef struct kernel_graph {
+  kernel_graph_node* nodes;
+  size_t node_count;
+  kernel_graph_link* links;
+  size_t link_count;
+} kernel_graph;
+
 typedef enum kernel_search_match_flags {
   KERNEL_SEARCH_MATCH_NONE = 0,
   KERNEL_SEARCH_MATCH_TITLE = 1,

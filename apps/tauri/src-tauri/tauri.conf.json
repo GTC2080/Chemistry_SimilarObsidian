@@ -1,0 +1,48 @@
+{
+  "productName": "Nexus",
+  "version": "1.0.4",
+  "identifier": "com.nexus-app.dev",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Nexus",
+        "width": 1200,
+        "height": 800,
+        "center": true,
+        "transparent": false,
+        "decorations": false,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "scope": [
+          "$APPDATA/pdf-render-cache/**",
+          "$TEMP/**",
+          "**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": { "binaries/pdfium.dll": "pdfium.dll" },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
+  }
+}

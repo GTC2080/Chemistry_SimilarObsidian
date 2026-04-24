@@ -56,7 +56,7 @@ bool is_tag_start(const std::string_view markdown, const std::size_t index) {
 
 bool is_tag_char(const char ch) {
   const unsigned char value = static_cast<unsigned char>(ch);
-  return std::isalnum(value) || value == '_';
+  return std::isalnum(value) || value == '_' || value == '/';
 }
 
 bool looks_like_local_attachment_target(std::string_view target) {

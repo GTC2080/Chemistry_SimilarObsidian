@@ -1,0 +1,114 @@
+/* ========== SMILES Molecule Viewer ========== */
+.smiles-error {
+  background: rgba(255, 255, 255, 0.03);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+.smiles-error-text {
+  color: var(--text-quaternary);
+}
+.smiles-container {
+  background: rgba(255, 255, 255, 0.03);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+.smiles-canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ========== KaTeX Math ========== */
+
+.prose-editor .tiptap .tiptap-mathematics-render {
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-radius: 6px;
+}
+.prose-editor .tiptap .tiptap-mathematics-render:hover {
+  background: rgba(10, 132, 255, 0.08);
+}
+.prose-editor .tiptap .tiptap-mathematics-render[data-type="inline-math"] {
+  display: inline;
+  padding: 0.1em 0.2em;
+}
+.prose-editor .tiptap .tiptap-mathematics-render[data-type="block-math"] {
+  display: flex;
+  justify-content: center;
+  padding: 1em 0;
+  margin: 0.6em 0;
+}
+
+/* KaTeX dark mode color override */
+.prose-editor .katex,
+.prose-editor .katex .mord,
+.prose-editor .katex .mbin,
+.prose-editor .katex .mrel,
+.prose-editor .katex .mopen,
+.prose-editor .katex .mclose,
+.prose-editor .katex .mpunct,
+.prose-editor .katex .minner {
+  color: var(--text-primary);
+}
+
+/* ========== Polymer Kinetics Slider ========== */
+.kinetics-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  border: 0;
+}
+
+.kinetics-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.kinetics-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #3B82F6;
+  border: 1px solid #1F3B8E;
+  margin-top: -3px;
+}
+
+.kinetics-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.kinetics-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #3B82F6;
+  border: 1px solid #1F3B8E;
+}
+
+/* ========== Plotly modebar theme ========== */
+.modebar-btn path {
+  fill: var(--text-quaternary) !important;
+}
+.modebar-btn:hover path {
+  fill: var(--text-secondary) !important;
+}
+
+/* ========== TRUTH_SYSTEM Animations ========== */
+@keyframes truthFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes truthSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* GPU-accelerated animation hints */
+.animate-truth-slide-up {
+  will-change: transform, opacity;
+}
+.animate-truth-fade-in {
+  will-change: opacity;
+}
