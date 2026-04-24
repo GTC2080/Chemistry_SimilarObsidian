@@ -33,10 +33,24 @@ Required coverage:
 - nonzero axis count with null axes returns `KERNEL_ERROR_INVALID_ARGUMENT`
 - nonzero plane count with null planes returns `KERNEL_ERROR_INVALID_ARGUMENT`
 
+## Render Geometry
+
+Required coverage:
+
+- `kernel_build_symmetry_render_geometry(...)` preserves axis direction and order
+- axis start/end points use the frozen `mol_radius * 1.5` extent
+- plane output preserves normal and center
+- plane vertices use the frozen `mol_radius * 1.8` square size
+- nonzero axis count with null axis input or output returns `KERNEL_ERROR_INVALID_ARGUMENT`
+- nonzero plane count with null plane input or output returns `KERNEL_ERROR_INVALID_ARGUMENT`
+- negative or non-finite radius returns `KERNEL_ERROR_INVALID_ARGUMENT`
+- empty axis/plane input with null outputs is accepted
+
 ## Host Bridge
 
 Required coverage:
 
 - Tauri Rust `symmetry::parse` is a thin C ABI bridge
 - Tauri Rust `symmetry::classify` is a thin C ABI bridge
+- Tauri Rust `symmetry::render` is a thin C ABI bridge
 - full `calculate_symmetry` smoke tests still exercise the kernel classifier through the Rust command path

@@ -633,6 +633,20 @@ typedef struct kernel_symmetry_plane_input {
   double normal[3];
 } kernel_symmetry_plane_input;
 
+typedef struct kernel_symmetry_render_axis {
+  double vector[3];
+  double center[3];
+  uint8_t order;
+  double start[3];
+  double end[3];
+} kernel_symmetry_render_axis;
+
+typedef struct kernel_symmetry_render_plane {
+  double normal[3];
+  double center[3];
+  double vertices[4][3];
+} kernel_symmetry_render_plane;
+
 typedef struct kernel_symmetry_classification_result {
   char point_group[KERNEL_SYMMETRY_POINT_GROUP_MAX];
 } kernel_symmetry_classification_result;

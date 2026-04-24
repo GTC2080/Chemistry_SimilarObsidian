@@ -180,6 +180,14 @@ kernel_status kernel_classify_point_group(
     size_t plane_count,
     uint8_t has_inversion,
     kernel_symmetry_classification_result* out_result);
+kernel_status kernel_build_symmetry_render_geometry(
+    const kernel_symmetry_axis_input* axes,
+    size_t axis_count,
+    const kernel_symmetry_plane_input* planes,
+    size_t plane_count,
+    double mol_radius,
+    kernel_symmetry_render_axis* out_axes,
+    kernel_symmetry_render_plane* out_planes);
 kernel_status kernel_parse_symmetry_atoms_text(
     const char* raw,
     size_t raw_size,

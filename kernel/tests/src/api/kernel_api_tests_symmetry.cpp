@@ -36,6 +36,13 @@ kernel_symmetry_plane_input plane(const double x, const double y, const double z
   return result;
 }
 
+void require_near(const double actual, const double expected, std::string_view message) {
+  require_true(
+      std::abs(actual - expected) < 1.0e-8,
+      std::string(message) + ": expected " + std::to_string(expected) + ", got " +
+          std::to_string(actual));
+}
+
 std::string classify(
     const kernel_symmetry_axis_input* axes,
     const size_t axis_count,
@@ -105,6 +112,75 @@ void test_symmetry_rejects_invalid_inputs() {
       kernel_classify_point_group(&valid_axis, 1, nullptr, 1, 0, &result).code ==
           KERNEL_ERROR_INVALID_ARGUMENT,
       "symmetry classifier should reject null planes when count is nonzero");
+}
+
+void test_symmetry_builds_render_geometry() {
+  const kernel_symmetry_axis_input axes[] = {axis(0.0, 0.0, 1.0, 2)};
+  const kernel_symmetry_plane_input planes[] = {plane(0.0, 0.0, 1.0)};
+  kernel_symmetry_render_axis out_axes[1]{};
+  kernel_symmetry_render_plane out_planes[1]{};
+
+  require_ok_status(
+      kernel_build_symmetry_render_geometry(axes, 1, planes, 1, 2.0, out_axes, out_planes),
+      "build symmetry render geometry");
+
+  require_near(out_axes[0].vector[2], 1.0, "render axis vector z");
+  require_true(out_axes[0].order == 2, "render axis should preserve order");
+  require_near(out_axes[0].center[0], 0.0, "render axis center x");
+  require_near(out_axes[0].start[2], -3.0, "render axis start z");
+  require_near(out_axes[0].end[2], 3.0, "render axis end z");
+
+  require_near(out_planes[0].normal[2], 1.0, "render plane normal z");
+  require_near(out_planes[0].center[0], 0.0, "render plane center x");
+  require_near(out_planes[0].vertices[0][0], -3.6, "render plane first vertex x");
+  require_near(out_planes[0].vertices[0][1], 3.6, "render plane first vertex y");
+  require_near(out_planes[0].vertices[2][1], -3.6, "render plane opposite vertex y");
+}
+
+void test_symmetry_render_geometry_rejects_invalid_inputs() {
+  const auto valid_axis = axis(0.0, 0.0, 1.0, 2);
+  const auto valid_plane = plane(0.0, 0.0, 1.0);
+  kernel_symmetry_render_axis out_axis{};
+  kernel_symmetry_render_plane out_plane{};
+
+  const auto null_axis_output = kernel_build_symmetry_render_geometry(
+      &valid_axis,
+      1,
+      &valid_plane,
+      1,
+      1.0,
+      nullptr,
+      &out_plane);
+  require_true(
+      null_axis_output.code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry render geometry should reject null axis output");
+
+  const auto null_plane_input = kernel_build_symmetry_render_geometry(
+      &valid_axis,
+      1,
+      nullptr,
+      1,
+      1.0,
+      &out_axis,
+      &out_plane);
+  require_true(
+      null_plane_input.code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry render geometry should reject null plane input");
+
+  const auto negative_radius = kernel_build_symmetry_render_geometry(
+      nullptr,
+      0,
+      nullptr,
+      0,
+      -1.0,
+      nullptr,
+      nullptr);
+  require_true(
+      negative_radius.code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry render geometry should reject negative radius");
+  require_ok_status(
+      kernel_build_symmetry_render_geometry(nullptr, 0, nullptr, 0, 1.0, nullptr, nullptr),
+      "empty symmetry render geometry");
 }
 
 void test_symmetry_parses_xyz_atoms() {
@@ -211,6 +287,8 @@ void run_symmetry_compute_tests() {
   test_symmetry_classifies_d2h();
   test_symmetry_classifies_low_symmetry_cases();
   test_symmetry_rejects_invalid_inputs();
+  test_symmetry_builds_render_geometry();
+  test_symmetry_render_geometry_rejects_invalid_inputs();
   test_symmetry_parses_xyz_atoms();
   test_symmetry_parses_pdb_atoms();
   test_symmetry_parses_cif_fractional_atoms();

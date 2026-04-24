@@ -32,6 +32,7 @@ add_library(
   impl/core/kernel_crystal_public_api.cpp
   impl/core/kernel_symmetry_public_api.cpp
   impl/core/kernel_symmetry_atom_parser_public_api.cpp
+  impl/core/kernel_symmetry_render_public_api.cpp
   impl/core/kernel_chemistry_reference_resolution.cpp
   impl/core/kernel_chemistry_reference_api_reset.cpp
   impl/core/kernel_chemistry_reference_api_fill.cpp
@@ -80,6 +81,7 @@ add_library(
   impl/crystal/supercell.cpp
   impl/symmetry/atom_parser.cpp
   impl/symmetry/classify.cpp
+  impl/symmetry/render_geometry.cpp
   impl/pdf/pdf_anchor.cpp
   impl/pdf/ink_smoothing.cpp
   impl/pdf/pdf_metadata.cpp

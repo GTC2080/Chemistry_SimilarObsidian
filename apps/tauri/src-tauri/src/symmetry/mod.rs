@@ -1,7 +1,7 @@
 //! 分子点群与空间对称性推演桥接层
 //!
-//! Tauri Rust 保留解析、候选几何搜索和命令 DTO；点群分类规则已由 C++ kernel 提供。
-//! 前端零计算：几何数据（平面顶点、轴端点）仍在 host 命令返回前预计算完毕。
+//! Tauri Rust 保留候选几何搜索和命令 DTO；解析、点群分类与渲染几何已由 C++ kernel 提供。
+//! 前端零计算：几何数据（平面顶点、轴端点）在 host 命令返回前由 kernel 预计算完毕。
 
 mod classify;
 mod geometry;
@@ -15,12 +15,12 @@ use geometry::{
     center_of_mass, check_inversion, check_linear, compute_principal_axes, find_linear_axis,
 };
 use parse::parse_atoms;
-use render::{build_axis, build_plane};
+use render::build_render_geometry;
 use search::{
     find_mirror_planes, find_rotation_axes, generate_candidate_directions,
     generate_candidate_planes,
 };
-use types::{FoundAxis, FoundPlane, RotationAxis, SymmetryPlane};
+use types::{FoundAxis, FoundPlane};
 
 pub use types::SymmetryData;
 
@@ -79,12 +79,16 @@ pub fn calculate(raw_data: &str, format: &str) -> Result<SymmetryData, String> {
 
         // 线性分子：主轴沿分子方向
         let axis_dir = find_linear_axis(&atoms);
-        let axis = build_axis(&axis_dir, 0, mol_radius); // order=0 表示 ∞
+        let found_axes = vec![FoundAxis {
+            dir: axis_dir,
+            order: 0, // order=0 表示 ∞
+        }];
+        let (axes_render, _) = build_render_geometry(&found_axes, &[], mol_radius)?;
 
         return Ok(SymmetryData {
             point_group: pg.into(),
             planes: vec![],
-            axes: vec![axis],
+            axes: axes_render,
             has_inversion: has_inv,
             atom_count,
         });
@@ -104,15 +108,8 @@ pub fn calculate(raw_data: &str, format: &str) -> Result<SymmetryData, String> {
     let point_group = classify_point_group(&found_axes, &found_planes, has_inversion);
 
     // 构建渲染数据
-    let axes_render: Vec<RotationAxis> = found_axes
-        .iter()
-        .map(|a| build_axis(&a.dir, a.order, mol_radius))
-        .collect();
-
-    let planes_render: Vec<SymmetryPlane> = found_planes
-        .iter()
-        .map(|p| build_plane(&p.normal, mol_radius))
-        .collect();
+    let (axes_render, planes_render) =
+        build_render_geometry(&found_axes, &found_planes, mol_radius)?;
 
     Ok(SymmetryData {
         point_group,

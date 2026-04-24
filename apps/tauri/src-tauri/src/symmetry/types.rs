@@ -8,16 +8,6 @@ pub struct Vec3D {
     pub z: f64,
 }
 
-impl Vec3D {
-    pub(super) fn from_v3(v: &Vector3<f64>) -> Self {
-        Vec3D {
-            x: v.x,
-            y: v.y,
-            z: v.z,
-        }
-    }
-}
-
 #[derive(Serialize, Clone, Debug)]
 pub struct SymmetryPlane {
     pub normal: Vec3D,

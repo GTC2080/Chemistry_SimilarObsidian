@@ -11,6 +11,7 @@ Current surface:
 - `kernel_parse_symmetry_atoms_text(raw, raw_size, format, out_atoms)`
 - `kernel_free_symmetry_atom_list(out_atoms)`
 - `kernel_classify_point_group(axes, axis_count, planes, plane_count, has_inversion, out_result)`
+- `kernel_build_symmetry_render_geometry(axes, axis_count, planes, plane_count, mol_radius, out_axes, out_planes)`
 
 ## Ownership
 
@@ -21,6 +22,8 @@ Current surface:
 - the host owns input axis and plane arrays
 - the kernel owns point-group classification rules
 - `kernel_symmetry_classification_result` is filled by value and requires no free call
+- the host owns preallocated render axis and plane output arrays
+- the kernel owns axis endpoint and mirror-plane vertex construction
 - invalid pointer/count combinations return `KERNEL_ERROR_INVALID_ARGUMENT`
 
 ## Host Boundary
@@ -28,7 +31,7 @@ Current surface:
 The Tauri host keeps:
 
 - candidate axis and mirror-plane search
-- render geometry DTO construction
+- render geometry ABI marshalling and command DTO construction
 - localized UI error wording
 
 The kernel owns:
@@ -39,6 +42,8 @@ The kernel owns:
 - point-group decision ordering
 - low-symmetry classification (`C_1`, `C_s`, `C_i`)
 - cyclic, dihedral, tetrahedral, octahedral, and icosahedral point-group labels
+- rotation-axis render endpoint construction
+- mirror-plane render vertex construction
 
 ## Frozen Rules
 
@@ -57,5 +62,8 @@ The kernel owns:
 - axis directions and plane normals are expected to be normalized by the host
 - `has_inversion` is passed as a boolean byte
 - returned labels are null-terminated UTF-8 stored in a fixed host-owned buffer
-- the current ABI intentionally does not emit candidate axes, mirror planes, or
-  render geometry
+- render axis output count equals input axis count
+- render plane output count equals input plane count
+- render axis extent remains `mol_radius * 1.5`
+- render plane square size remains `mol_radius * 1.8`
+- the current ABI intentionally does not emit candidate axes or mirror planes

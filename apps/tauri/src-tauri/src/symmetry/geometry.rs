@@ -115,20 +115,6 @@ pub(super) fn reflect_point(v: &Vector3<f64>, normal: &Vector3<f64>) -> Vector3<
     v - normal * (2.0 * v.dot(normal))
 }
 
-pub(super) fn find_perpendicular(v: &Vector3<f64>) -> Vector3<f64> {
-    let candidate = if v.x.abs() < 0.9 {
-        Vector3::x()
-    } else {
-        Vector3::y()
-    };
-    let perp = v.cross(&candidate);
-    if perp.norm() < 1e-10 {
-        v.cross(&Vector3::z())
-    } else {
-        perp
-    }
-}
-
 pub(super) fn are_parallel(a: &Vector3<f64>, b: &Vector3<f64>) -> bool {
     a.dot(b).abs() > ANGLE_TOL.cos()
 }
