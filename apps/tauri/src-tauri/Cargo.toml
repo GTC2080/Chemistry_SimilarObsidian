@@ -24,8 +24,6 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], defau
 futures-util = "0.3"
 # 异步运行时，reqwest 底层依赖 tokio（编译管线需要 process/fs/io）
 tokio = { version = "1", features = ["macros", "process", "fs", "io-util", "sync"] }
-# PDF 文本提取，用于从 PDF 文件中提取纯文本供 AI 检索和向量化
-pdf-extract = "0.7"
 # 高性能线性代数库，用于对称性推演中的惯性张量对角化和旋转矩阵运算
 nalgebra = "0.33"
 # 类型化错误处理，用 derive 宏自动生成 Display / Error / From 实现
