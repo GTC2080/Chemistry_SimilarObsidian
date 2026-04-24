@@ -134,6 +134,12 @@ kernel_status kernel_parse_spectroscopy_text(
     size_t raw_size,
     const char* extension,
     kernel_spectroscopy_data* out_data);
+kernel_status kernel_calculate_miller_plane(
+    const kernel_crystal_cell_params* cell,
+    int32_t h,
+    int32_t k,
+    int32_t l,
+    kernel_miller_plane_result* out_result);
 kernel_status kernel_query_note_chem_spectrum_refs(
     kernel_handle* handle,
     const char* note_rel_path,

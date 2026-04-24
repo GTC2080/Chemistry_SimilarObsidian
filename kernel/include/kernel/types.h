@@ -467,6 +467,32 @@ typedef struct kernel_spectroscopy_data {
   kernel_spectroscopy_parse_error error;
 } kernel_spectroscopy_data;
 
+typedef enum kernel_crystal_miller_error {
+  KERNEL_CRYSTAL_MILLER_ERROR_NONE = 0,
+  KERNEL_CRYSTAL_MILLER_ERROR_ZERO_INDEX = 1,
+  KERNEL_CRYSTAL_MILLER_ERROR_GAMMA_TOO_SMALL = 2,
+  KERNEL_CRYSTAL_MILLER_ERROR_INVALID_BASIS = 3,
+  KERNEL_CRYSTAL_MILLER_ERROR_ZERO_VOLUME = 4,
+  KERNEL_CRYSTAL_MILLER_ERROR_ZERO_NORMAL = 5
+} kernel_crystal_miller_error;
+
+typedef struct kernel_crystal_cell_params {
+  double a;
+  double b;
+  double c;
+  double alpha_deg;
+  double beta_deg;
+  double gamma_deg;
+} kernel_crystal_cell_params;
+
+typedef struct kernel_miller_plane_result {
+  double normal[3];
+  double center[3];
+  double d;
+  double vertices[4][3];
+  kernel_crystal_miller_error error;
+} kernel_miller_plane_result;
+
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
   KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1
