@@ -637,6 +637,29 @@ typedef struct kernel_symmetry_classification_result {
   char point_group[KERNEL_SYMMETRY_POINT_GROUP_MAX];
 } kernel_symmetry_classification_result;
 
+typedef enum kernel_symmetry_parse_error {
+  KERNEL_SYMMETRY_PARSE_ERROR_NONE = 0,
+  KERNEL_SYMMETRY_PARSE_ERROR_UNSUPPORTED_FORMAT = 1,
+  KERNEL_SYMMETRY_PARSE_ERROR_XYZ_EMPTY = 2,
+  KERNEL_SYMMETRY_PARSE_ERROR_XYZ_INCOMPLETE = 3,
+  KERNEL_SYMMETRY_PARSE_ERROR_XYZ_COORDINATE = 4,
+  KERNEL_SYMMETRY_PARSE_ERROR_PDB_COORDINATE = 5,
+  KERNEL_SYMMETRY_PARSE_ERROR_CIF_MISSING_CELL = 6,
+  KERNEL_SYMMETRY_PARSE_ERROR_CIF_INVALID_CELL = 7
+} kernel_symmetry_parse_error;
+
+typedef struct kernel_symmetry_atom_record {
+  char* element;
+  double position[3];
+  double mass;
+} kernel_symmetry_atom_record;
+
+typedef struct kernel_symmetry_atom_list {
+  kernel_symmetry_atom_record* atoms;
+  size_t count;
+  kernel_symmetry_parse_error error;
+} kernel_symmetry_atom_list;
+
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
   KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1

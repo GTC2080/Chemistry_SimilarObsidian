@@ -180,6 +180,11 @@ kernel_status kernel_classify_point_group(
     size_t plane_count,
     uint8_t has_inversion,
     kernel_symmetry_classification_result* out_result);
+kernel_status kernel_parse_symmetry_atoms_text(
+    const char* raw,
+    size_t raw_size,
+    const char* format,
+    kernel_symmetry_atom_list* out_atoms);
 kernel_status kernel_query_note_chem_spectrum_refs(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -258,6 +263,7 @@ void kernel_free_spectroscopy_data(kernel_spectroscopy_data* data);
 void kernel_free_molecular_preview(kernel_molecular_preview* preview);
 void kernel_free_crystal_parse_result(kernel_crystal_parse_result* result);
 void kernel_free_supercell_result(kernel_supercell_result* result);
+void kernel_free_symmetry_atom_list(kernel_symmetry_atom_list* atoms);
 void kernel_free_chem_spectrum_source_refs(kernel_chem_spectrum_source_refs* refs);
 void kernel_free_chem_spectrum_referrers(kernel_chem_spectrum_referrers* referrers);
 void kernel_free_domain_source_refs(kernel_domain_source_refs* refs);

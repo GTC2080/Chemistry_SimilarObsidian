@@ -4,7 +4,6 @@
 //! 前端零计算：几何数据（平面顶点、轴端点）仍在 host 命令返回前预计算完毕。
 
 mod classify;
-pub(crate) mod elements;
 mod geometry;
 mod parse;
 mod render;
@@ -126,7 +125,6 @@ pub fn calculate(raw_data: &str, format: &str) -> Result<SymmetryData, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::elements::normalize_element;
     use super::*;
 
     #[test]
@@ -153,12 +151,5 @@ mod tests {
         let xyz = "1\nHe\nHe  0.0  0.0  0.0\n";
         let result = calculate(xyz, "xyz").unwrap();
         assert_eq!(result.point_group, "K_h");
-    }
-
-    #[test]
-    fn test_normalize_element() {
-        assert_eq!(normalize_element("FE"), "Fe");
-        assert_eq!(normalize_element("h"), "H");
-        assert_eq!(normalize_element("CA"), "Ca");
     }
 }

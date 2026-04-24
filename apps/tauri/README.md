@@ -44,6 +44,7 @@
 
 - **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
 - **v1.0.6-dev** — 化学无状态计算继续内核化：高分子动力学、化学计量、波谱解析、分子预览、逆合成 mock pathway 规则均通过 `kernel/` C ABI 提供；Tauri Rust 只保留 PubChem HTTP 查询、命令 DTO 映射和 kernel 内存释放桥接。
+- **v1.0.6-dev** — 对称性原子解析继续内核化：`XYZ` / `PDB` / simple `CIF` 原子解析、元素归一化、原子质量表和 CIF 分数坐标转换由 `kernel_parse_symmetry_atoms_text(...)` 提供；Rust 只继续保留候选轴/镜面搜索与渲染 DTO 组装。
 - **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Rust Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
@@ -83,6 +84,13 @@
 - `retrosynthesize_target` -> `kernel_generate_mock_retrosynthesis(...)`
 
 `fetch_compound_info` 仍是 Tauri Rust 的网络适配层；逆合成 pathway 规则不再由 Rust 构造。
+
+已收口到 kernel 的对称性计算面：
+
+- `calculate_symmetry` 原子解析 -> `kernel_parse_symmetry_atoms_text(...)`
+- `calculate_symmetry` 点群分类 -> `kernel_classify_point_group(...)`
+
+Rust `symmetry/` 当前仍保留候选旋转轴、镜像平面搜索和 3D viewer DTO 组装；后续迁移批次继续从这里削薄。
 
 ## 快速开始
 
@@ -145,7 +153,7 @@ npx tauri build
 - 深色融合背景，Jmol 科学标准原子配色
 - `.cif` 文件支持「结构 / 对称性 / 晶格」三视图：晶格视图提供超晶胞扩展控制（1-5×）与密勒指数切割器，非 CIF 文件保持「结构 / 对称性」双视图
 - 在对称性视图中显示点群 HUD、旋转轴与镜像平面（可独立开关）
-- 对称性计算由 Rust 引擎完成：支持 PDB / XYZ / CIF 输入，CIF 晶胞参数支持“标签同一行”与“值在下一行”两种写法
+- 对称性原子解析和点群分类由 C++ kernel 提供：支持 PDB / XYZ / CIF 输入，CIF 晶胞参数支持“标签同一行”与“值在下一行”两种写法
 - 分子文件不参与数据库内容索引和 Embedding 向量化，防止海量坐标数据污染语义检索
 
 ## 高分子动力学沙盘

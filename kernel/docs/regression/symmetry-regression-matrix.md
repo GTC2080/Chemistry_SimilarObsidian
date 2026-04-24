@@ -2,6 +2,24 @@
 
 # Symmetry Regression Matrix
 
+## Atom Parsing
+
+Required coverage:
+
+- `kernel_parse_symmetry_atoms_text(...)` parses `XYZ` atom rows
+- `XYZ` parsing normalizes element symbols and returns atomic masses
+- `kernel_parse_symmetry_atoms_text(...)` parses `PDB` `ATOM` / `HETATM`
+  coordinates
+- `PDB` parsing prefers the fixed-width element column when present
+- `kernel_parse_symmetry_atoms_text(...)` parses simple `CIF` atom loops
+- simple `CIF` fractional coordinates convert to Cartesian coordinates using
+  cell parameters
+- incomplete `XYZ` input returns `KERNEL_ERROR_INVALID_ARGUMENT` with
+  `KERNEL_SYMMETRY_PARSE_ERROR_XYZ_INCOMPLETE`
+- unsupported formats return `KERNEL_ERROR_INVALID_ARGUMENT` with
+  `KERNEL_SYMMETRY_PARSE_ERROR_UNSUPPORTED_FORMAT`
+- `kernel_free_symmetry_atom_list(...)` leaves the atom list empty
+
 ## Point-Group Classification
 
 Required coverage:
@@ -19,5 +37,6 @@ Required coverage:
 
 Required coverage:
 
+- Tauri Rust `symmetry::parse` is a thin C ABI bridge
 - Tauri Rust `symmetry::classify` is a thin C ABI bridge
 - full `calculate_symmetry` smoke tests still exercise the kernel classifier through the Rust command path

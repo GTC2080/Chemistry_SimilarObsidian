@@ -6,6 +6,7 @@
 #include "api/kernel_api_test_suites.h"
 #include "support/test_support.h"
 
+#include <cmath>
 #include <string>
 #include <string_view>
 
@@ -106,6 +107,103 @@ void test_symmetry_rejects_invalid_inputs() {
       "symmetry classifier should reject null planes when count is nonzero");
 }
 
+void test_symmetry_parses_xyz_atoms() {
+  const std::string xyz =
+      "3\n"
+      "water\n"
+      "O 0.000 0.000 0.117\n"
+      "h 0.000 0.757 -0.469\n"
+      "FE 0.000 -0.757 -0.469\n";
+
+  kernel_symmetry_atom_list atoms{};
+  require_ok_status(
+      kernel_parse_symmetry_atoms_text(xyz.data(), xyz.size(), "xyz", &atoms),
+      "parse symmetry xyz atoms");
+
+  require_true(atoms.count == 3, "xyz parser should emit three atoms");
+  require_true(std::string(atoms.atoms[1].element) == "H", "xyz parser should normalize H");
+  require_true(std::string(atoms.atoms[2].element) == "Fe", "xyz parser should normalize Fe");
+  require_true(atoms.atoms[2].mass > 55.0, "xyz parser should attach atomic mass");
+
+  kernel_free_symmetry_atom_list(&atoms);
+  require_true(
+      atoms.atoms == nullptr && atoms.count == 0,
+      "symmetry atom free should reset output");
+}
+
+void test_symmetry_parses_pdb_atoms() {
+  const std::string pdb =
+      "ATOM      1  CA  GLY A   1      11.104  13.207   2.120  1.00 20.00           C  \n"
+      "HETATM    2  O   HOH A   2      12.104  14.207   3.120  1.00 20.00           O  \n";
+
+  kernel_symmetry_atom_list atoms{};
+  require_ok_status(
+      kernel_parse_symmetry_atoms_text(pdb.data(), pdb.size(), "pdb", &atoms),
+      "parse symmetry pdb atoms");
+
+  require_true(atoms.count == 2, "pdb parser should emit two atoms");
+  require_true(std::string(atoms.atoms[0].element) == "C", "pdb parser should use element column");
+  require_true(atoms.atoms[1].position[2] > 3.0, "pdb parser should parse z coordinate");
+
+  kernel_free_symmetry_atom_list(&atoms);
+}
+
+void test_symmetry_parses_cif_fractional_atoms() {
+  const std::string cif =
+      "data_demo\n"
+      "_cell_length_a\n"
+      "3.0\n"
+      "_cell_length_b\n"
+      "3.0\n"
+      "_cell_length_c\n"
+      "3.0\n"
+      "_cell_angle_alpha\n"
+      "90\n"
+      "_cell_angle_beta 90\n"
+      "_cell_angle_gamma\n"
+      "90\n"
+      "loop_\n"
+      "_atom_site_type_symbol\n"
+      "_atom_site_fract_x\n"
+      "_atom_site_fract_y\n"
+      "_atom_site_fract_z\n"
+      "C 0.0 0.0 0.0\n"
+      "O 0.5 0.0 0.0\n";
+
+  kernel_symmetry_atom_list atoms{};
+  require_ok_status(
+      kernel_parse_symmetry_atoms_text(cif.data(), cif.size(), "cif", &atoms),
+      "parse symmetry cif atoms");
+
+  require_true(atoms.count == 2, "cif parser should emit two atoms");
+  require_true(
+      std::abs(atoms.atoms[1].position[0] - 1.5) < 1.0e-8,
+      "cif parser should convert fractional x to cartesian");
+
+  kernel_free_symmetry_atom_list(&atoms);
+}
+
+void test_symmetry_parser_rejects_invalid_inputs() {
+  kernel_symmetry_atom_list atoms{};
+  require_true(
+      kernel_parse_symmetry_atoms_text("1\n", 2, "xyz", &atoms).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "xyz parser should reject incomplete files");
+  require_true(
+      atoms.error == KERNEL_SYMMETRY_PARSE_ERROR_XYZ_INCOMPLETE,
+      "xyz parser should expose typed incomplete error");
+  kernel_free_symmetry_atom_list(&atoms);
+
+  require_true(
+      kernel_parse_symmetry_atoms_text("demo", 4, "mol", &atoms).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry parser should reject unsupported formats");
+  require_true(
+      atoms.error == KERNEL_SYMMETRY_PARSE_ERROR_UNSUPPORTED_FORMAT,
+      "symmetry parser should expose unsupported format error");
+  kernel_free_symmetry_atom_list(&atoms);
+}
+
 }  // namespace
 
 void run_symmetry_compute_tests() {
@@ -113,4 +211,8 @@ void run_symmetry_compute_tests() {
   test_symmetry_classifies_d2h();
   test_symmetry_classifies_low_symmetry_cases();
   test_symmetry_rejects_invalid_inputs();
+  test_symmetry_parses_xyz_atoms();
+  test_symmetry_parses_pdb_atoms();
+  test_symmetry_parses_cif_fractional_atoms();
+  test_symmetry_parser_rejects_invalid_inputs();
 }
