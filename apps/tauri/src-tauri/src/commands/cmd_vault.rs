@@ -15,7 +15,7 @@ use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::{
     extract_pdf_text, is_embeddable_extension, is_mol_extension, is_molecular_extension,
     is_paper_extension, is_pdf_extension, is_spectroscopy_extension, is_supported_extension,
-    is_text_extension, read_ai_config,
+    is_text_extension, parse_ignored_folders, read_ai_config,
 };
 use crate::watcher::WatcherState;
 use crate::AppError;
@@ -33,15 +33,6 @@ pub fn init_vault(
     *conn = new_conn;
     vector_cache.clear();
     Ok(())
-}
-
-fn parse_ignored_folders(ignored_folders: Option<String>) -> HashSet<String> {
-    ignored_folders
-        .unwrap_or_default()
-        .split(',')
-        .map(|s| s.trim().trim_matches('/').trim_matches('\\').to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
 }
 
 /// Holds data for a note that needs to be upserted into the database.

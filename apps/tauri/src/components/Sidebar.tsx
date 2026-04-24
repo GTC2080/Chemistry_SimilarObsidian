@@ -13,6 +13,7 @@ import SidebarTagsPanel from "./sidebar/SidebarTagsPanel";
 
 interface SidebarProps {
   vaultPath: string;
+  ignoredFolders: string;
   notes: NoteInfo[];
   activeNote: NoteInfo | null;
   loading: boolean;
@@ -29,6 +30,7 @@ interface SidebarProps {
 /** 文件树面板 — 纯内容，无工具按钮 */
 export default function Sidebar({
   vaultPath,
+  ignoredFolders,
   notes,
   activeNote,
   loading,
@@ -102,9 +104,12 @@ export default function Sidebar({
   }, [notes]);
 
   useEffect(() => {
-    if (!notes.length) { setFileTree([]); return; }
+    if (!vaultPath) { setFileTree([]); return; }
     let cancelled = false;
-    invoke<FileTreeNode[]>("build_file_tree", { notes })
+    invoke<FileTreeNode[]>("build_file_tree", {
+      vaultPath,
+      ignoredFolders: ignoredFolders || "",
+    })
       .then(tree => {
         if (!cancelled) setFileTree(tree);
       })
@@ -116,7 +121,7 @@ export default function Sidebar({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notesFingerprint]);
+  }, [ignoredFolders, notesFingerprint, vaultPath]);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   useContextMenuDismiss(!!contextMenu, contextMenuRef, closeContextMenu);

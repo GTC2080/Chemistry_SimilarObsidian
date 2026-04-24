@@ -138,6 +138,7 @@ export default memo(function WorkspaceShell({
 
         <Sidebar
           vaultPath={vaultPath}
+          ignoredFolders={runtimeSettings.ignoredFolders}
           notes={notes}
           activeNote={activeNote}
           loading={loading}
