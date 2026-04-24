@@ -143,6 +143,10 @@ kernel_status kernel_parse_spectroscopy_text(
     size_t raw_size,
     const char* extension,
     kernel_spectroscopy_data* out_data);
+kernel_status kernel_parse_cif_crystal(
+    const char* raw,
+    size_t raw_size,
+    kernel_crystal_parse_result* out_result);
 kernel_status kernel_calculate_miller_plane(
     const kernel_crystal_cell_params* cell,
     int32_t h,
@@ -240,6 +244,7 @@ void kernel_free_chem_spectrum_record(kernel_chem_spectrum_record* spectrum);
 void kernel_free_chem_spectrum_list(kernel_chem_spectrum_list* spectra);
 void kernel_free_polymerization_kinetics_result(kernel_polymerization_kinetics_result* result);
 void kernel_free_spectroscopy_data(kernel_spectroscopy_data* data);
+void kernel_free_crystal_parse_result(kernel_crystal_parse_result* result);
 void kernel_free_supercell_result(kernel_supercell_result* result);
 void kernel_free_chem_spectrum_source_refs(kernel_chem_spectrum_source_refs* refs);
 void kernel_free_chem_spectrum_referrers(kernel_chem_spectrum_referrers* referrers);

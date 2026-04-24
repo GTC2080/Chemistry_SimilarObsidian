@@ -45,6 +45,138 @@ void require_near(const double actual, const double expected, std::string_view c
           std::to_string(actual));
 }
 
+void test_cif_parser_extracts_cell_atoms_and_symops() {
+  constexpr std::string_view cif = R"cif(
+data_test
+_cell_length_a 5.0
+_cell_length_b 6.0
+_cell_length_c 7.0
+_cell_angle_alpha 90
+_cell_angle_beta 91
+_cell_angle_gamma 92
+
+loop_
+_space_group_symop_operation_xyz
+x,y,z
+'-x+1/2,y,-z+1/2'
+
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+C1 0.1(2) 0.2 0.3
+Cl 0.5 0.6 0.7
+)cif";
+
+  kernel_crystal_parse_result result{};
+  require_ok_status(
+      kernel_parse_cif_crystal(cif.data(), cif.size(), &result),
+      "parse CIF cell atoms symops");
+
+  require_near(result.cell.a, 5.0, "cif cell a");
+  require_near(result.cell.gamma_deg, 92.0, "cif cell gamma");
+  require_true(result.atom_count == 2, "cif should parse two atoms");
+  require_true(result.symop_count == 2, "cif should parse two symmetry operations");
+  require_true(
+      result.atoms[0].element != nullptr && std::string(result.atoms[0].element) == "C",
+      "cif parser should normalize atom labels");
+  require_near(result.atoms[1].frac[2], 0.7, "cif atom frac z");
+  require_near(result.symops[1].rot[0][0], -1.0, "cif symop signed x");
+  require_near(result.symops[1].trans[0], 0.5, "cif symop translation x");
+  require_near(result.symops[1].rot[2][2], -1.0, "cif symop signed z");
+  require_near(result.symops[1].trans[2], 0.5, "cif symop translation z");
+
+  kernel_free_crystal_parse_result(&result);
+  require_true(
+      result.atoms == nullptr && result.atom_count == 0 && result.symops == nullptr &&
+          result.symop_count == 0,
+      "cif parse free should reset arrays");
+}
+
+void test_cif_parser_supports_next_line_cell_values_and_default_identity() {
+  constexpr std::string_view cif = R"cif(
+data_test
+_cell_length_a
+5.0
+_cell_length_b
+5.0
+_cell_length_c
+5.0
+_cell_angle_alpha
+90
+_cell_angle_beta
+90
+_cell_angle_gamma
+90
+
+loop_
+_atom_site_label
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na1 0.0 0.0 0.0
+)cif";
+
+  kernel_crystal_parse_result result{};
+  require_ok_status(
+      kernel_parse_cif_crystal(cif.data(), cif.size(), &result),
+      "parse CIF next-line cell values");
+
+  require_true(result.atom_count == 1, "cif next-line should parse one atom");
+  require_true(result.symop_count == 1, "cif should default to identity symop");
+  require_near(result.symops[0].rot[0][0], 1.0, "default symop identity x");
+  require_near(result.symops[0].rot[1][1], 1.0, "default symop identity y");
+  require_near(result.symops[0].rot[2][2], 1.0, "default symop identity z");
+
+  kernel_free_crystal_parse_result(&result);
+}
+
+void test_cif_parser_rejects_missing_contract_parts() {
+  constexpr std::string_view no_cell = R"cif(
+data_test
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+)cif";
+  constexpr std::string_view no_atoms = R"cif(
+data_test
+_cell_length_a 5.0
+_cell_length_b 5.0
+_cell_length_c 5.0
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+)cif";
+
+  kernel_crystal_parse_result result{};
+  require_true(
+      kernel_parse_cif_crystal(no_cell.data(), no_cell.size(), &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "cif parser should reject missing cell");
+  require_true(
+      result.error == KERNEL_CRYSTAL_PARSE_ERROR_MISSING_CELL,
+      "cif parser should report missing cell");
+
+  require_true(
+      kernel_parse_cif_crystal(no_atoms.data(), no_atoms.size(), &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "cif parser should reject missing atoms");
+  require_true(
+      result.error == KERNEL_CRYSTAL_PARSE_ERROR_MISSING_ATOMS,
+      "cif parser should report missing atoms");
+  require_true(
+      kernel_parse_cif_crystal(nullptr, 0, &result).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "cif parser should reject null input");
+  require_true(
+      kernel_parse_cif_crystal(no_atoms.data(), no_atoms.size(), nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "cif parser should reject null output");
+}
+
 void test_miller_plane_100_for_cubic_cell() {
   const auto cell = cubic_cell(5.0);
   kernel_miller_plane_result result{};
@@ -205,6 +337,9 @@ void test_supercell_rejects_invalid_inputs_with_typed_errors() {
 }  // namespace
 
 void run_crystal_compute_tests() {
+  test_cif_parser_extracts_cell_atoms_and_symops();
+  test_cif_parser_supports_next_line_cell_values_and_default_identity();
+  test_cif_parser_rejects_missing_contract_parts();
   test_miller_plane_100_for_cubic_cell();
   test_miller_plane_111_for_cubic_cell();
   test_miller_plane_rejects_invalid_inputs_with_typed_errors();

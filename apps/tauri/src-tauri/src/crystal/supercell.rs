@@ -131,7 +131,7 @@ unsafe fn atom_nodes_from_kernel(raw: &KernelSupercellResult) -> Result<Vec<Atom
 
 /// 应用对称操作生成完整单胞原子，再扩展为超晶胞。
 ///
-/// CIF 解析仍由 Tauri Rust 完成；对称展开、去重和笛卡尔坐标计算由 C++ kernel 负责。
+/// 对称展开、去重和笛卡尔坐标计算由 C++ kernel 负责。
 pub(super) fn build_supercell(
     cell: &CellParams,
     raw_atoms: &[FractionalAtom],

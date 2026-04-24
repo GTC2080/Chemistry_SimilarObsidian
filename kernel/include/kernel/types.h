@@ -535,6 +535,17 @@ typedef struct kernel_crystal_cell_params {
   double gamma_deg;
 } kernel_crystal_cell_params;
 
+typedef enum kernel_crystal_parse_error {
+  KERNEL_CRYSTAL_PARSE_ERROR_NONE = 0,
+  KERNEL_CRYSTAL_PARSE_ERROR_MISSING_CELL = 1,
+  KERNEL_CRYSTAL_PARSE_ERROR_MISSING_ATOMS = 2
+} kernel_crystal_parse_error;
+
+typedef struct kernel_fractional_atom_record {
+  char* element;
+  double frac[3];
+} kernel_fractional_atom_record;
+
 typedef struct kernel_miller_plane_result {
   double normal[3];
   double center[3];
@@ -559,6 +570,15 @@ typedef struct kernel_symmetry_operation_input {
   double rot[3][3];
   double trans[3];
 } kernel_symmetry_operation_input;
+
+typedef struct kernel_crystal_parse_result {
+  kernel_crystal_cell_params cell;
+  kernel_fractional_atom_record* atoms;
+  size_t atom_count;
+  kernel_symmetry_operation_input* symops;
+  size_t symop_count;
+  kernel_crystal_parse_error error;
+} kernel_crystal_parse_result;
 
 typedef struct kernel_atom_node {
   char* element;

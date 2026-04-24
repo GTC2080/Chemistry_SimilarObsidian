@@ -10,13 +10,14 @@ This document covers stateless crystal computation surfaces.
 
 Current surface:
 
+- `kernel_parse_cif_crystal(raw, raw_size, out_result)`
+- `kernel_free_crystal_parse_result(out_result)`
 - `kernel_calculate_miller_plane(cell, h, k, l, out_result)`
 - `kernel_build_supercell(cell, atoms, atom_count, symops, symop_count, nx, ny, nz, out_result)`
 - `kernel_free_supercell_result(out_result)`
 
 Current exclusions:
 
-- CIF parsing
 - viewer state
 - vault indexing or attachment truth
 
@@ -25,10 +26,13 @@ Current exclusions:
 Frozen rules:
 
 - the surface is handle-free and must not read or write vault state
-- Tauri Rust may parse CIF text and own serde command marshalling
+- Tauri Rust owns serde command marshalling and localized error text
+- the kernel owns CIF cell, fractional atom, and symmetry operation parsing
 - the kernel owns Miller-plane numeric geometry
 - the kernel owns symmetry expansion, fractional-coordinate deduplication,
   supercell expansion, and Cartesian coordinate generation
+- parsed CIF atom arrays, element strings, and symmetry operation arrays are
+  kernel-owned until released with `kernel_free_crystal_parse_result(...)`
 - Miller-plane output buffers are host-owned and require no kernel free call
 - supercell atom arrays and element strings are kernel-owned until released with
   `kernel_free_supercell_result(...)`
@@ -55,7 +59,8 @@ Frozen rules:
 
 Frozen rules:
 
-- hosts keep CIF parsing and user-facing localized error text
+- hosts keep user-facing localized error text
+- hosts must not reimplement CIF cell, fractional atom, or symmetry operation parsing
 - hosts must not reimplement Miller-plane geometry
 - hosts must not reimplement supercell expansion or atom deduplication
 - hosts must preserve the existing Tauri command shape for

@@ -70,6 +70,7 @@ add_library(
   impl/chemistry/polymerization_kinetics.cpp
   impl/chemistry/spectroscopy_parser.cpp
   impl/chemistry/stoichiometry.cpp
+  impl/crystal/cif_parser.cpp
   impl/crystal/miller_plane.cpp
   impl/crystal/supercell.cpp
   impl/symmetry/classify.cpp

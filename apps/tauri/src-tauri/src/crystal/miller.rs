@@ -80,7 +80,7 @@ fn miller_error_message(error: i32) -> String {
 
 /// 根据密勒指数 (h, k, l) 和晶格基矢计算切割面。
 ///
-/// CIF 解析和命令 DTO 仍留在 Tauri Rust；平面几何计算由 C++ kernel 负责。
+/// 平面几何计算由 C++ kernel 负责。
 pub(super) fn calculate_miller_plane(
     cell: &CellParams,
     h: i32,

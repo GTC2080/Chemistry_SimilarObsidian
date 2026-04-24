@@ -1,6 +1,6 @@
 //! 晶格解析与超晶胞生成引擎
 //!
-//! Tauri Rust 保留 CIF 解析与 command-facing DTO，晶体学数值计算逐步桥接到 C++ kernel。
+//! Tauri Rust 保留 command-facing DTO，CIF 解析与晶体学数值计算由 C++ kernel 提供。
 
 mod miller;
 mod parse;
