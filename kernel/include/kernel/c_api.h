@@ -150,6 +150,13 @@ kernel_status kernel_build_supercell(
     uint32_t ny,
     uint32_t nz,
     kernel_supercell_result* out_result);
+kernel_status kernel_classify_point_group(
+    const kernel_symmetry_axis_input* axes,
+    size_t axis_count,
+    const kernel_symmetry_plane_input* planes,
+    size_t plane_count,
+    uint8_t has_inversion,
+    kernel_symmetry_classification_result* out_result);
 kernel_status kernel_query_note_chem_spectrum_refs(
     kernel_handle* handle,
     const char* note_rel_path,

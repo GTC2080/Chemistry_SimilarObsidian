@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #define KERNEL_REVISION_MAX 80
+#define KERNEL_SYMMETRY_POINT_GROUP_MAX 32
 
 typedef struct kernel_handle kernel_handle;
 
@@ -521,6 +522,19 @@ typedef struct kernel_supercell_result {
   uint64_t estimated_count;
   kernel_crystal_supercell_error error;
 } kernel_supercell_result;
+
+typedef struct kernel_symmetry_axis_input {
+  double dir[3];
+  uint8_t order;
+} kernel_symmetry_axis_input;
+
+typedef struct kernel_symmetry_plane_input {
+  double normal[3];
+} kernel_symmetry_plane_input;
+
+typedef struct kernel_symmetry_classification_result {
+  char point_group[KERNEL_SYMMETRY_POINT_GROUP_MAX];
+} kernel_symmetry_classification_result;
 
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,

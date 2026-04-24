@@ -45,6 +45,8 @@
   - [contracts/chemistry-capability-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/chemistry-capability-contract.md)
 - crystal
   - [contracts/crystal-compute-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/crystal-compute-contract.md)
+- symmetry
+  - [contracts/symmetry-compute-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/symmetry-compute-contract.md)
 
 ## Regression Matrices
 
@@ -54,3 +56,4 @@
 - [regression/domain-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/domain-regression-matrix.md)
 - [regression/chemistry-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/chemistry-regression-matrix.md)
 - [regression/crystal-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/crystal-regression-matrix.md)
+- [regression/symmetry-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/symmetry-regression-matrix.md)

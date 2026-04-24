@@ -7,6 +7,7 @@ void run_attachment_public_surface_tests();
 void run_attachment_lifecycle_tests();
 void run_chemistry_tests();
 void run_crystal_compute_tests();
+void run_symmetry_compute_tests();
 void run_domain_surface_tests();
 void run_domain_object_tests();
 void run_domain_reference_tests();

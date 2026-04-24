@@ -1,77 +1,124 @@
+use std::ffi::CStr;
+use std::os::raw::c_char;
+
 use super::types::{FoundAxis, FoundPlane};
+
+const KERNEL_OK: i32 = 0;
+const KERNEL_SYMMETRY_POINT_GROUP_MAX: usize = 32;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelSymmetryAxisInput {
+    dir: [f64; 3],
+    order: u8,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelSymmetryPlaneInput {
+    normal: [f64; 3],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelSymmetryClassificationResult {
+    point_group: [c_char; KERNEL_SYMMETRY_POINT_GROUP_MAX],
+}
+
+impl Default for KernelSymmetryClassificationResult {
+    fn default() -> Self {
+        Self {
+            point_group: [0; KERNEL_SYMMETRY_POINT_GROUP_MAX],
+        }
+    }
+}
+
+extern "C" {
+    fn kernel_classify_point_group(
+        axes: *const KernelSymmetryAxisInput,
+        axis_count: usize,
+        planes: *const KernelSymmetryPlaneInput,
+        plane_count: usize,
+        has_inversion: u8,
+        out_result: *mut KernelSymmetryClassificationResult,
+    ) -> KernelStatus;
+}
+
+fn axis_to_kernel(axis: &FoundAxis) -> KernelSymmetryAxisInput {
+    KernelSymmetryAxisInput {
+        dir: [axis.dir.x, axis.dir.y, axis.dir.z],
+        order: axis.order,
+    }
+}
+
+fn plane_to_kernel(plane: &FoundPlane) -> KernelSymmetryPlaneInput {
+    KernelSymmetryPlaneInput {
+        normal: [plane.normal.x, plane.normal.y, plane.normal.z],
+    }
+}
 
 pub(super) fn classify_point_group(
     axes: &[FoundAxis],
     planes: &[FoundPlane],
     has_inversion: bool,
 ) -> String {
-    let n_planes = planes.len();
-    let highest_order = axes.first().map(|a| a.order).unwrap_or(1);
+    let kernel_axes: Vec<KernelSymmetryAxisInput> = axes.iter().map(axis_to_kernel).collect();
+    let kernel_planes: Vec<KernelSymmetryPlaneInput> = planes.iter().map(plane_to_kernel).collect();
+    let mut result = KernelSymmetryClassificationResult::default();
 
-    let count_axes = |order: u8| -> usize { axes.iter().filter(|a| a.order == order).count() };
-
-    let n_c3 = count_axes(3);
-    let n_c4 = count_axes(4);
-    let n_c5 = count_axes(5);
-
-    if n_c5 >= 6 {
-        return if has_inversion { "I_h" } else { "I" }.into();
+    let status = unsafe {
+        kernel_classify_point_group(
+            kernel_axes.as_ptr(),
+            kernel_axes.len(),
+            kernel_planes.as_ptr(),
+            kernel_planes.len(),
+            u8::from(has_inversion),
+            &mut result,
+        )
+    };
+    if status.code != KERNEL_OK {
+        return "C_1".to_string();
     }
 
-    if n_c4 >= 3 {
-        return if has_inversion { "O_h" } else { "O" }.into();
+    unsafe {
+        CStr::from_ptr(result.point_group.as_ptr())
+            .to_string_lossy()
+            .into_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nalgebra::Vector3;
+
+    use super::*;
+
+    #[test]
+    fn classify_point_group_uses_kernel_bridge() {
+        let axes = vec![FoundAxis {
+            dir: Vector3::z(),
+            order: 2,
+        }];
+        let planes = vec![
+            FoundPlane {
+                normal: Vector3::x(),
+            },
+            FoundPlane {
+                normal: Vector3::y(),
+            },
+        ];
+
+        assert_eq!(classify_point_group(&axes, &planes, false), "C_2v");
     }
 
-    if n_c3 >= 4 && highest_order <= 3 {
-        if n_planes >= 6 {
-            return "T_d".into();
-        }
-        return if has_inversion { "T_h" } else { "T" }.into();
+    #[test]
+    fn classify_point_group_falls_back_for_no_symmetry() {
+        assert_eq!(classify_point_group(&[], &[], false), "C_1");
     }
-
-    if highest_order == 1 {
-        if n_planes > 0 {
-            return "C_s".into();
-        }
-        if has_inversion {
-            return "C_i".into();
-        }
-        return "C_1".into();
-    }
-
-    let n = highest_order;
-    let principal_dir = axes[0].dir;
-
-    let perp_c2_count = axes
-        .iter()
-        .filter(|a| a.order == 2 && a.dir.dot(&principal_dir).abs() < 0.3)
-        .count();
-
-    let has_sigma_h = planes
-        .iter()
-        .any(|p| p.normal.dot(&principal_dir).abs() > 0.7);
-
-    let sigma_v_count = planes
-        .iter()
-        .filter(|p| p.normal.dot(&principal_dir).abs() < 0.3)
-        .count();
-
-    if perp_c2_count >= n as usize {
-        if has_sigma_h {
-            return format!("D_{}h", n);
-        }
-        if sigma_v_count >= n as usize {
-            return format!("D_{}d", n);
-        }
-        return format!("D_{}", n);
-    }
-
-    if has_sigma_h {
-        return format!("C_{}h", n);
-    }
-    if sigma_v_count > 0 {
-        return format!("C_{}v", n);
-    }
-
-    format!("C_{}", n)
 }
