@@ -36,6 +36,14 @@ kernel_symmetry_plane_input plane(const double x, const double y, const double z
   return result;
 }
 
+kernel_symmetry_direction_input direction(const double x, const double y, const double z) {
+  kernel_symmetry_direction_input result{};
+  result.dir[0] = x;
+  result.dir[1] = y;
+  result.dir[2] = z;
+  return result;
+}
+
 kernel_symmetry_atom_input atom_input(
     const char* element,
     const double x,
@@ -183,6 +191,95 @@ void test_symmetry_shape_rejects_invalid_inputs() {
       kernel_analyze_symmetry_shape(&null_element, 1, &result).code ==
           KERNEL_ERROR_INVALID_ARGUMENT,
       "symmetry shape should reject null element");
+}
+
+void test_symmetry_finds_rotation_axes() {
+  const kernel_symmetry_atom_input atoms[] = {
+      atom_input("O", 0.0, 0.0, 0.0, 16.0),
+      atom_input("H", 0.0, 0.757, -0.586, 1.0),
+      atom_input("H", 0.0, -0.757, -0.586, 1.0),
+  };
+  const kernel_symmetry_direction_input candidates[] = {
+      direction(0.0, 0.0, 1.0),
+      direction(1.0, 0.0, 0.0),
+  };
+  kernel_symmetry_axis_input out_axes[10]{};
+  size_t out_count = 0;
+
+  require_ok_status(
+      kernel_find_symmetry_rotation_axes(atoms, 3, candidates, 2, out_axes, 10, &out_count),
+      "find symmetry rotation axes");
+
+  require_true(out_count == 1, "water operation search should find one C2 axis");
+  require_true(out_axes[0].order == 2, "water operation search should emit C2 order");
+  require_near(out_axes[0].dir[2], 1.0, "water C2 axis z");
+}
+
+void test_symmetry_finds_mirror_planes() {
+  const kernel_symmetry_atom_input atoms[] = {
+      atom_input("O", 0.0, 0.0, 0.0, 16.0),
+      atom_input("H", 0.0, 0.757, -0.586, 1.0),
+      atom_input("H", 0.0, -0.757, -0.586, 1.0),
+  };
+  const kernel_symmetry_plane_input candidates[] = {
+      plane(1.0, 0.0, 0.0),
+      plane(0.0, 1.0, 0.0),
+      plane(0.0, 0.0, 1.0),
+  };
+  kernel_symmetry_plane_input out_planes[3]{};
+  size_t out_count = 0;
+
+  require_ok_status(
+      kernel_find_symmetry_mirror_planes(atoms, 3, candidates, 3, out_planes, 3, &out_count),
+      "find symmetry mirror planes");
+
+  require_true(out_count == 2, "water operation search should find two mirror planes");
+  require_near(out_planes[0].normal[0], 1.0, "first water mirror normal x");
+  require_near(out_planes[1].normal[1], 1.0, "second water mirror normal y");
+}
+
+void test_symmetry_operation_search_rejects_invalid_inputs() {
+  const auto valid_atom = atom_input("He", 0.0, 0.0, 0.0, 4.0);
+  const auto valid_direction = direction(0.0, 0.0, 1.0);
+  const auto valid_plane = plane(1.0, 0.0, 0.0);
+  kernel_symmetry_axis_input out_axis{};
+  kernel_symmetry_plane_input out_plane{};
+  size_t out_count = 99;
+
+  require_true(
+      kernel_find_symmetry_rotation_axes(
+          nullptr,
+          1,
+          &valid_direction,
+          1,
+          &out_axis,
+          1,
+          &out_count)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "rotation search should reject null atoms");
+  require_true(out_count == 0, "rotation search should reset count on invalid atoms");
+  require_true(
+      kernel_find_symmetry_rotation_axes(
+          &valid_atom,
+          1,
+          &valid_direction,
+          1,
+          &out_axis,
+          1,
+          nullptr)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "rotation search should reject null count output");
+  require_true(
+      kernel_find_symmetry_mirror_planes(
+          &valid_atom,
+          1,
+          &valid_plane,
+          1,
+          nullptr,
+          1,
+          &out_count)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "mirror search should reject null plane output when capacity is nonzero");
 }
 
 void test_symmetry_builds_render_geometry() {
@@ -361,6 +458,9 @@ void run_symmetry_compute_tests() {
   test_symmetry_analyzes_linear_shape();
   test_symmetry_analyzes_nonlinear_shape();
   test_symmetry_shape_rejects_invalid_inputs();
+  test_symmetry_finds_rotation_axes();
+  test_symmetry_finds_mirror_planes();
+  test_symmetry_operation_search_rejects_invalid_inputs();
   test_symmetry_builds_render_geometry();
   test_symmetry_render_geometry_rejects_invalid_inputs();
   test_symmetry_parses_xyz_atoms();

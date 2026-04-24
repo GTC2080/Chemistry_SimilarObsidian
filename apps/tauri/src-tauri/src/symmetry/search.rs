@@ -1,10 +1,67 @@
-use std::f64::consts::PI;
+use std::ffi::CString;
+use std::os::raw::c_char;
 
 use nalgebra::Vector3;
 
-use super::geometry::{are_parallel, check_operation, reflect_point, rotate_point};
+use super::geometry::are_parallel;
 use super::types::{Atom, FoundAxis, FoundPlane};
 use super::TOLERANCE;
+
+const KERNEL_OK: i32 = 0;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelSymmetryAtomInput {
+    element: *const c_char,
+    position: [f64; 3],
+    mass: f64,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelSymmetryDirectionInput {
+    dir: [f64; 3],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+struct KernelSymmetryAxisInput {
+    dir: [f64; 3],
+    order: u8,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+struct KernelSymmetryPlaneInput {
+    normal: [f64; 3],
+}
+
+extern "C" {
+    fn kernel_find_symmetry_rotation_axes(
+        atoms: *const KernelSymmetryAtomInput,
+        atom_count: usize,
+        candidates: *const KernelSymmetryDirectionInput,
+        candidate_count: usize,
+        out_axes: *mut KernelSymmetryAxisInput,
+        out_axis_capacity: usize,
+        out_axis_count: *mut usize,
+    ) -> KernelStatus;
+    fn kernel_find_symmetry_mirror_planes(
+        atoms: *const KernelSymmetryAtomInput,
+        atom_count: usize,
+        candidates: *const KernelSymmetryPlaneInput,
+        candidate_count: usize,
+        out_planes: *mut KernelSymmetryPlaneInput,
+        out_plane_capacity: usize,
+        out_plane_count: *mut usize,
+    ) -> KernelStatus;
+}
 
 pub(super) fn generate_candidate_directions(
     atoms: &[Atom],
@@ -71,26 +128,84 @@ fn add_unique_dir(dirs: &mut Vec<Vector3<f64>>, new_dir: Vector3<f64>) {
     dirs.push(new_dir);
 }
 
-pub(super) fn find_rotation_axes(atoms: &[Atom], candidates: &[Vector3<f64>]) -> Vec<FoundAxis> {
-    let mut axes: Vec<FoundAxis> = Vec::new();
+fn build_kernel_atoms(
+    atoms: &[Atom],
+) -> Result<(Vec<CString>, Vec<KernelSymmetryAtomInput>), String> {
+    let elements: Vec<CString> = atoms
+        .iter()
+        .map(|atom| {
+            CString::new(atom.element.as_str()).map_err(|_| {
+                "kernel symmetry operation search received invalid element".to_string()
+            })
+        })
+        .collect::<Result<_, _>>()?;
+    let kernel_atoms: Vec<KernelSymmetryAtomInput> = atoms
+        .iter()
+        .zip(elements.iter())
+        .map(|(atom, element)| KernelSymmetryAtomInput {
+            element: element.as_ptr(),
+            position: [atom.pos.x, atom.pos.y, atom.pos.z],
+            mass: atom.mass,
+        })
+        .collect();
 
-    for dir in candidates {
-        for order in [6u8, 5, 4, 3, 2] {
-            let angle = 2.0 * PI / (order as f64);
-            let is_cn = check_operation(atoms, |v| rotate_point(v, dir, angle));
-            if is_cn {
-                let already = axes
-                    .iter()
-                    .any(|a| a.order == order && are_parallel(&a.dir, dir));
-                if !already {
-                    axes.push(FoundAxis { dir: *dir, order });
-                }
-            }
-        }
+    Ok((elements, kernel_atoms))
+}
+
+fn direction_to_kernel(direction: &Vector3<f64>) -> KernelSymmetryDirectionInput {
+    KernelSymmetryDirectionInput {
+        dir: [direction.x, direction.y, direction.z],
+    }
+}
+
+fn plane_to_kernel(normal: &Vector3<f64>) -> KernelSymmetryPlaneInput {
+    KernelSymmetryPlaneInput {
+        normal: [normal.x, normal.y, normal.z],
+    }
+}
+
+fn axis_from_kernel(axis: &KernelSymmetryAxisInput) -> FoundAxis {
+    FoundAxis {
+        dir: Vector3::new(axis.dir[0], axis.dir[1], axis.dir[2]),
+        order: axis.order,
+    }
+}
+
+fn plane_from_kernel(plane: &KernelSymmetryPlaneInput) -> FoundPlane {
+    FoundPlane {
+        normal: Vector3::new(plane.normal[0], plane.normal[1], plane.normal[2]),
+    }
+}
+
+pub(super) fn find_rotation_axes(atoms: &[Atom], candidates: &[Vector3<f64>]) -> Vec<FoundAxis> {
+    let Ok((_elements, kernel_atoms)) = build_kernel_atoms(atoms) else {
+        return Vec::new();
+    };
+    let kernel_candidates: Vec<KernelSymmetryDirectionInput> =
+        candidates.iter().map(direction_to_kernel).collect();
+    let mut out_axes = vec![KernelSymmetryAxisInput::default(); kernel_candidates.len() * 5];
+    let mut out_count = 0usize;
+
+    let status = unsafe {
+        kernel_find_symmetry_rotation_axes(
+            kernel_atoms.as_ptr(),
+            kernel_atoms.len(),
+            kernel_candidates.as_ptr(),
+            kernel_candidates.len(),
+            out_axes.as_mut_ptr(),
+            out_axes.len(),
+            &mut out_count,
+        )
+    };
+    if status.code != KERNEL_OK {
+        return Vec::new();
     }
 
-    axes.sort_by(|a, b| b.order.cmp(&a.order));
-    axes
+    out_axes
+        .iter()
+        .take(out_count)
+        .map(axis_from_kernel)
+        .collect()
 }
 
 pub(super) fn generate_candidate_planes(
@@ -154,17 +269,32 @@ pub(super) fn find_mirror_planes(
     atoms: &[Atom],
     candidate_normals: &[Vector3<f64>],
 ) -> Vec<FoundPlane> {
-    let mut planes: Vec<FoundPlane> = Vec::new();
+    let Ok((_elements, kernel_atoms)) = build_kernel_atoms(atoms) else {
+        return Vec::new();
+    };
+    let kernel_candidates: Vec<KernelSymmetryPlaneInput> =
+        candidate_normals.iter().map(plane_to_kernel).collect();
+    let mut out_planes = vec![KernelSymmetryPlaneInput::default(); kernel_candidates.len()];
+    let mut out_count = 0usize;
 
-    for normal in candidate_normals {
-        let is_mirror = check_operation(atoms, |v| reflect_point(v, normal));
-        if is_mirror {
-            let already = planes.iter().any(|p| are_parallel(&p.normal, normal));
-            if !already {
-                planes.push(FoundPlane { normal: *normal });
-            }
-        }
+    let status = unsafe {
+        kernel_find_symmetry_mirror_planes(
+            kernel_atoms.as_ptr(),
+            kernel_atoms.len(),
+            kernel_candidates.as_ptr(),
+            kernel_candidates.len(),
+            out_planes.as_mut_ptr(),
+            out_planes.len(),
+            &mut out_count,
+        )
+    };
+    if status.code != KERNEL_OK {
+        return Vec::new();
     }
 
-    planes
+    out_planes
+        .iter()
+        .take(out_count)
+        .map(plane_from_kernel)
+        .collect()
 }

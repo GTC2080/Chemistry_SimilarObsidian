@@ -12,6 +12,8 @@ Current surface:
 - `kernel_free_symmetry_atom_list(out_atoms)`
 - `kernel_classify_point_group(axes, axis_count, planes, plane_count, has_inversion, out_result)`
 - `kernel_analyze_symmetry_shape(atoms, atom_count, out_result)`
+- `kernel_find_symmetry_rotation_axes(atoms, atom_count, candidates, candidate_count, out_axes, out_axis_capacity, out_axis_count)`
+- `kernel_find_symmetry_mirror_planes(atoms, atom_count, candidates, candidate_count, out_planes, out_plane_capacity, out_plane_count)`
 - `kernel_build_symmetry_render_geometry(axes, axis_count, planes, plane_count, mol_radius, out_axes, out_planes)`
 
 ## Ownership
@@ -25,6 +27,8 @@ Current surface:
 - the kernel owns point-group classification rules
 - the kernel owns center-of-mass, radius, linearity, linear-axis, and inversion
   matching rules for shape analysis
+- the host owns preallocated operation-search output arrays and count pointers
+- the kernel owns candidate rotation-axis and mirror-plane validation
 - `kernel_symmetry_classification_result` is filled by value and requires no free call
 - `kernel_symmetry_shape_result` is filled by value and requires no free call
 - the host owns preallocated render axis and plane output arrays
@@ -36,7 +40,7 @@ Current surface:
 The Tauri host keeps:
 
 - principal-axis calculation
-- candidate axis and mirror-plane search
+- candidate axis and mirror-plane generation
 - render geometry ABI marshalling and command DTO construction
 - localized UI error wording
 
@@ -49,6 +53,8 @@ The kernel owns:
 - viewer radius calculation
 - linear molecule detection and linear-axis selection
 - inversion-center operation matching
+- rotation operation matching for candidate axes
+- reflection operation matching for candidate mirror planes
 - point-group decision ordering
 - low-symmetry classification (`C_1`, `C_s`, `C_i`)
 - cyclic, dihedral, tetrahedral, octahedral, and icosahedral point-group labels
@@ -71,6 +77,11 @@ The kernel owns:
 - shape analysis requires at least one atom and rejects null element pointers
 - shape analysis falls back to arithmetic center when total mass is near zero
 - shape analysis keeps the viewer radius minimum at `1.0`
+- operation search expects host-provided candidate directions/normals
+- operation search returns found axes sorted by descending order
+- operation search checks rotation orders `6, 5, 4, 3, 2`
+- operation search uses the frozen atom matching tolerance of `0.30`
+- operation search uses the frozen parallel-direction tolerance of `0.10` radians
 - axes must be sorted with the principal/highest-order axis first
 - axis directions and plane normals are expected to be normalized by the host
 - `has_inversion` is passed as a boolean byte

@@ -633,6 +633,10 @@ typedef struct kernel_symmetry_plane_input {
   double normal[3];
 } kernel_symmetry_plane_input;
 
+typedef struct kernel_symmetry_direction_input {
+  double dir[3];
+} kernel_symmetry_direction_input;
+
 typedef struct kernel_symmetry_atom_input {
   const char* element;
   double position[3];

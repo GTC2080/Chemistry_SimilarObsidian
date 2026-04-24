@@ -1,7 +1,7 @@
 use nalgebra::{Matrix3, SymmetricEigen, Vector3};
 
 use super::types::Atom;
-use super::{ANGLE_TOL, TOLERANCE};
+use super::ANGLE_TOL;
 
 pub(super) fn compute_principal_axes(atoms: &[Atom]) -> [Vector3<f64>; 3] {
     let mut inertia = Matrix3::<f64>::zeros();
@@ -27,47 +27,6 @@ pub(super) fn compute_principal_axes(atoms: &[Atom]) -> [Vector3<f64>; 3] {
         vecs.column(1).into_owned(),
         vecs.column(2).into_owned(),
     ]
-}
-
-pub(super) fn check_operation(
-    atoms: &[Atom],
-    transform: impl Fn(&Vector3<f64>) -> Vector3<f64>,
-) -> bool {
-    let mut used = vec![false; atoms.len()];
-
-    for atom in atoms {
-        let transformed = transform(&atom.pos);
-        let mut best_idx: Option<usize> = None;
-        let mut best_dist = f64::INFINITY;
-
-        for (idx, other) in atoms.iter().enumerate() {
-            if used[idx] || other.element != atom.element {
-                continue;
-            }
-            let dist = (other.pos - transformed).norm();
-            if dist < TOLERANCE && dist < best_dist {
-                best_dist = dist;
-                best_idx = Some(idx);
-            }
-        }
-
-        if let Some(idx) = best_idx {
-            used[idx] = true;
-        } else {
-            return false;
-        }
-    }
-    true
-}
-
-pub(super) fn rotate_point(v: &Vector3<f64>, axis: &Vector3<f64>, angle: f64) -> Vector3<f64> {
-    let cos_a = angle.cos();
-    let sin_a = angle.sin();
-    v * cos_a + axis.cross(v) * sin_a + axis * axis.dot(v) * (1.0 - cos_a)
-}
-
-pub(super) fn reflect_point(v: &Vector3<f64>, normal: &Vector3<f64>) -> Vector3<f64> {
-    v - normal * (2.0 * v.dot(normal))
 }
 
 pub(super) fn are_parallel(a: &Vector3<f64>, b: &Vector3<f64>) -> bool {
