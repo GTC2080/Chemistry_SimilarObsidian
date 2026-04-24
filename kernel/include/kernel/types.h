@@ -441,6 +441,32 @@ typedef struct kernel_stoichiometry_row_output {
   uint8_t is_reference;
 } kernel_stoichiometry_row_output;
 
+typedef enum kernel_spectroscopy_parse_error {
+  KERNEL_SPECTROSCOPY_PARSE_ERROR_NONE = 0,
+  KERNEL_SPECTROSCOPY_PARSE_ERROR_UNSUPPORTED_EXTENSION = 1,
+  KERNEL_SPECTROSCOPY_PARSE_ERROR_CSV_NO_NUMERIC_ROWS = 2,
+  KERNEL_SPECTROSCOPY_PARSE_ERROR_CSV_TOO_FEW_COLUMNS = 3,
+  KERNEL_SPECTROSCOPY_PARSE_ERROR_CSV_NO_VALID_POINTS = 4,
+  KERNEL_SPECTROSCOPY_PARSE_ERROR_JDX_NO_POINTS = 5
+} kernel_spectroscopy_parse_error;
+
+typedef struct kernel_spectrum_series {
+  double* y;
+  size_t count;
+  char* label;
+} kernel_spectrum_series;
+
+typedef struct kernel_spectroscopy_data {
+  double* x;
+  size_t x_count;
+  kernel_spectrum_series* series;
+  size_t series_count;
+  char* x_label;
+  char* title;
+  uint8_t is_nmr;
+  kernel_spectroscopy_parse_error error;
+} kernel_spectroscopy_data;
+
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
   KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1

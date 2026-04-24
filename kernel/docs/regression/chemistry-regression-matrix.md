@@ -45,6 +45,17 @@ The repository must retain regression coverage for:
   from previous positive `mass / volume`
 - stoichiometry rejects null input or output buffers when `count > 0`
 - stoichiometry accepts zero-count null buffers without allocation
+- `kernel_parse_spectroscopy_text(...)` parses CSV x values and multiple y
+  series
+- spectroscopy CSV parsing preserves header-derived x and series labels
+- spectroscopy CSV parsing normalizes invalid or missing y cells to `0`
+- `kernel_parse_spectroscopy_text(...)` parses JDX `##PEAK TABLE=` / numeric
+  pair blocks
+- spectroscopy JDX parsing preserves title, x label, y label, and NMR inference
+- spectroscopy parser failures report typed parse errors without allocating
+  stale result buffers
+- `kernel_free_spectroscopy_data(...)` leaves the result empty and is safe on
+  partially filled data
 
 ## [Batch 1] Chemistry Metadata Namespace v1
 

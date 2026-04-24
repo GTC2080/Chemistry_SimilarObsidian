@@ -28,14 +28,17 @@ Current exclusions:
 
 ## Stateless Compute Surface
 
-The polymerization kinetics simulator and stoichiometry recalculation are
-chemistry compute surfaces, not Track 5 persisted capability surfaces.
+The polymerization kinetics simulator, stoichiometry recalculation, and
+spectroscopy text parser are chemistry compute/read surfaces, not Track 5
+persisted capability surfaces.
 
 They land:
 
 - `kernel_simulate_polymerization_kinetics(params, out_result)`
 - `kernel_free_polymerization_kinetics_result(out_result)`
 - `kernel_recalculate_stoichiometry(rows, count, out_rows)`
+- `kernel_parse_spectroscopy_text(raw, raw_size, extension, out_data)`
+- `kernel_free_spectroscopy_data(out_data)`
 
 Frozen rules:
 
@@ -46,12 +49,18 @@ Frozen rules:
   struct
 - the stoichiometry surface writes deterministic numeric row outputs into a
   host-owned output buffer
+- the spectroscopy parser returns deterministic x/series arrays and labels
+  derived only from caller-provided text and extension
 - Tauri Rust may own serde command marshalling, but not the simulation model
+- Tauri Rust may own file IO and serde command marshalling, but not
+  spectroscopy CSV/JDX parsing rules
 - Tauri Rust and other hosts keep row identity, names, formulas, and UI labels;
   the kernel owns stoichiometry numeric propagation rules
 - all returned kinetics arrays are kernel-owned until released with
   `kernel_free_polymerization_kinetics_result(...)`
 - stoichiometry output rows remain host-owned and require no kernel free call
+- all returned spectroscopy arrays, labels, and titles are kernel-owned until
+  released with `kernel_free_spectroscopy_data(...)`
 
 Frozen kinetics validation bounds:
 
@@ -81,6 +90,20 @@ Frozen stoichiometry rules:
 - output `mass = moles * mw`
 - output `volume = mass / density` when positive density is available,
   otherwise `0`
+
+Frozen spectroscopy parser rules:
+
+- supported extensions are `csv` and `jdx`
+- CSV parsing accepts comma- or tab-delimited data rows
+- CSV header rows provide the x label and series labels when present
+- invalid or missing CSV y cells normalize to `0`
+- CSV NMR inference uses the first 100 x values and the existing ppm-range
+  heuristic
+- JDX parsing accepts `##XYDATA=` and `##PEAK TABLE=` numeric pair blocks
+- JDX title, x units, y units, and datatype are projected into the host-facing
+  spectroscopy result
+- parser failures report typed `kernel_spectroscopy_parse_error` values so
+  hosts can keep localized command messages without owning parsing rules
 
 ## Carrier Boundary
 
