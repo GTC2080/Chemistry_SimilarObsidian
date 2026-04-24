@@ -11,8 +11,7 @@ pub use common::DbState;
 pub use embeddings::{clear_all_embeddings, get_all_embeddings, update_note_embedding};
 pub use lifecycle::delete_note_by_id;
 pub use notes::{
-    get_all_note_timestamps, get_all_notes_for_embedding, get_note_content_by_id,
-    get_notes_content_by_ids, upsert_note,
+    get_all_note_timestamps, get_all_notes_for_embedding, get_notes_content_by_ids, upsert_note,
 };
 pub use schema::init_db;
 pub use study::{

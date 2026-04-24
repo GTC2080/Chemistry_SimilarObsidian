@@ -94,17 +94,6 @@ pub fn get_notes_content_by_ids(
     Ok(results)
 }
 
-/// 根据笔记 id 读取索引库中的内容（用于二进制文件的语义共鸣上下文）。
-pub fn get_note_content_by_id(conn: &Connection, id: &str) -> AppResult<Option<String>> {
-    conn.query_row(
-        "SELECT content FROM notes_index WHERE id = ?1",
-        params![id],
-        |row| row.get::<_, String>(0),
-    )
-    .optional()
-    .map_err(Into::into)
-}
-
 /// 拉取全部可用于重建向量索引的笔记内容。
 /// 返回 (id, absolute_path, content)。
 pub fn get_all_notes_for_embedding(conn: &Connection) -> AppResult<Vec<(String, String, String)>> {

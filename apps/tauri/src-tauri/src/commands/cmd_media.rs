@@ -3,7 +3,6 @@ use std::path::Path;
 
 use tauri::State;
 
-use crate::db::{self, DbState};
 use crate::models::SpectroscopyData;
 use crate::sealed_kernel::{self, SealedKernelState};
 use crate::services::spectroscopy::parse_spectroscopy_from_text;
@@ -215,14 +214,12 @@ pub async fn read_binary_file(file_path: String) -> Result<Vec<u8>, AppError> {
 #[tauri::command]
 pub async fn read_note_indexed_content(
     note_id: String,
-    db: State<'_, DbState>,
+    sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<String, AppError> {
-    let db_conn = db.conn.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let conn = db_conn.lock().map_err(|_| AppError::Lock)?;
-        let content = db::get_note_content_by_id(&conn, &note_id)?.unwrap_or_default();
-        Ok(content)
-    })
-    .await
-    .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
+    let normalized = note_id.trim().replace('\\', "/");
+    if !normalized.to_ascii_lowercase().ends_with(".md") {
+        return Ok(String::new());
+    }
+
+    sealed_kernel::read_note_by_rel_path(&normalized, sealed_kernel.inner())
 }

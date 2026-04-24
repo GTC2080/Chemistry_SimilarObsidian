@@ -613,6 +613,21 @@ fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<Strin
     Ok(rel_path)
 }
 
+fn validate_rel_path(rel_path: &str, label: &str) -> AppResult<String> {
+    let normalized = rel_path.trim().replace('\\', "/");
+    if normalized.is_empty()
+        || normalized.starts_with('/')
+        || normalized.contains('\0')
+        || normalized
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+        || Path::new(&normalized).is_absolute()
+    {
+        return Err(AppError::Custom(format!("非法{label}路径")));
+    }
+    Ok(normalized)
+}
+
 fn rel_path_from_optional_folder_path(vault_path: &str, folder_path: &str) -> AppResult<String> {
     let vault = PathBuf::from(vault_path);
     let target = PathBuf::from(folder_path);
@@ -646,8 +661,12 @@ where
 pub fn read_note_by_file_path(file_path: &str, state: &SealedKernelState) -> AppResult<String> {
     let vault_path = active_vault_path(state)?;
     let rel_path = rel_path_from_file_path(&vault_path, file_path)?;
-    let rel_path_c = CString::new(rel_path)
-        .map_err(|_| AppError::Custom("rel_path must not contain NUL bytes.".to_string()))?;
+    read_note_by_rel_path(&rel_path, state)
+}
+
+pub fn read_note_by_rel_path(rel_path: &str, state: &SealedKernelState) -> AppResult<String> {
+    let rel_path = validate_rel_path(rel_path, "笔记")?;
+    let rel_path_c = cstring_arg(rel_path, "rel_path")?;
     let session = active_session(state)?;
 
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -845,4 +864,26 @@ pub fn sealed_kernel_query_notes(
     let limit = limit.unwrap_or(512);
     serde_json::to_value(query_note_catalog(state.inner(), limit)?)
         .map_err(|err| AppError::Custom(format!("sealed kernel note catalog encode failed: {err}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_rel_path_normalizes_windows_separators() {
+        let value = validate_rel_path("folder\\note.md", "笔记").expect("valid rel path");
+        assert_eq!(value, "folder/note.md");
+    }
+
+    #[test]
+    fn validate_rel_path_rejects_parent_segments() {
+        assert!(validate_rel_path("folder/../note.md", "笔记").is_err());
+    }
+
+    #[test]
+    fn validate_rel_path_rejects_rooted_paths() {
+        assert!(validate_rel_path("/note.md", "笔记").is_err());
+        assert!(validate_rel_path("C:/vault/note.md", "笔记").is_err());
+    }
 }
