@@ -80,7 +80,6 @@ impl Default for VectorCacheState {
     }
 }
 
-#[allow(dead_code)]
 impl VectorCacheState {
     /// 确保缓存已加载。如果尚未加载，从 DB 读取所有 embedding。
     pub fn ensure_loaded(&self, conn: &Connection) -> AppResult<()> {
@@ -171,51 +170,5 @@ impl VectorCacheState {
         results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(Ordering::Equal));
 
         Ok(results.into_iter().map(|(_, note)| note).collect())
-    }
-
-    /// top-k 查询，同时返回分数（供 RAG 上下文筛选用）
-    pub fn top_k_with_scores(
-        &self,
-        query_embedding: &[f32],
-        k: usize,
-        exclude_id: Option<&str>,
-        conn: &Connection,
-    ) -> AppResult<Vec<(NoteInfo, f32)>> {
-        self.ensure_loaded(conn)?;
-
-        let inner = self.inner.lock().map_err(|_| crate::AppError::Lock)?;
-
-        let mut heap: BinaryHeap<ScoredEntry> = BinaryHeap::with_capacity(k + 1);
-
-        for (id, entry) in &inner.entries {
-            if let Some(exc) = exclude_id {
-                if id == exc {
-                    continue;
-                }
-            }
-
-            let score = cosine_similarity(query_embedding, &entry.embedding);
-
-            if heap.len() < k {
-                heap.push(ScoredEntry {
-                    score,
-                    note: entry.note.clone(),
-                });
-            } else if let Some(top) = heap.peek() {
-                if score > top.score {
-                    heap.pop();
-                    heap.push(ScoredEntry {
-                        score,
-                        note: entry.note.clone(),
-                    });
-                }
-            }
-        }
-
-        let mut results: Vec<(NoteInfo, f32)> =
-            heap.into_iter().map(|e| (e.note, e.score)).collect();
-        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-
-        Ok(results)
     }
 }
