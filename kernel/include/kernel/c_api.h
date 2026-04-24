@@ -184,6 +184,10 @@ kernel_status kernel_analyze_symmetry_shape(
     const kernel_symmetry_atom_input* atoms,
     size_t atom_count,
     kernel_symmetry_shape_result* out_result);
+kernel_status kernel_compute_symmetry_principal_axes(
+    const kernel_symmetry_atom_input* atoms,
+    size_t atom_count,
+    kernel_symmetry_direction_input* out_axes);
 kernel_status kernel_find_symmetry_rotation_axes(
     const kernel_symmetry_atom_input* atoms,
     size_t atom_count,

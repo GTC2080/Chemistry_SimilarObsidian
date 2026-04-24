@@ -41,6 +41,11 @@ struct KernelSymmetryPlaneInput {
 }
 
 extern "C" {
+    fn kernel_compute_symmetry_principal_axes(
+        atoms: *const KernelSymmetryAtomInput,
+        atom_count: usize,
+        out_axes: *mut KernelSymmetryDirectionInput,
+    ) -> KernelStatus;
     fn kernel_generate_symmetry_candidate_directions(
         atoms: *const KernelSymmetryAtomInput,
         atom_count: usize,
@@ -79,6 +84,30 @@ extern "C" {
         out_plane_capacity: usize,
         out_plane_count: *mut usize,
     ) -> KernelStatus;
+}
+
+pub(super) fn compute_principal_axes(atoms: &[Atom]) -> Result<[Vector3<f64>; 3], String> {
+    let Ok((_elements, kernel_atoms)) = build_kernel_atoms(atoms) else {
+        return Err("kernel symmetry principal-axis calculation received invalid element".into());
+    };
+    let mut out_axes = [KernelSymmetryDirectionInput::default(); 3];
+
+    let status = unsafe {
+        kernel_compute_symmetry_principal_axes(
+            kernel_atoms.as_ptr(),
+            kernel_atoms.len(),
+            out_axes.as_mut_ptr(),
+        )
+    };
+    if status.code != KERNEL_OK {
+        return Err("kernel symmetry principal-axis calculation failed".into());
+    }
+
+    Ok([
+        direction_from_kernel(&out_axes[0]),
+        direction_from_kernel(&out_axes[1]),
+        direction_from_kernel(&out_axes[2]),
+    ])
 }
 
 pub(super) fn generate_candidate_directions(

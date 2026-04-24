@@ -1,10 +1,9 @@
 //! 分子点群与空间对称性推演桥接层
 //!
-//! Tauri Rust 保留主轴计算和命令 DTO；解析、形状分析、候选生成、操作匹配、点群分类与渲染几何已由 C++ kernel 提供。
+//! Tauri Rust 保留命令 DTO；解析、形状分析、主轴计算、候选生成、操作匹配、点群分类与渲染几何已由 C++ kernel 提供。
 //! 前端零计算：几何数据（平面顶点、轴端点）在 host 命令返回前由 kernel 预计算完毕。
 
 mod classify;
-mod geometry;
 mod parse;
 mod render;
 mod search;
@@ -12,11 +11,10 @@ mod shape;
 mod types;
 
 use classify::classify_point_group;
-use geometry::compute_principal_axes;
 use parse::parse_atoms;
 use render::build_render_geometry;
 use search::{
-    find_mirror_planes, find_rotation_axes, generate_candidate_directions,
+    compute_principal_axes, find_mirror_planes, find_rotation_axes, generate_candidate_directions,
     generate_candidate_planes,
 };
 use shape::analyze_shape;
@@ -89,7 +87,7 @@ pub fn calculate(raw_data: &str, format: &str) -> Result<SymmetryData, String> {
     }
 
     // 惯性张量 → 主轴
-    let principal_axes = compute_principal_axes(&atoms);
+    let principal_axes = compute_principal_axes(&atoms)?;
 
     // 穷举对称操作
     let candidate_dirs = generate_candidate_directions(&atoms, &principal_axes);

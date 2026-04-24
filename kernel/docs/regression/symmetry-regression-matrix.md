@@ -46,6 +46,15 @@ Required coverage:
 - non-inversion molecules return `has_inversion = false`
 - null atom input, zero atom count, null output, and null atom elements return `KERNEL_ERROR_INVALID_ARGUMENT`
 
+## Principal Axes
+
+Required coverage:
+
+- `kernel_compute_symmetry_principal_axes(...)` computes normalized principal axes from a mass-weighted inertia tensor
+- principal-axis output includes the molecular line for a two-atom centered molecule
+- null atom input, zero atom count, null output, and null atom elements return `KERNEL_ERROR_INVALID_ARGUMENT`
+- invalid principal-axis input resets the preallocated 3-axis output buffer before returning
+
 ## Candidate Generation
 
 Required coverage:
@@ -89,6 +98,7 @@ Required coverage:
 - Tauri Rust `symmetry::parse` is a thin C ABI bridge
 - Tauri Rust `symmetry::classify` is a thin C ABI bridge
 - Tauri Rust `symmetry::shape` is a thin C ABI bridge
+- Tauri Rust principal-axis calculation is a thin C ABI bridge
 - Tauri Rust `symmetry::search` delegates candidate generation and operation matching to the kernel
 - Tauri Rust `symmetry::render` is a thin C ABI bridge
-- full `calculate_symmetry` smoke tests still exercise the kernel classifier, shape analyzer, candidate generation, operation search, and render geometry through the Rust command path
+- full `calculate_symmetry` smoke tests still exercise the kernel classifier, shape analyzer, principal-axis calculation, candidate generation, operation search, and render geometry through the Rust command path

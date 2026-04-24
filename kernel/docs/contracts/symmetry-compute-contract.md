@@ -12,6 +12,7 @@ Current surface:
 - `kernel_free_symmetry_atom_list(out_atoms)`
 - `kernel_classify_point_group(axes, axis_count, planes, plane_count, has_inversion, out_result)`
 - `kernel_analyze_symmetry_shape(atoms, atom_count, out_result)`
+- `kernel_compute_symmetry_principal_axes(atoms, atom_count, out_axes)`
 - `kernel_generate_symmetry_candidate_directions(atoms, atom_count, principal_axes, principal_axis_count, out_directions, out_direction_capacity, out_direction_count)`
 - `kernel_generate_symmetry_candidate_planes(atoms, atom_count, found_axes, axis_count, principal_axes, principal_axis_count, out_planes, out_plane_capacity, out_plane_count)`
 - `kernel_find_symmetry_rotation_axes(atoms, atom_count, candidates, candidate_count, out_axes, out_axis_capacity, out_axis_count)`
@@ -29,6 +30,9 @@ Current surface:
 - the kernel owns point-group classification rules
 - the kernel owns center-of-mass, radius, linearity, linear-axis, and inversion
   matching rules for shape analysis
+- the host owns the preallocated 3-slot principal-axis output array
+- the kernel owns mass-weighted inertia tensor and principal-axis eigenvector
+  calculation
 - the host owns preallocated candidate output arrays and count pointers
 - the kernel owns candidate direction and mirror-plane normal generation
 - the host owns preallocated operation-search output arrays and count pointers
@@ -43,7 +47,6 @@ Current surface:
 
 The Tauri host keeps:
 
-- principal-axis calculation
 - render geometry ABI marshalling and command DTO construction
 - localized UI error wording
 
@@ -56,6 +59,7 @@ The kernel owns:
 - viewer radius calculation
 - linear molecule detection and linear-axis selection
 - inversion-center operation matching
+- mass-weighted principal-axis calculation for non-linear molecules
 - candidate rotation-axis direction generation
 - candidate mirror-plane normal generation
 - rotation operation matching for candidate axes
@@ -82,8 +86,11 @@ The kernel owns:
 - shape analysis requires at least one atom and rejects null element pointers
 - shape analysis falls back to arithmetic center when total mass is near zero
 - shape analysis keeps the viewer radius minimum at `1.0`
+- principal-axis calculation expects centered atom positions from the host
+- principal-axis calculation uses the provided atom masses and returns three
+  normalized directions sorted by ascending inertia eigenvalue
 - candidate generation expects centered atom positions from the host
-- candidate generation expects host-provided principal axes
+- candidate generation expects principal axes produced by the kernel
 - candidate direction generation uses principal axes, Cartesian unit axes, atom
   vectors, same-element pair midpoints/differences, and up to 20 atom-direction
   cross products

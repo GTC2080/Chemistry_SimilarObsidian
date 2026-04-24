@@ -33,6 +33,7 @@ add_library(
   impl/core/kernel_symmetry_public_api.cpp
   impl/core/kernel_symmetry_atom_parser_public_api.cpp
   impl/core/kernel_symmetry_shape_public_api.cpp
+  impl/core/kernel_symmetry_principal_axes_public_api.cpp
   impl/core/kernel_symmetry_candidate_public_api.cpp
   impl/core/kernel_symmetry_operation_public_api.cpp
   impl/core/kernel_symmetry_render_public_api.cpp
@@ -85,6 +86,7 @@ add_library(
   impl/symmetry/atom_parser.cpp
   impl/symmetry/classify.cpp
   impl/symmetry/shape_analysis.cpp
+  impl/symmetry/principal_axes.cpp
   impl/symmetry/candidate_generation.cpp
   impl/symmetry/operation_search.cpp
   impl/symmetry/render_geometry.cpp

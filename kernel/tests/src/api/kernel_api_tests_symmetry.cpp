@@ -72,7 +72,11 @@ bool has_parallel_direction(
     const double x,
     const double y,
     const double z) {
-  const double target[3] = {x, y, z};
+  const double target_len = std::sqrt(x * x + y * y + z * z);
+  if (target_len < 1.0e-12) {
+    return false;
+  }
+  const double target[3] = {x / target_len, y / target_len, z / target_len};
   for (size_t index = 0; index < count; ++index) {
     const double dot =
         directions[index].dir[0] * target[0] + directions[index].dir[1] * target[1] +
@@ -90,7 +94,11 @@ bool has_parallel_plane(
     const double x,
     const double y,
     const double z) {
-  const double target[3] = {x, y, z};
+  const double target_len = std::sqrt(x * x + y * y + z * z);
+  if (target_len < 1.0e-12) {
+    return false;
+  }
+  const double target[3] = {x / target_len, y / target_len, z / target_len};
   for (size_t index = 0; index < count; ++index) {
     const double dot =
         planes[index].normal[0] * target[0] + planes[index].normal[1] * target[1] +
@@ -225,8 +233,59 @@ void test_symmetry_shape_rejects_invalid_inputs() {
       "symmetry shape should reject null output");
   require_true(
       kernel_analyze_symmetry_shape(&null_element, 1, &result).code ==
-          KERNEL_ERROR_INVALID_ARGUMENT,
+      KERNEL_ERROR_INVALID_ARGUMENT,
       "symmetry shape should reject null element");
+}
+
+void test_symmetry_computes_principal_axes() {
+  const kernel_symmetry_atom_input atoms[] = {
+      atom_input("H", 1.0, 1.0, 0.0, 1.0),
+      atom_input("H", -1.0, -1.0, 0.0, 1.0),
+  };
+  kernel_symmetry_direction_input axes[3]{};
+
+  require_ok_status(
+      kernel_compute_symmetry_principal_axes(atoms, 2, axes),
+      "compute symmetry principal axes");
+
+  require_true(
+      has_parallel_direction(axes, 3, 1.0, 1.0, 0.0),
+      "principal axes should include the molecular line");
+  for (const auto& axis_value : axes) {
+    const double len = std::sqrt(
+        axis_value.dir[0] * axis_value.dir[0] +
+        axis_value.dir[1] * axis_value.dir[1] +
+        axis_value.dir[2] * axis_value.dir[2]);
+    require_near(len, 1.0, "principal axis length");
+  }
+}
+
+void test_symmetry_principal_axes_rejects_invalid_inputs() {
+  const auto valid_atom = atom_input("He", 0.0, 0.0, 0.0, 4.0);
+  const auto null_element = atom_input(nullptr, 0.0, 0.0, 0.0, 4.0);
+  kernel_symmetry_direction_input axes[3] = {
+      direction(9.0, 9.0, 9.0),
+      direction(9.0, 9.0, 9.0),
+      direction(9.0, 9.0, 9.0),
+  };
+
+  require_true(
+      kernel_compute_symmetry_principal_axes(nullptr, 1, axes).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "principal-axis calculation should reject null atoms");
+  require_near(axes[0].dir[0], 0.0, "principal-axis invalid reset");
+  require_true(
+      kernel_compute_symmetry_principal_axes(&valid_atom, 0, axes).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "principal-axis calculation should reject zero atoms");
+  require_true(
+      kernel_compute_symmetry_principal_axes(&valid_atom, 1, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "principal-axis calculation should reject null output");
+  require_true(
+      kernel_compute_symmetry_principal_axes(&null_element, 1, axes).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "principal-axis calculation should reject null atom elements");
 }
 
 void test_symmetry_generates_candidate_directions() {
@@ -618,6 +677,8 @@ void run_symmetry_compute_tests() {
   test_symmetry_analyzes_linear_shape();
   test_symmetry_analyzes_nonlinear_shape();
   test_symmetry_shape_rejects_invalid_inputs();
+  test_symmetry_computes_principal_axes();
+  test_symmetry_principal_axes_rejects_invalid_inputs();
   test_symmetry_generates_candidate_directions();
   test_symmetry_generates_candidate_planes();
   test_symmetry_candidate_generation_rejects_invalid_inputs();
