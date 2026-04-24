@@ -2,8 +2,6 @@ mod common;
 mod embeddings;
 mod lifecycle;
 mod notes;
-mod parsing;
-mod relations;
 mod schema;
 mod study;
 

@@ -2,10 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::AppResult;
 
-use super::relations::{sync_links, sync_tags};
-use super::schema::sync_fts_row;
-
-/// Upsert 单条笔记记录到数据库，并同步其链接关系。
+/// Upsert note metadata/content into the legacy embedding cache table.
 pub fn upsert_note(
     conn: &Connection,
     id: &str,
@@ -20,13 +17,6 @@ pub fn upsert_note(
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![id, filename, absolute_path, created_at, updated_at, content],
     )?;
-
-    // 同步链接关系：解析 content 中的 [[...]] 并写入 note_links 表
-    sync_links(conn, id, content)?;
-
-    // 同步标签关系：解析 Frontmatter 和行内 #标签 并写入 note_tags 表
-    sync_tags(conn, id, content)?;
-    sync_fts_row(conn, id)?;
 
     Ok(())
 }
