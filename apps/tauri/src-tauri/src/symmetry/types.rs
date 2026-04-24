@@ -1,4 +1,3 @@
-use nalgebra::Vector3;
 use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug)]
@@ -32,22 +31,4 @@ pub struct SymmetryData {
     pub axes: Vec<RotationAxis>,
     pub has_inversion: bool,
     pub atom_count: usize,
-}
-
-#[derive(Clone, Debug)]
-pub(super) struct Atom {
-    pub(super) element: String,
-    pub(super) pos: Vector3<f64>,
-    pub(super) mass: f64,
-}
-
-#[derive(Clone, Debug)]
-pub(super) struct FoundAxis {
-    pub(super) dir: Vector3<f64>, // 单位向量
-    pub(super) order: u8,
-}
-
-#[derive(Clone, Debug)]
-pub(super) struct FoundPlane {
-    pub(super) normal: Vector3<f64>, // 单位向量
 }

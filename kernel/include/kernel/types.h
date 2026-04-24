@@ -692,6 +692,26 @@ typedef struct kernel_symmetry_atom_list {
   kernel_symmetry_parse_error error;
 } kernel_symmetry_atom_list;
 
+typedef enum kernel_symmetry_calculation_error {
+  KERNEL_SYMMETRY_CALC_ERROR_NONE = 0,
+  KERNEL_SYMMETRY_CALC_ERROR_PARSE = 1,
+  KERNEL_SYMMETRY_CALC_ERROR_NO_ATOMS = 2,
+  KERNEL_SYMMETRY_CALC_ERROR_TOO_MANY_ATOMS = 3,
+  KERNEL_SYMMETRY_CALC_ERROR_INTERNAL = 4
+} kernel_symmetry_calculation_error;
+
+typedef struct kernel_symmetry_calculation_result {
+  char point_group[KERNEL_SYMMETRY_POINT_GROUP_MAX];
+  kernel_symmetry_render_axis* axes;
+  size_t axis_count;
+  kernel_symmetry_render_plane* planes;
+  size_t plane_count;
+  uint8_t has_inversion;
+  size_t atom_count;
+  kernel_symmetry_calculation_error error;
+  kernel_symmetry_parse_error parse_error;
+} kernel_symmetry_calculation_result;
+
 typedef enum kernel_chem_spectrum_selector_kind {
   KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM = 0,
   KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE = 1

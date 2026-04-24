@@ -667,6 +667,91 @@ void test_symmetry_parser_rejects_invalid_inputs() {
   kernel_free_symmetry_atom_list(&atoms);
 }
 
+void test_symmetry_calculates_full_water_pipeline() {
+  const std::string xyz =
+      "3\n"
+      "water\n"
+      "O  0.000  0.000  0.117\n"
+      "H  0.000  0.757 -0.469\n"
+      "H  0.000 -0.757 -0.469\n";
+  kernel_symmetry_calculation_result result{};
+
+  require_ok_status(
+      kernel_calculate_symmetry(xyz.data(), xyz.size(), "xyz", 500, &result),
+      "calculate full symmetry water pipeline");
+
+  require_true(std::string(result.point_group) == "C_2v", "water should classify as C2v");
+  require_true(result.atom_count == 3, "water atom count");
+  require_true(result.axis_count > 0, "water should emit render axes");
+  require_true(result.plane_count > 0, "water should emit render planes");
+  require_true(result.axes != nullptr, "water axes pointer");
+  require_true(result.planes != nullptr, "water planes pointer");
+  kernel_free_symmetry_calculation_result(&result);
+  require_true(result.axes == nullptr && result.planes == nullptr, "symmetry result free resets arrays");
+}
+
+void test_symmetry_calculates_full_linear_pipeline() {
+  const std::string xyz =
+      "3\n"
+      "CO2\n"
+      "C  0.000  0.000  0.000\n"
+      "O  0.000  0.000  1.160\n"
+      "O  0.000  0.000 -1.160\n";
+  kernel_symmetry_calculation_result result{};
+
+  require_ok_status(
+      kernel_calculate_symmetry(xyz.data(), xyz.size(), "xyz", 500, &result),
+      "calculate full symmetry linear pipeline");
+
+  require_true(
+      std::string(result.point_group) == (std::string("D") + "\xE2\x88\x9E" + "h"),
+      "CO2 should classify as D infinity h");
+  require_true(result.has_inversion == 1, "CO2 should have inversion");
+  require_true(result.axis_count == 1, "linear molecule should emit one infinite axis");
+  require_true(result.plane_count == 0, "linear molecule should not emit render planes");
+  kernel_free_symmetry_calculation_result(&result);
+}
+
+void test_symmetry_calculation_rejects_invalid_inputs() {
+  const std::string invalid_xyz = "1\n";
+  kernel_symmetry_calculation_result result{};
+
+  require_true(
+      kernel_calculate_symmetry(nullptr, 0, "xyz", 500, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "full symmetry calculation should reject null raw input");
+  require_true(
+      kernel_calculate_symmetry(invalid_xyz.data(), invalid_xyz.size(), "xyz", 0, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "full symmetry calculation should reject zero max atoms");
+  require_true(
+      kernel_calculate_symmetry(invalid_xyz.data(), invalid_xyz.size(), "xyz", 500, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "full symmetry calculation should reject parse failures");
+  require_true(
+      result.error == KERNEL_SYMMETRY_CALC_ERROR_PARSE,
+      "full symmetry calculation should expose parse error");
+  require_true(
+      result.parse_error == KERNEL_SYMMETRY_PARSE_ERROR_XYZ_INCOMPLETE,
+      "full symmetry calculation should preserve parser error");
+  kernel_free_symmetry_calculation_result(&result);
+
+  const std::string two_atoms =
+      "2\n"
+      "two\n"
+      "H 0 0 0\n"
+      "H 0 0 1\n";
+  require_true(
+      kernel_calculate_symmetry(two_atoms.data(), two_atoms.size(), "xyz", 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "full symmetry calculation should reject atom-count limit overflow");
+  require_true(
+      result.error == KERNEL_SYMMETRY_CALC_ERROR_TOO_MANY_ATOMS,
+      "full symmetry calculation should expose too-many-atoms error");
+  require_true(result.atom_count == 2, "full symmetry calculation should expose parsed atom count");
+  kernel_free_symmetry_calculation_result(&result);
+}
+
 }  // namespace
 
 void run_symmetry_compute_tests() {
@@ -691,4 +776,7 @@ void run_symmetry_compute_tests() {
   test_symmetry_parses_pdb_atoms();
   test_symmetry_parses_cif_fractional_atoms();
   test_symmetry_parser_rejects_invalid_inputs();
+  test_symmetry_calculates_full_water_pipeline();
+  test_symmetry_calculates_full_linear_pipeline();
+  test_symmetry_calculation_rejects_invalid_inputs();
 }

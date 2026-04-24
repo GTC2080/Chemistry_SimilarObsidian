@@ -91,14 +91,23 @@ Required coverage:
 - negative or non-finite radius returns `KERNEL_ERROR_INVALID_ARGUMENT`
 - empty axis/plane input with null outputs is accepted
 
+## Full Calculation
+
+Required coverage:
+
+- `kernel_calculate_symmetry(...)` runs the full water pipeline and returns `C_2v`
+- full calculation emits render axes and planes for water
+- full calculation runs the linear molecule path and returns `D∞h`
+- full calculation emits one `order = 0` render axis and no planes for linear molecules
+- full calculation preserves parser errors through `KERNEL_SYMMETRY_CALC_ERROR_PARSE`
+- full calculation reports atom-count limit failures through `KERNEL_SYMMETRY_CALC_ERROR_TOO_MANY_ATOMS`
+- `kernel_free_symmetry_calculation_result(...)` resets owned arrays
+
 ## Host Bridge
 
 Required coverage:
 
-- Tauri Rust `symmetry::parse` is a thin C ABI bridge
-- Tauri Rust `symmetry::classify` is a thin C ABI bridge
-- Tauri Rust `symmetry::shape` is a thin C ABI bridge
-- Tauri Rust principal-axis calculation is a thin C ABI bridge
-- Tauri Rust `symmetry::search` delegates candidate generation and operation matching to the kernel
-- Tauri Rust `symmetry::render` is a thin C ABI bridge
-- full `calculate_symmetry` smoke tests still exercise the kernel classifier, shape analyzer, principal-axis calculation, candidate generation, operation search, and render geometry through the Rust command path
+- Tauri Rust `symmetry::calculate` is a single C ABI bridge to `kernel_calculate_symmetry(...)`
+- Tauri Rust keeps localized error mapping for parser, empty molecule, and atom-count-limit failures
+- Tauri Rust maps kernel-owned render axes and planes into the existing `SymmetryData` DTO
+- full `calculate_symmetry` smoke tests still exercise the kernel full calculation surface through the Rust command path

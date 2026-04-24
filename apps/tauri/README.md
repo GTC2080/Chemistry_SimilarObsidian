@@ -44,7 +44,7 @@
 
 - **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
 - **v1.0.6-dev** — 化学无状态计算继续内核化：高分子动力学、化学计量、波谱解析、分子预览、逆合成 mock pathway 规则均通过 `kernel/` C ABI 提供；Tauri Rust 只保留 PubChem HTTP 查询、命令 DTO 映射和 kernel 内存释放桥接。
-- **v1.0.6-dev** — 对称性原子解析、形状分析、主轴计算、候选生成、操作匹配与渲染几何继续内核化：`XYZ` / `PDB` / simple `CIF` 原子解析、元素归一化、原子质量表和 CIF 分数坐标转换由 `kernel_parse_symmetry_atoms_text(...)` 提供；质心、半径、线性分子、线性轴与反演中心判断由 `kernel_analyze_symmetry_shape(...)` 提供；惯性张量与主轴由 `kernel_compute_symmetry_principal_axes(...)` 提供；候选旋转轴/镜像平面由 `kernel_generate_symmetry_candidate_directions(...)` / `kernel_generate_symmetry_candidate_planes(...)` 生成，再由 `kernel_find_symmetry_rotation_axes(...)` / `kernel_find_symmetry_mirror_planes(...)` 做操作匹配；旋转轴端点与镜像平面顶点由 `kernel_build_symmetry_render_geometry(...)` 提供；Rust 只继续保留 DTO 映射。
+- **v1.0.6-dev** — 对称性计算管线继续内核化：`calculate_symmetry` 现在单点桥接 `kernel_calculate_symmetry(...)`，由 kernel 完成 `XYZ` / `PDB` / simple `CIF` 原子解析、形状分析、主轴计算、候选生成、操作匹配、点群分类和渲染几何；Rust 只保留命令 DTO、localized error 映射和 kernel-owned 结果释放。
 - **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Rust Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
@@ -87,15 +87,10 @@
 
 已收口到 kernel 的对称性计算面：
 
-- `calculate_symmetry` 原子解析 -> `kernel_parse_symmetry_atoms_text(...)`
-- `calculate_symmetry` 形状分析 -> `kernel_analyze_symmetry_shape(...)`
-- `calculate_symmetry` 主轴计算 -> `kernel_compute_symmetry_principal_axes(...)`
-- `calculate_symmetry` 候选生成 -> `kernel_generate_symmetry_candidate_directions(...)` / `kernel_generate_symmetry_candidate_planes(...)`
-- `calculate_symmetry` 操作匹配 -> `kernel_find_symmetry_rotation_axes(...)` / `kernel_find_symmetry_mirror_planes(...)`
-- `calculate_symmetry` 点群分类 -> `kernel_classify_point_group(...)`
-- `calculate_symmetry` 渲染几何 -> `kernel_build_symmetry_render_geometry(...)`
+- `calculate_symmetry` 全流程 -> `kernel_calculate_symmetry(...)`
+- granular symmetry ABI 仍保留在 kernel 内部回归面：`kernel_parse_symmetry_atoms_text(...)`、`kernel_analyze_symmetry_shape(...)`、`kernel_compute_symmetry_principal_axes(...)`、`kernel_generate_symmetry_candidate_directions(...)` / `kernel_generate_symmetry_candidate_planes(...)`、`kernel_find_symmetry_rotation_axes(...)` / `kernel_find_symmetry_mirror_planes(...)`、`kernel_classify_point_group(...)`、`kernel_build_symmetry_render_geometry(...)`
 
-Rust `symmetry/` 当前仍保留 3D viewer DTO 映射；后续迁移批次继续从这里削薄。
+Rust `symmetry/` 当前只保留 full-result ABI bridge、3D viewer DTO 映射和中文错误文案；后续迁移批次继续从其他 Rust 后端模块削薄。
 
 ## 快速开始
 
@@ -274,7 +269,7 @@ src-tauri/src/          # Rust 后端
 │   └── common.rs       # DB 公共工具
 ├── shared/             # 公共 helper 与跨模块共享逻辑
 ├── services/           # 领域服务层
-├── symmetry/           # 对称性引擎模块（parse/geometry/search/classify/render）
+├── symmetry/           # 对称性命令桥接（full-result kernel ABI + DTO 映射）
 ├── watcher/            # 文件系统增量监听模块
 │   ├── mod.rs          # WatcherState 生命周期管理（start/stop）
 │   ├── filter.rs       # 路径过滤规则（隐藏文件/扩展名白名单/忽略文件夹）

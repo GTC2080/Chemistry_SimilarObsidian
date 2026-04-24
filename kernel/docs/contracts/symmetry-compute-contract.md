@@ -8,6 +8,8 @@ This document covers stateless molecular symmetry computation surfaces.
 
 Current surface:
 
+- `kernel_calculate_symmetry(raw, raw_size, format, max_atoms, out_result)`
+- `kernel_free_symmetry_calculation_result(out_result)`
 - `kernel_parse_symmetry_atoms_text(raw, raw_size, format, out_atoms)`
 - `kernel_free_symmetry_atom_list(out_atoms)`
 - `kernel_classify_point_group(axes, axis_count, planes, plane_count, has_inversion, out_result)`
@@ -22,6 +24,9 @@ Current surface:
 ## Ownership
 
 - the host owns raw molecule text and format strings
+- the kernel owns the end-to-end `calculate_symmetry` orchestration pipeline
+- returned full symmetry calculation axes and planes are kernel-owned until
+  released with `kernel_free_symmetry_calculation_result(...)`
 - the kernel owns `XYZ`, `PDB`, and simple `CIF` atom parsing rules
 - returned symmetry atom arrays and element strings are kernel-owned until
   released with `kernel_free_symmetry_atom_list(...)`
@@ -47,11 +52,13 @@ Current surface:
 
 The Tauri host keeps:
 
-- render geometry ABI marshalling and command DTO construction
+- command DTO construction
+- full-result ABI marshalling
 - localized UI error wording
 
 The kernel owns:
 
+- `calculate_symmetry` pipeline ordering from parse through render geometry
 - molecule text parsing for `XYZ`, `PDB`, and simple `CIF`
 - element normalization and atomic mass lookup for parsed symmetry atoms
 - fractional-to-cartesian conversion for simple CIF atom loops
@@ -69,9 +76,21 @@ The kernel owns:
 - cyclic, dihedral, tetrahedral, octahedral, and icosahedral point-group labels
 - rotation-axis render endpoint construction
 - mirror-plane render vertex construction
+- render-ready full symmetry result ownership and release
 
 ## Frozen Rules
 
+- full calculation accepts the same raw molecule text and format strings as
+  the parser surface
+- full calculation enforces the host-provided atom-count limit and returns
+  `KERNEL_SYMMETRY_CALC_ERROR_TOO_MANY_ATOMS` with the parsed atom count when
+  exceeded
+- full calculation maps parser failures through
+  `KERNEL_SYMMETRY_CALC_ERROR_PARSE` and preserves the typed parser error
+- full calculation returns `K_h` for a single atom without emitting axes or
+  planes
+- full calculation returns `D∞h` or `C∞v` for linear molecules and emits the
+  linear axis with `order = 0`
 - supported parser formats are `xyz`, `pdb`, and `cif`
 - `XYZ` parsing follows the existing two-line header rule and skips short atom
   rows
@@ -89,15 +108,17 @@ The kernel owns:
 - principal-axis calculation expects centered atom positions from the host
 - principal-axis calculation uses the provided atom masses and returns three
   normalized directions sorted by ascending inertia eigenvalue
-- candidate generation expects centered atom positions from the host
-- candidate generation expects principal axes produced by the kernel
+- candidate generation expects centered atom positions when called directly
+- candidate generation expects principal axes produced by the kernel when
+  called through the full calculation surface
 - candidate direction generation uses principal axes, Cartesian unit axes, atom
   vectors, same-element pair midpoints/differences, and up to 20 atom-direction
   cross products
 - candidate plane generation uses found axes, principal axes, Cartesian unit
   axes, atom vectors, same-element pair differences/midpoints, and
   axis-by-atom cross products
-- operation search expects host-provided candidate directions/normals
+- operation search expects host-provided candidate directions/normals when
+  called directly
 - operation search returns found axes sorted by descending order
 - operation search checks rotation orders `6, 5, 4, 3, 2`
 - operation search uses the frozen atom matching tolerance of `0.30`
@@ -111,3 +132,4 @@ The kernel owns:
 - render axis extent remains `mol_radius * 1.5`
 - render plane square size remains `mol_radius * 1.8`
 - the current ABI intentionally does not emit candidate axes or mirror planes
+  from the full calculation result
