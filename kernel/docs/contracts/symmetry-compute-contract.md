@@ -12,6 +12,8 @@ Current surface:
 - `kernel_free_symmetry_atom_list(out_atoms)`
 - `kernel_classify_point_group(axes, axis_count, planes, plane_count, has_inversion, out_result)`
 - `kernel_analyze_symmetry_shape(atoms, atom_count, out_result)`
+- `kernel_generate_symmetry_candidate_directions(atoms, atom_count, principal_axes, principal_axis_count, out_directions, out_direction_capacity, out_direction_count)`
+- `kernel_generate_symmetry_candidate_planes(atoms, atom_count, found_axes, axis_count, principal_axes, principal_axis_count, out_planes, out_plane_capacity, out_plane_count)`
 - `kernel_find_symmetry_rotation_axes(atoms, atom_count, candidates, candidate_count, out_axes, out_axis_capacity, out_axis_count)`
 - `kernel_find_symmetry_mirror_planes(atoms, atom_count, candidates, candidate_count, out_planes, out_plane_capacity, out_plane_count)`
 - `kernel_build_symmetry_render_geometry(axes, axis_count, planes, plane_count, mol_radius, out_axes, out_planes)`
@@ -27,6 +29,8 @@ Current surface:
 - the kernel owns point-group classification rules
 - the kernel owns center-of-mass, radius, linearity, linear-axis, and inversion
   matching rules for shape analysis
+- the host owns preallocated candidate output arrays and count pointers
+- the kernel owns candidate direction and mirror-plane normal generation
 - the host owns preallocated operation-search output arrays and count pointers
 - the kernel owns candidate rotation-axis and mirror-plane validation
 - `kernel_symmetry_classification_result` is filled by value and requires no free call
@@ -40,7 +44,6 @@ Current surface:
 The Tauri host keeps:
 
 - principal-axis calculation
-- candidate axis and mirror-plane generation
 - render geometry ABI marshalling and command DTO construction
 - localized UI error wording
 
@@ -53,6 +56,8 @@ The kernel owns:
 - viewer radius calculation
 - linear molecule detection and linear-axis selection
 - inversion-center operation matching
+- candidate rotation-axis direction generation
+- candidate mirror-plane normal generation
 - rotation operation matching for candidate axes
 - reflection operation matching for candidate mirror planes
 - point-group decision ordering
@@ -77,6 +82,14 @@ The kernel owns:
 - shape analysis requires at least one atom and rejects null element pointers
 - shape analysis falls back to arithmetic center when total mass is near zero
 - shape analysis keeps the viewer radius minimum at `1.0`
+- candidate generation expects centered atom positions from the host
+- candidate generation expects host-provided principal axes
+- candidate direction generation uses principal axes, Cartesian unit axes, atom
+  vectors, same-element pair midpoints/differences, and up to 20 atom-direction
+  cross products
+- candidate plane generation uses found axes, principal axes, Cartesian unit
+  axes, atom vectors, same-element pair differences/midpoints, and
+  axis-by-atom cross products
 - operation search expects host-provided candidate directions/normals
 - operation search returns found axes sorted by descending order
 - operation search checks rotation orders `6, 5, 4, 3, 2`

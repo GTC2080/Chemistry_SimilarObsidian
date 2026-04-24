@@ -1,6 +1,6 @@
 //! 分子点群与空间对称性推演桥接层
 //!
-//! Tauri Rust 保留候选几何生成和命令 DTO；解析、形状分析、操作匹配、点群分类与渲染几何已由 C++ kernel 提供。
+//! Tauri Rust 保留主轴计算和命令 DTO；解析、形状分析、候选生成、操作匹配、点群分类与渲染几何已由 C++ kernel 提供。
 //! 前端零计算：几何数据（平面顶点、轴端点）在 host 命令返回前由 kernel 预计算完毕。
 
 mod classify;
@@ -24,9 +24,6 @@ use types::{FoundAxis, FoundPlane};
 
 pub use types::SymmetryData;
 
-// ===== 容差与限制 =====
-pub(super) const TOLERANCE: f64 = 0.30; // Å，原子匹配容差
-pub(super) const ANGLE_TOL: f64 = 0.10; // rad，方向向量去重容差
 const MAX_ATOMS_FOR_SYMMETRY: usize = 500;
 
 // ===== 公开接口 =====

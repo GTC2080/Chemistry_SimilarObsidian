@@ -1,7 +1,6 @@
 use nalgebra::{Matrix3, SymmetricEigen, Vector3};
 
 use super::types::Atom;
-use super::ANGLE_TOL;
 
 pub(super) fn compute_principal_axes(atoms: &[Atom]) -> [Vector3<f64>; 3] {
     let mut inertia = Matrix3::<f64>::zeros();
@@ -27,8 +26,4 @@ pub(super) fn compute_principal_axes(atoms: &[Atom]) -> [Vector3<f64>; 3] {
         vecs.column(1).into_owned(),
         vecs.column(2).into_owned(),
     ]
-}
-
-pub(super) fn are_parallel(a: &Vector3<f64>, b: &Vector3<f64>) -> bool {
-    a.dot(b).abs() > ANGLE_TOL.cos()
 }

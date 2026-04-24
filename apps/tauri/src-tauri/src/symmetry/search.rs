@@ -3,9 +3,7 @@ use std::os::raw::c_char;
 
 use nalgebra::Vector3;
 
-use super::geometry::are_parallel;
 use super::types::{Atom, FoundAxis, FoundPlane};
-use super::TOLERANCE;
 
 const KERNEL_OK: i32 = 0;
 
@@ -24,7 +22,7 @@ struct KernelSymmetryAtomInput {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 struct KernelSymmetryDirectionInput {
     dir: [f64; 3],
 }
@@ -43,6 +41,26 @@ struct KernelSymmetryPlaneInput {
 }
 
 extern "C" {
+    fn kernel_generate_symmetry_candidate_directions(
+        atoms: *const KernelSymmetryAtomInput,
+        atom_count: usize,
+        principal_axes: *const KernelSymmetryDirectionInput,
+        principal_axis_count: usize,
+        out_directions: *mut KernelSymmetryDirectionInput,
+        out_direction_capacity: usize,
+        out_direction_count: *mut usize,
+    ) -> KernelStatus;
+    fn kernel_generate_symmetry_candidate_planes(
+        atoms: *const KernelSymmetryAtomInput,
+        atom_count: usize,
+        found_axes: *const KernelSymmetryAxisInput,
+        axis_count: usize,
+        principal_axes: *const KernelSymmetryDirectionInput,
+        principal_axis_count: usize,
+        out_planes: *mut KernelSymmetryPlaneInput,
+        out_plane_capacity: usize,
+        out_plane_count: *mut usize,
+    ) -> KernelStatus;
     fn kernel_find_symmetry_rotation_axes(
         atoms: *const KernelSymmetryAtomInput,
         atom_count: usize,
@@ -67,65 +85,35 @@ pub(super) fn generate_candidate_directions(
     atoms: &[Atom],
     principal_axes: &[Vector3<f64>; 3],
 ) -> Vec<Vector3<f64>> {
-    let mut dirs: Vec<Vector3<f64>> = Vec::new();
+    let Ok((_elements, kernel_atoms)) = build_kernel_atoms(atoms) else {
+        return Vec::new();
+    };
+    let kernel_principal_axes: Vec<KernelSymmetryDirectionInput> =
+        principal_axes.iter().map(direction_to_kernel).collect();
+    let mut out_directions =
+        vec![KernelSymmetryDirectionInput::default(); direction_candidate_capacity(atoms.len())];
+    let mut out_count = 0usize;
 
-    for ax in principal_axes {
-        if ax.norm() > 1e-10 {
-            add_unique_dir(&mut dirs, ax.normalize());
-        }
+    let status = unsafe {
+        kernel_generate_symmetry_candidate_directions(
+            kernel_atoms.as_ptr(),
+            kernel_atoms.len(),
+            kernel_principal_axes.as_ptr(),
+            kernel_principal_axes.len(),
+            out_directions.as_mut_ptr(),
+            out_directions.len(),
+            &mut out_count,
+        )
+    };
+    if status.code != KERNEL_OK {
+        return Vec::new();
     }
 
-    add_unique_dir(&mut dirs, Vector3::x());
-    add_unique_dir(&mut dirs, Vector3::y());
-    add_unique_dir(&mut dirs, Vector3::z());
-
-    for atom in atoms {
-        if atom.pos.norm() > TOLERANCE {
-            add_unique_dir(&mut dirs, atom.pos.normalize());
-        }
-    }
-
-    for i in 0..atoms.len() {
-        for j in (i + 1)..atoms.len() {
-            if atoms[i].element != atoms[j].element {
-                continue;
-            }
-            let mid = (atoms[i].pos + atoms[j].pos) / 2.0;
-            if mid.norm() > TOLERANCE * 0.5 {
-                add_unique_dir(&mut dirs, mid.normalize());
-            }
-            let diff = atoms[i].pos - atoms[j].pos;
-            if diff.norm() > TOLERANCE {
-                add_unique_dir(&mut dirs, diff.normalize());
-            }
-        }
-    }
-
-    let atom_dirs: Vec<Vector3<f64>> = atoms
+    out_directions
         .iter()
-        .filter(|a| a.pos.norm() > TOLERANCE)
-        .map(|a| a.pos.normalize())
-        .collect();
-    let cross_limit = atom_dirs.len().min(20);
-    for i in 0..cross_limit {
-        for j in (i + 1)..cross_limit {
-            let c = atom_dirs[i].cross(&atom_dirs[j]);
-            if c.norm() > 1e-6 {
-                add_unique_dir(&mut dirs, c.normalize());
-            }
-        }
-    }
-
-    dirs
-}
-
-fn add_unique_dir(dirs: &mut Vec<Vector3<f64>>, new_dir: Vector3<f64>) {
-    for existing in dirs.iter() {
-        if are_parallel(existing, &new_dir) {
-            return;
-        }
-    }
-    dirs.push(new_dir);
+        .take(out_count)
+        .map(direction_from_kernel)
+        .collect()
 }
 
 fn build_kernel_atoms(
@@ -164,6 +152,17 @@ fn plane_to_kernel(normal: &Vector3<f64>) -> KernelSymmetryPlaneInput {
     }
 }
 
+fn direction_from_kernel(direction: &KernelSymmetryDirectionInput) -> Vector3<f64> {
+    Vector3::new(direction.dir[0], direction.dir[1], direction.dir[2])
+}
+
+fn axis_to_kernel(axis: &FoundAxis) -> KernelSymmetryAxisInput {
+    KernelSymmetryAxisInput {
+        dir: [axis.dir.x, axis.dir.y, axis.dir.z],
+        order: axis.order,
+    }
+}
+
 fn axis_from_kernel(axis: &KernelSymmetryAxisInput) -> FoundAxis {
     FoundAxis {
         dir: Vector3::new(axis.dir[0], axis.dir[1], axis.dir[2]),
@@ -175,6 +174,23 @@ fn plane_from_kernel(plane: &KernelSymmetryPlaneInput) -> FoundPlane {
     FoundPlane {
         normal: Vector3::new(plane.normal[0], plane.normal[1], plane.normal[2]),
     }
+}
+
+fn direction_candidate_capacity(atom_count: usize) -> usize {
+    6usize
+        .saturating_add(atom_count)
+        .saturating_add(atom_count.saturating_mul(atom_count.saturating_sub(1)))
+        .saturating_add(190)
+        .max(1)
+}
+
+fn plane_candidate_capacity(atom_count: usize, axis_count: usize) -> usize {
+    axis_count
+        .saturating_add(6)
+        .saturating_add(atom_count)
+        .saturating_add(atom_count.saturating_mul(atom_count.saturating_sub(1)))
+        .saturating_add(axis_count.saturating_mul(atom_count))
+        .max(1)
 }
 
 pub(super) fn find_rotation_axes(atoms: &[Atom], candidates: &[Vector3<f64>]) -> Vec<FoundAxis> {
@@ -213,56 +229,40 @@ pub(super) fn generate_candidate_planes(
     found_axes: &[FoundAxis],
     principal_axes: &[Vector3<f64>; 3],
 ) -> Vec<Vector3<f64>> {
-    let mut normals: Vec<Vector3<f64>> = Vec::new();
+    let Ok((_elements, kernel_atoms)) = build_kernel_atoms(atoms) else {
+        return Vec::new();
+    };
+    let kernel_axes: Vec<KernelSymmetryAxisInput> = found_axes.iter().map(axis_to_kernel).collect();
+    let kernel_principal_axes: Vec<KernelSymmetryDirectionInput> =
+        principal_axes.iter().map(direction_to_kernel).collect();
+    let mut out_planes = vec![
+        KernelSymmetryPlaneInput::default();
+        plane_candidate_capacity(atoms.len(), found_axes.len())
+    ];
+    let mut out_count = 0usize;
 
-    for axis in found_axes {
-        add_unique_dir(&mut normals, axis.dir);
+    let status = unsafe {
+        kernel_generate_symmetry_candidate_planes(
+            kernel_atoms.as_ptr(),
+            kernel_atoms.len(),
+            kernel_axes.as_ptr(),
+            kernel_axes.len(),
+            kernel_principal_axes.as_ptr(),
+            kernel_principal_axes.len(),
+            out_planes.as_mut_ptr(),
+            out_planes.len(),
+            &mut out_count,
+        )
+    };
+    if status.code != KERNEL_OK {
+        return Vec::new();
     }
 
-    for ax in principal_axes {
-        if ax.norm() > 1e-10 {
-            add_unique_dir(&mut normals, ax.normalize());
-        }
-    }
-
-    add_unique_dir(&mut normals, Vector3::x());
-    add_unique_dir(&mut normals, Vector3::y());
-    add_unique_dir(&mut normals, Vector3::z());
-
-    for atom in atoms {
-        if atom.pos.norm() > TOLERANCE {
-            add_unique_dir(&mut normals, atom.pos.normalize());
-        }
-    }
-
-    for i in 0..atoms.len() {
-        for j in (i + 1)..atoms.len() {
-            if atoms[i].element != atoms[j].element {
-                continue;
-            }
-            let diff = atoms[i].pos - atoms[j].pos;
-            if diff.norm() > TOLERANCE {
-                add_unique_dir(&mut normals, diff.normalize());
-            }
-            let mid = (atoms[i].pos + atoms[j].pos) / 2.0;
-            if mid.norm() > TOLERANCE * 0.5 {
-                add_unique_dir(&mut normals, mid.normalize());
-            }
-        }
-    }
-
-    for axis in found_axes {
-        for atom in atoms {
-            if atom.pos.norm() > TOLERANCE {
-                let c = axis.dir.cross(&atom.pos);
-                if c.norm() > 1e-6 {
-                    add_unique_dir(&mut normals, c.normalize());
-                }
-            }
-        }
-    }
-
-    normals
+    out_planes
+        .iter()
+        .take(out_count)
+        .map(|plane| Vector3::new(plane.normal[0], plane.normal[1], plane.normal[2]))
+        .collect()
 }
 
 pub(super) fn find_mirror_planes(

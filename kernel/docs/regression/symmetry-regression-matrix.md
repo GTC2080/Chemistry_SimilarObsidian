@@ -46,6 +46,17 @@ Required coverage:
 - non-inversion molecules return `has_inversion = false`
 - null atom input, zero atom count, null output, and null atom elements return `KERNEL_ERROR_INVALID_ARGUMENT`
 
+## Candidate Generation
+
+Required coverage:
+
+- `kernel_generate_symmetry_candidate_directions(...)` emits principal axes and Cartesian unit axes
+- direction candidate generation deduplicates parallel directions
+- direction candidate generation includes atom-vector and same-element pair candidates
+- `kernel_generate_symmetry_candidate_planes(...)` emits found axes, principal axes, and Cartesian unit axes
+- plane candidate generation deduplicates parallel normals
+- candidate generation rejects null atoms, null count output, missing outputs when capacity is nonzero, and too-small capacity
+
 ## Operation Search
 
 Required coverage:
@@ -78,6 +89,6 @@ Required coverage:
 - Tauri Rust `symmetry::parse` is a thin C ABI bridge
 - Tauri Rust `symmetry::classify` is a thin C ABI bridge
 - Tauri Rust `symmetry::shape` is a thin C ABI bridge
-- Tauri Rust `symmetry::search` delegates operation matching to the kernel
+- Tauri Rust `symmetry::search` delegates candidate generation and operation matching to the kernel
 - Tauri Rust `symmetry::render` is a thin C ABI bridge
-- full `calculate_symmetry` smoke tests still exercise the kernel classifier, shape analyzer, operation search, and render geometry through the Rust command path
+- full `calculate_symmetry` smoke tests still exercise the kernel classifier, shape analyzer, candidate generation, operation search, and render geometry through the Rust command path

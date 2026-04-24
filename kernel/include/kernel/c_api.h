@@ -192,6 +192,24 @@ kernel_status kernel_find_symmetry_rotation_axes(
     kernel_symmetry_axis_input* out_axes,
     size_t out_axis_capacity,
     size_t* out_axis_count);
+kernel_status kernel_generate_symmetry_candidate_directions(
+    const kernel_symmetry_atom_input* atoms,
+    size_t atom_count,
+    const kernel_symmetry_direction_input* principal_axes,
+    size_t principal_axis_count,
+    kernel_symmetry_direction_input* out_directions,
+    size_t out_direction_capacity,
+    size_t* out_direction_count);
+kernel_status kernel_generate_symmetry_candidate_planes(
+    const kernel_symmetry_atom_input* atoms,
+    size_t atom_count,
+    const kernel_symmetry_axis_input* found_axes,
+    size_t axis_count,
+    const kernel_symmetry_direction_input* principal_axes,
+    size_t principal_axis_count,
+    kernel_symmetry_plane_input* out_planes,
+    size_t out_plane_capacity,
+    size_t* out_plane_count);
 kernel_status kernel_find_symmetry_mirror_planes(
     const kernel_symmetry_atom_input* atoms,
     size_t atom_count,

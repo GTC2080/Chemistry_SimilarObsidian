@@ -66,6 +66,42 @@ void require_near(const double actual, const double expected, std::string_view m
           std::to_string(actual));
 }
 
+bool has_parallel_direction(
+    const kernel_symmetry_direction_input* directions,
+    const size_t count,
+    const double x,
+    const double y,
+    const double z) {
+  const double target[3] = {x, y, z};
+  for (size_t index = 0; index < count; ++index) {
+    const double dot =
+        directions[index].dir[0] * target[0] + directions[index].dir[1] * target[1] +
+        directions[index].dir[2] * target[2];
+    if (std::abs(dot) > std::cos(0.10)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool has_parallel_plane(
+    const kernel_symmetry_plane_input* planes,
+    const size_t count,
+    const double x,
+    const double y,
+    const double z) {
+  const double target[3] = {x, y, z};
+  for (size_t index = 0; index < count; ++index) {
+    const double dot =
+        planes[index].normal[0] * target[0] + planes[index].normal[1] * target[1] +
+        planes[index].normal[2] * target[2];
+    if (std::abs(dot) > std::cos(0.10)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::string classify(
     const kernel_symmetry_axis_input* axes,
     const size_t axis_count,
@@ -191,6 +227,130 @@ void test_symmetry_shape_rejects_invalid_inputs() {
       kernel_analyze_symmetry_shape(&null_element, 1, &result).code ==
           KERNEL_ERROR_INVALID_ARGUMENT,
       "symmetry shape should reject null element");
+}
+
+void test_symmetry_generates_candidate_directions() {
+  const kernel_symmetry_atom_input atoms[] = {
+      atom_input("O", 0.0, 0.0, 0.0, 16.0),
+      atom_input("H", 0.0, 0.757, -0.586, 1.0),
+      atom_input("H", 0.0, -0.757, -0.586, 1.0),
+  };
+  const kernel_symmetry_direction_input principal_axes[] = {
+      direction(1.0, 0.0, 0.0),
+      direction(0.0, 1.0, 0.0),
+      direction(0.0, 0.0, 1.0),
+  };
+  kernel_symmetry_direction_input out_directions[32]{};
+  size_t out_count = 0;
+
+  require_ok_status(
+      kernel_generate_symmetry_candidate_directions(
+          atoms,
+          3,
+          principal_axes,
+          3,
+          out_directions,
+          32,
+          &out_count),
+      "generate symmetry candidate directions");
+
+  require_true(out_count >= 3, "candidate directions should include base axes");
+  require_true(has_parallel_direction(out_directions, out_count, 1.0, 0.0, 0.0), "candidate x");
+  require_true(has_parallel_direction(out_directions, out_count, 0.0, 1.0, 0.0), "candidate y");
+  require_true(has_parallel_direction(out_directions, out_count, 0.0, 0.0, 1.0), "candidate z");
+}
+
+void test_symmetry_generates_candidate_planes() {
+  const kernel_symmetry_atom_input atoms[] = {
+      atom_input("O", 0.0, 0.0, 0.0, 16.0),
+      atom_input("H", 0.0, 0.757, -0.586, 1.0),
+      atom_input("H", 0.0, -0.757, -0.586, 1.0),
+  };
+  const kernel_symmetry_axis_input axes[] = {axis(0.0, 0.0, 1.0, 2)};
+  const kernel_symmetry_direction_input principal_axes[] = {
+      direction(1.0, 0.0, 0.0),
+      direction(0.0, 1.0, 0.0),
+      direction(0.0, 0.0, 1.0),
+  };
+  kernel_symmetry_plane_input out_planes[32]{};
+  size_t out_count = 0;
+
+  require_ok_status(
+      kernel_generate_symmetry_candidate_planes(
+          atoms,
+          3,
+          axes,
+          1,
+          principal_axes,
+          3,
+          out_planes,
+          32,
+          &out_count),
+      "generate symmetry candidate planes");
+
+  require_true(out_count >= 3, "candidate planes should include base normals");
+  require_true(has_parallel_plane(out_planes, out_count, 1.0, 0.0, 0.0), "candidate plane x");
+  require_true(has_parallel_plane(out_planes, out_count, 0.0, 1.0, 0.0), "candidate plane y");
+  require_true(has_parallel_plane(out_planes, out_count, 0.0, 0.0, 1.0), "candidate plane z");
+}
+
+void test_symmetry_candidate_generation_rejects_invalid_inputs() {
+  const auto valid_atom = atom_input("He", 0.0, 0.0, 0.0, 4.0);
+  const auto valid_axis = axis(0.0, 0.0, 1.0, 2);
+  const auto valid_direction = direction(0.0, 0.0, 1.0);
+  kernel_symmetry_direction_input out_direction{};
+  kernel_symmetry_plane_input out_plane{};
+  size_t out_count = 99;
+
+  require_true(
+      kernel_generate_symmetry_candidate_directions(
+          nullptr,
+          1,
+          &valid_direction,
+          1,
+          &out_direction,
+          1,
+          &out_count)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "candidate direction generation should reject null atoms");
+  require_true(out_count == 0, "candidate direction generation should reset invalid count");
+  require_true(
+      kernel_generate_symmetry_candidate_directions(
+          &valid_atom,
+          1,
+          &valid_direction,
+          1,
+          &out_direction,
+          1,
+          nullptr)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "candidate direction generation should reject null count output");
+  require_true(
+      kernel_generate_symmetry_candidate_planes(
+          &valid_atom,
+          1,
+          &valid_axis,
+          1,
+          &valid_direction,
+          1,
+          nullptr,
+          1,
+          &out_count)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "candidate plane generation should reject missing output when capacity is nonzero");
+  require_true(
+      kernel_generate_symmetry_candidate_planes(
+          &valid_atom,
+          1,
+          &valid_axis,
+          1,
+          &valid_direction,
+          1,
+          &out_plane,
+          0,
+          &out_count)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "candidate plane generation should reject too-small capacity");
 }
 
 void test_symmetry_finds_rotation_axes() {
@@ -458,6 +618,9 @@ void run_symmetry_compute_tests() {
   test_symmetry_analyzes_linear_shape();
   test_symmetry_analyzes_nonlinear_shape();
   test_symmetry_shape_rejects_invalid_inputs();
+  test_symmetry_generates_candidate_directions();
+  test_symmetry_generates_candidate_planes();
+  test_symmetry_candidate_generation_rejects_invalid_inputs();
   test_symmetry_finds_rotation_axes();
   test_symmetry_finds_mirror_planes();
   test_symmetry_operation_search_rejects_invalid_inputs();
