@@ -25,6 +25,11 @@ Batch 3 lands:
 - `kernel_query_note_pdf_source_refs(handle, note_rel_path, limit, out_refs)`
 - `kernel_query_pdf_referrers(handle, attachment_rel_path, limit, out_referrers)`
 
+Stateless ink smoothing lands:
+
+- `kernel_smooth_ink_strokes(strokes, stroke_count, tolerance, out_result)`
+- `kernel_free_ink_smoothing_result(out_result)`
+
 ## Attachment Boundary
 
 PDF remains an attachment subtype.
@@ -116,6 +121,21 @@ Track 3 does not add:
 - selection geometry
 - highlight styling
 - viewer interaction state
+
+## Ink Smoothing Boundary
+
+PDF ink smoothing is stateless compute, not PDF document truth.
+
+Frozen semantics:
+
+- input strokes and points are host-owned
+- output strokes and points are kernel-owned until `kernel_free_ink_smoothing_result(...)`
+- each stroke is simplified with Douglas-Peucker using the supplied tolerance
+- simplified strokes with at least three points are smoothed with Catmull-Rom interpolation
+- one-point and two-point strokes are returned without interpolation
+- stroke width and point pressure are preserved through the output shape
+
+The kernel does not store ink annotations through this surface. Annotation persistence remains a host/platform glue concern until a separate durable annotation contract is frozen.
 
 ## Surface Consistency Rules
 

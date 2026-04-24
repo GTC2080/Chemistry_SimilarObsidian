@@ -1,11 +1,69 @@
-//! 笔迹平滑算法（CPU 密集，在 Rust 后端处理）
+//! PDF ink smoothing bridge.
 //!
-//! 流程：原始触摸点 → Douglas-Peucker 简化 → Catmull-Rom 插值平滑
-//! 前端只负责收集原始点，所有数学运算全部在后端完成。
+//! Tauri Rust keeps annotation DTOs and command marshalling; Douglas-Peucker
+//! simplification and Catmull-Rom interpolation live in the C++ kernel.
 
 use serde::{Deserialize, Serialize};
 
 use crate::pdf::annotations::InkPoint;
+
+const KERNEL_OK: i32 = 0;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelInkPoint {
+    x: f32,
+    y: f32,
+    pressure: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelInkStrokeInput {
+    points: *const KernelInkPoint,
+    point_count: usize,
+    stroke_width: f32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KernelInkStroke {
+    points: *mut KernelInkPoint,
+    point_count: usize,
+    stroke_width: f32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KernelInkSmoothingResult {
+    strokes: *mut KernelInkStroke,
+    count: usize,
+}
+
+impl Default for KernelInkSmoothingResult {
+    fn default() -> Self {
+        Self {
+            strokes: std::ptr::null_mut(),
+            count: 0,
+        }
+    }
+}
+
+extern "C" {
+    fn kernel_smooth_ink_strokes(
+        strokes: *const KernelInkStrokeInput,
+        stroke_count: usize,
+        tolerance: f32,
+        out_result: *mut KernelInkSmoothingResult,
+    ) -> KernelStatus;
+    fn kernel_free_ink_smoothing_result(result: *mut KernelInkSmoothingResult);
+}
 
 /// 前端传入的原始笔画
 #[derive(Debug, Deserialize)]
@@ -23,108 +81,156 @@ pub struct SmoothedStroke {
     pub stroke_width: f32,
 }
 
-/// 对一组原始笔画执行：简化 + 平滑
-pub fn smooth_strokes(strokes: Vec<RawStroke>, tolerance: f32) -> Vec<SmoothedStroke> {
-    strokes
-        .into_iter()
-        .map(|s| {
-            let simplified = douglas_peucker(&s.points, tolerance);
-            let smoothed = catmull_rom_interpolate(&simplified, 8);
-            SmoothedStroke {
-                points: smoothed,
-                stroke_width: s.stroke_width,
-            }
+fn point_to_kernel(point: &InkPoint) -> KernelInkPoint {
+    KernelInkPoint {
+        x: point.x,
+        y: point.y,
+        pressure: point.pressure,
+    }
+}
+
+fn point_from_kernel(point: &KernelInkPoint) -> InkPoint {
+    InkPoint {
+        x: point.x,
+        y: point.y,
+        pressure: point.pressure,
+    }
+}
+
+unsafe fn copy_kernel_points(
+    points: *const KernelInkPoint,
+    count: usize,
+) -> Result<Vec<InkPoint>, String> {
+    if count == 0 {
+        return Ok(Vec::new());
+    }
+    if points.is_null() {
+        return Err("ink smoothing kernel returned a stroke without points".to_string());
+    }
+    Ok(std::slice::from_raw_parts(points, count)
+        .iter()
+        .map(point_from_kernel)
+        .collect())
+}
+
+unsafe fn strokes_from_kernel(
+    raw: &KernelInkSmoothingResult,
+) -> Result<Vec<SmoothedStroke>, String> {
+    if raw.count == 0 {
+        return Ok(Vec::new());
+    }
+    if raw.strokes.is_null() {
+        return Err("ink smoothing kernel returned missing strokes".to_string());
+    }
+
+    let raw_strokes = std::slice::from_raw_parts(raw.strokes, raw.count);
+    raw_strokes
+        .iter()
+        .map(|stroke| {
+            Ok(SmoothedStroke {
+                points: copy_kernel_points(stroke.points, stroke.point_count)?,
+                stroke_width: stroke.stroke_width,
+            })
         })
         .collect()
 }
 
-// ---------------------------------------------------------------------------
-// Douglas-Peucker 简化：减少冗余点，保留曲线特征
-// ---------------------------------------------------------------------------
+/// 对一组原始笔画执行：简化 + 平滑。
+pub fn smooth_strokes(
+    strokes: Vec<RawStroke>,
+    tolerance: f32,
+) -> Result<Vec<SmoothedStroke>, String> {
+    let kernel_points: Vec<Vec<KernelInkPoint>> = strokes
+        .iter()
+        .map(|stroke| stroke.points.iter().map(point_to_kernel).collect())
+        .collect();
+    let kernel_strokes: Vec<KernelInkStrokeInput> = strokes
+        .iter()
+        .zip(kernel_points.iter())
+        .map(|(stroke, points)| KernelInkStrokeInput {
+            points: points.as_ptr(),
+            point_count: points.len(),
+            stroke_width: stroke.stroke_width,
+        })
+        .collect();
 
-fn douglas_peucker(points: &[InkPoint], epsilon: f32) -> Vec<InkPoint> {
-    if points.len() <= 2 {
-        return points.to_vec();
+    let mut result = KernelInkSmoothingResult::default();
+    let status = unsafe {
+        kernel_smooth_ink_strokes(
+            kernel_strokes.as_ptr(),
+            kernel_strokes.len(),
+            tolerance,
+            &mut result,
+        )
+    };
+    if status.code != KERNEL_OK {
+        unsafe { kernel_free_ink_smoothing_result(&mut result) };
+        return Err(format!(
+            "ink smoothing kernel failed with status {}",
+            status.code
+        ));
     }
 
-    let first = &points[0];
-    let last = &points[points.len() - 1];
-
-    let mut max_dist: f32 = 0.0;
-    let mut max_idx = 0;
-
-    for (i, p) in points.iter().enumerate().skip(1).take(points.len() - 2) {
-        let d = perpendicular_distance(p, first, last);
-        if d > max_dist {
-            max_dist = d;
-            max_idx = i;
-        }
-    }
-
-    if max_dist > epsilon {
-        let mut left = douglas_peucker(&points[..=max_idx], epsilon);
-        let right = douglas_peucker(&points[max_idx..], epsilon);
-        left.pop(); // 去掉重复的分割点
-        left.extend(right);
-        left
-    } else {
-        vec![first.clone(), last.clone()]
-    }
+    let strokes = unsafe { strokes_from_kernel(&result) };
+    unsafe { kernel_free_ink_smoothing_result(&mut result) };
+    strokes
 }
 
-fn perpendicular_distance(p: &InkPoint, a: &InkPoint, b: &InkPoint) -> f32 {
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
-    let len_sq = dx * dx + dy * dy;
-    if len_sq < 1e-12 {
-        return ((p.x - a.x).powi(2) + (p.y - a.y).powi(2)).sqrt();
-    }
-    ((dy * p.x - dx * p.y + b.x * a.y - b.y * a.x).abs()) / len_sq.sqrt()
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// ---------------------------------------------------------------------------
-// Catmull-Rom 样条插值：在简化后的控制点之间生成平滑曲线
-// ---------------------------------------------------------------------------
+    #[test]
+    fn smooth_strokes_uses_kernel_bridge() {
+        let strokes = vec![RawStroke {
+            points: vec![
+                InkPoint {
+                    x: 0.0,
+                    y: 0.0,
+                    pressure: 0.5,
+                },
+                InkPoint {
+                    x: 0.5,
+                    y: 0.2,
+                    pressure: 0.7,
+                },
+                InkPoint {
+                    x: 1.0,
+                    y: 0.0,
+                    pressure: 0.9,
+                },
+            ],
+            stroke_width: 0.01,
+        }];
 
-fn catmull_rom_interpolate(points: &[InkPoint], segments: usize) -> Vec<InkPoint> {
-    if points.len() < 2 {
-        return points.to_vec();
-    }
-    if points.len() == 2 {
-        return points.to_vec();
-    }
-
-    let mut result = Vec::with_capacity(points.len() * segments);
-    let n = points.len();
-
-    for i in 0..n - 1 {
-        let p0 = &points[if i == 0 { 0 } else { i - 1 }];
-        let p1 = &points[i];
-        let p2 = &points[(i + 1).min(n - 1)];
-        let p3 = &points[(i + 2).min(n - 1)];
-
-        for s in 0..segments {
-            let t = s as f32 / segments as f32;
-            let t2 = t * t;
-            let t3 = t2 * t;
-
-            let x = 0.5
-                * ((2.0 * p1.x)
-                    + (-p0.x + p2.x) * t
-                    + (2.0 * p0.x - 5.0 * p1.x + 4.0 * p2.x - p3.x) * t2
-                    + (-p0.x + 3.0 * p1.x - 3.0 * p2.x + p3.x) * t3);
-            let y = 0.5
-                * ((2.0 * p1.y)
-                    + (-p0.y + p2.y) * t
-                    + (2.0 * p0.y - 5.0 * p1.y + 4.0 * p2.y - p3.y) * t2
-                    + (-p0.y + 3.0 * p1.y - 3.0 * p2.y + p3.y) * t3);
-            let pressure = p1.pressure + (p2.pressure - p1.pressure) * t;
-
-            result.push(InkPoint { x, y, pressure });
-        }
+        let smoothed = smooth_strokes(strokes, 0.001).expect("kernel smoothing result");
+        assert_eq!(smoothed.len(), 1);
+        assert!(smoothed[0].points.len() > 3);
+        assert_eq!(smoothed[0].stroke_width, 0.01);
+        assert!((smoothed[0].points[0].x - 0.0).abs() < 1.0e-6);
+        assert!((smoothed[0].points.last().unwrap().x - 1.0).abs() < 1.0e-6);
     }
 
-    // 加上最后一个点
-    result.push(points[n - 1].clone());
-    result
+    #[test]
+    fn smooth_strokes_preserves_two_point_strokes() {
+        let strokes = vec![RawStroke {
+            points: vec![
+                InkPoint {
+                    x: 0.0,
+                    y: 0.0,
+                    pressure: 0.5,
+                },
+                InkPoint {
+                    x: 1.0,
+                    y: 1.0,
+                    pressure: 0.8,
+                },
+            ],
+            stroke_width: 0.02,
+        }];
+
+        let smoothed = smooth_strokes(strokes, 0.1).expect("kernel smoothing result");
+        assert_eq!(smoothed[0].points.len(), 2);
+        assert_eq!(smoothed[0].points[1].pressure, 0.8);
+    }
 }

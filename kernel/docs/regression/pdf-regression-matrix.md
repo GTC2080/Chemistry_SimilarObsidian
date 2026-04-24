@@ -77,3 +77,17 @@ The repository must retain regression coverage for:
 - recovery realigns PDF-derived state to the same truth as rebuild on the same vault snapshot
 - watcher overflow / full rescan realigns PDF-derived state to the same truth as rebuild on the same vault snapshot
 - benchmark gates cover metadata extraction, anchor rebuild, note -> PDF refs query, and PDF -> note referrers query
+
+## Stateless PDF Ink Smoothing
+
+The repository must retain regression coverage for:
+
+- `kernel_smooth_ink_strokes(...)` interpolating a curved three-point stroke
+- first and last points remaining anchored
+- stroke width being preserved
+- two-point strokes remaining two points
+- point pressure being preserved
+- null output returning invalid argument
+- nonzero stroke count with null strokes returning invalid argument
+- nonzero point count with null points returning invalid argument
+- `kernel_free_ink_smoothing_result(...)` resetting output pointers and being repeat-safe

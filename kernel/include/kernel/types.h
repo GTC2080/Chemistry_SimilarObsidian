@@ -341,6 +341,29 @@ typedef struct kernel_pdf_referrers {
   size_t count;
 } kernel_pdf_referrers;
 
+typedef struct kernel_ink_point {
+  float x;
+  float y;
+  float pressure;
+} kernel_ink_point;
+
+typedef struct kernel_ink_stroke_input {
+  const kernel_ink_point* points;
+  size_t point_count;
+  float stroke_width;
+} kernel_ink_stroke_input;
+
+typedef struct kernel_ink_stroke {
+  kernel_ink_point* points;
+  size_t point_count;
+  float stroke_width;
+} kernel_ink_stroke;
+
+typedef struct kernel_ink_smoothing_result {
+  kernel_ink_stroke* strokes;
+  size_t count;
+} kernel_ink_smoothing_result;
+
 typedef enum kernel_domain_carrier_kind {
   KERNEL_DOMAIN_CARRIER_ATTACHMENT = 0,
   KERNEL_DOMAIN_CARRIER_PDF = 1

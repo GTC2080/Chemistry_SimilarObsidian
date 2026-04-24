@@ -47,7 +47,7 @@ pub async fn smooth_ink_strokes(
     let result = tokio::task::spawn_blocking(move || crate::pdf::ink::smooth_strokes(strokes, tol))
         .await
         .map_err(|e| AppError::PdfAnnotation(format!("spawn_blocking 失败: {e}")))?;
-    Ok(result)
+    result.map_err(AppError::PdfAnnotation)
 }
 
 /// 保存 PDF 批注列表到磁盘
