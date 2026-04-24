@@ -60,7 +60,7 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_search_notes_json(
+    fn sealed_kernel_bridge_query_search_notes_json(
         session: *mut SealedKernelBridgeSession,
         query_utf8: *const c_char,
         limit: u64,
@@ -386,7 +386,7 @@ pub fn query_note_infos(
         .collect())
 }
 
-pub fn search_note_infos(
+pub fn query_search_note_infos(
     state: &SealedKernelState,
     query: &str,
     limit: u64,
@@ -398,10 +398,10 @@ pub fn search_note_infos(
     let vault_path = active_vault_path(state)?;
     let query_c = cstring_arg(trimmed.to_string(), "query")?;
     let catalog = query_note_records_with_json(
-        "sealed_kernel_search_notes",
+        "sealed_kernel_query_search_notes",
         state,
         |session, raw_json, error| unsafe {
-            sealed_kernel_bridge_search_notes_json(
+            sealed_kernel_bridge_query_search_notes_json(
                 session,
                 query_c.as_ptr(),
                 limit,

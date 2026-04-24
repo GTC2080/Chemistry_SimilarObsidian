@@ -50,7 +50,7 @@ int32_t sealed_kernel_bridge_write_note_json(
     char** out_json,
     char** out_error);
 
-int32_t sealed_kernel_bridge_search_notes_json(
+int32_t sealed_kernel_bridge_query_search_notes_json(
     sealed_kernel_bridge_session* session,
     const char* query_utf8,
     uint64_t limit,

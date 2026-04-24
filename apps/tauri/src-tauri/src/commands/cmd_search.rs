@@ -12,7 +12,7 @@ pub fn search_notes(
     query: String,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    sealed_kernel::search_note_infos(sealed_kernel.inner(), &query, 10)
+    sealed_kernel::query_search_note_infos(sealed_kernel.inner(), &query, 10)
 }
 
 #[tauri::command]

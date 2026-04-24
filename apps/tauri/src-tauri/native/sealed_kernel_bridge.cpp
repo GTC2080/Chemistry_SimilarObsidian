@@ -426,7 +426,7 @@ int32_t sealed_kernel_bridge_write_note_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
-int32_t sealed_kernel_bridge_search_notes_json(
+int32_t sealed_kernel_bridge_query_search_notes_json(
     sealed_kernel_bridge_session* session,
     const char* query_utf8,
     uint64_t limit,
@@ -437,7 +437,7 @@ int32_t sealed_kernel_bridge_search_notes_json(
   }
   if (session == nullptr || session->handle == nullptr || out_json == nullptr ||
       query_utf8 == nullptr || query_utf8[0] == '\0' || limit == 0) {
-    SetError(out_error, "sealed kernel session is not open or search arguments are invalid.");
+    SetError(out_error, "sealed kernel session is not open or query search arguments are invalid.");
     return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
@@ -470,7 +470,7 @@ int32_t sealed_kernel_bridge_search_notes_json(
   kernel_free_search_page(&page);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
-    SetError(out_error, "failed to allocate search JSON.");
+    SetError(out_error, "failed to allocate query search JSON.");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);
