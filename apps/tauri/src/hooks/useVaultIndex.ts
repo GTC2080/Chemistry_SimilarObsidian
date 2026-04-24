@@ -18,7 +18,7 @@ async function scanVaultNotes(vaultPath: string, ignoredFolders: string) {
   });
 }
 
-/** Phase 2: background content indexing (DB upsert + embeddings). */
+/** Phase 2: kernel-backed Markdown cache refresh + embeddings. */
 function startBackgroundIndex(vaultPath: string, ignoredFolders: string) {
   invoke<number>("index_vault_content", {
     vaultPath,
@@ -56,7 +56,7 @@ export function useVaultIndex({
       onActiveNoteMissing();
     }
 
-    // Phase 2: background content indexing (fire-and-forget)
+    // Phase 2: kernel-backed cache refresh (fire-and-forget)
     startBackgroundIndex(targetVaultPath, ignoredFolders);
 
     return refreshed;

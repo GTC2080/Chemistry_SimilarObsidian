@@ -93,28 +93,3 @@ pub fn get_notes_content_by_ids(
     }
     Ok(results)
 }
-
-/// 拉取全部可用于重建向量索引的笔记内容。
-/// 返回 (id, absolute_path, content)。
-pub fn get_all_notes_for_embedding(conn: &Connection) -> AppResult<Vec<(String, String, String)>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, absolute_path, content
-             FROM notes_index
-             WHERE length(trim(content)) > 0
-             ORDER BY updated_at DESC",
-    )?;
-
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
-
-    let mut results = Vec::new();
-    for row in rows {
-        results.push(row?);
-    }
-    Ok(results)
-}

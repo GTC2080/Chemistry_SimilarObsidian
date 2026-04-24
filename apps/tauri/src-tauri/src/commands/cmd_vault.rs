@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -6,19 +6,18 @@ use std::time::UNIX_EPOCH;
 
 use futures_util::stream::{self, StreamExt};
 use tauri::{AppHandle, State};
-use walkdir::WalkDir;
 
 use crate::ai;
 use crate::db::{self, DbState};
 use crate::models::NoteInfo;
 use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::{
-    extract_pdf_text, is_embeddable_extension, is_mol_extension, is_molecular_extension,
-    is_paper_extension, is_pdf_extension, is_spectroscopy_extension, is_supported_extension,
-    is_text_extension, parse_ignored_folders, read_ai_config,
+    is_embeddable_extension, parse_ignored_folders, read_ai_config,
 };
 use crate::watcher::WatcherState;
 use crate::AppError;
+
+const KERNEL_NOTE_CATALOG_LIMIT: u64 = 100_000;
 
 #[tauri::command]
 pub fn init_vault(
@@ -46,11 +45,221 @@ struct PendingUpsert {
     ext: String,
 }
 
+fn normalize_rel_path(value: &str) -> String {
+    value.trim().replace('\\', "/")
+}
+
+fn is_markdown_rel_path(value: &str) -> bool {
+    Path::new(value)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
+}
+
+fn is_ignored_note(note_id: &str, ignored: &HashSet<String>) -> bool {
+    let first = note_id.split('/').next().unwrap_or("");
+    ignored.contains(first)
+}
+
+fn should_refresh_note(
+    note: &NoteInfo,
+    existing_timestamps: Option<&HashMap<String, i64>>,
+) -> bool {
+    existing_timestamps
+        .and_then(|timestamps| timestamps.get(&note.id))
+        .is_none_or(|db_ts| note.updated_at > *db_ts)
+}
+
+fn pending_upsert_from_note(note: NoteInfo, content: String) -> PendingUpsert {
+    PendingUpsert {
+        id: note.id,
+        name: note.name,
+        abs_path: note.path,
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+        content,
+        ext: note.file_extension,
+    }
+}
+
+fn collect_kernel_note_upserts(
+    vault_path: &str,
+    ignored: &HashSet<String>,
+    existing_timestamps: Option<&HashMap<String, i64>>,
+    kernel_state: &SealedKernelState,
+) -> Result<Vec<PendingUpsert>, AppError> {
+    let notes =
+        sealed_kernel::query_note_infos(vault_path, kernel_state, KERNEL_NOTE_CATALOG_LIMIT)?;
+    let mut pending_upserts = Vec::new();
+
+    for note in notes {
+        if is_ignored_note(&note.id, ignored) || !should_refresh_note(&note, existing_timestamps) {
+            continue;
+        }
+        let content = match sealed_kernel::read_note_by_rel_path(&note.id, kernel_state) {
+            Ok(content) => content,
+            Err(err) => {
+                eprintln!("[kernel-index] 跳过 [{}]: {}", note.id, err);
+                continue;
+            }
+        };
+        if content.trim().is_empty() {
+            continue;
+        }
+        pending_upserts.push(pending_upsert_from_note(note, content));
+    }
+
+    Ok(pending_upserts)
+}
+
+fn note_info_for_changed_markdown(
+    vault_path: &str,
+    rel_path: &str,
+    kernel_state: &SealedKernelState,
+) -> Result<Option<(NoteInfo, String)>, AppError> {
+    let rel_path = normalize_rel_path(rel_path);
+    if rel_path.is_empty() || !is_markdown_rel_path(&rel_path) {
+        return Ok(None);
+    }
+
+    let content = match sealed_kernel::read_note_by_rel_path(&rel_path, kernel_state) {
+        Ok(content) => content,
+        Err(_) => return Ok(None),
+    };
+    let abs = Path::new(vault_path).join(&rel_path);
+    let metadata = match fs::metadata(&abs) {
+        Ok(metadata) => metadata,
+        Err(_) => return Ok(None),
+    };
+    let (created_at, updated_at) = match extract_timestamps(&metadata) {
+        Ok(timestamps) => timestamps,
+        Err(_) => return Ok(None),
+    };
+    let name = Path::new(&rel_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("未命名")
+        .to_string();
+    let ext = Path::new(&rel_path)
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    Ok(Some((
+        NoteInfo {
+            id: rel_path,
+            name,
+            path: abs.to_string_lossy().into_owned(),
+            created_at,
+            updated_at,
+            file_extension: ext,
+        },
+        content,
+    )))
+}
+
+fn collect_kernel_changed_upserts(
+    vault_path: &str,
+    paths: &[String],
+    existing_timestamps: &HashMap<String, i64>,
+    kernel_state: &SealedKernelState,
+) -> Result<Vec<PendingUpsert>, AppError> {
+    let mut pending_upserts = Vec::new();
+    for rel in paths {
+        let Some((note, content)) = note_info_for_changed_markdown(vault_path, rel, kernel_state)?
+        else {
+            continue;
+        };
+        if !should_refresh_note(&note, Some(existing_timestamps)) || content.trim().is_empty() {
+            continue;
+        }
+        pending_upserts.push(pending_upsert_from_note(note, content));
+    }
+    Ok(pending_upserts)
+}
+
+fn write_note_cache(db: &DbState, pending_upserts: &[PendingUpsert]) -> Result<(), AppError> {
+    if pending_upserts.is_empty() {
+        return Ok(());
+    }
+
+    let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
+    conn.execute_batch("BEGIN")?;
+    for upsert in pending_upserts {
+        db::upsert_note(
+            &conn,
+            &upsert.id,
+            &upsert.name,
+            &upsert.abs_path,
+            upsert.created_at,
+            upsert.updated_at,
+            &upsert.content,
+        )?;
+    }
+    conn.execute_batch("COMMIT")?;
+    Ok(())
+}
+
+fn spawn_embedding_tasks(
+    pending_upserts: Vec<PendingUpsert>,
+    ai_config: Option<ai::AiConfig>,
+    db: State<DbState>,
+    embedding_runtime: State<ai::EmbeddingRuntimeState>,
+    vector_cache: State<ai::VectorCacheState>,
+) {
+    let Some(config) = ai_config else {
+        return;
+    };
+
+    for upsert in pending_upserts {
+        if !is_embeddable_extension(&upsert.ext) {
+            continue;
+        }
+        let db_conn = Arc::clone(&db.conn);
+        let embedding_runtime = embedding_runtime.inner().clone();
+        let vector_cache = vector_cache.inner().clone();
+        let note_id = upsert.id;
+        let text_for_embedding = upsert.content;
+        let note_info = NoteInfo {
+            id: note_id.clone(),
+            name: upsert.name,
+            path: upsert.abs_path,
+            created_at: upsert.created_at,
+            updated_at: upsert.updated_at,
+            file_extension: upsert.ext,
+        };
+        let config = config.clone();
+        let version = embedding_runtime.bump_version(&note_id);
+
+        tauri::async_runtime::spawn(async move {
+            match ai::fetch_embedding_cached(&text_for_embedding, &config, &embedding_runtime).await
+            {
+                Ok(embedding) => {
+                    if !embedding_runtime.is_current_version(&note_id, version) {
+                        eprintln!("[向量化] 跳过过期结果 [{}] v{}", note_id, version);
+                        return;
+                    }
+                    if let Ok(conn) = db_conn.lock() {
+                        if let Err(e) = db::update_note_embedding(&conn, &note_id, &embedding) {
+                            eprintln!("[向量化] 写入失败 [{}]: {}", note_id, e);
+                        } else {
+                            vector_cache.upsert(note_info, embedding.clone());
+                            eprintln!("[向量化] 成功 [{}]: {}维向量", note_id, embedding.len());
+                        }
+                    }
+                }
+                Err(e) => eprintln!("[向量化] 跳过 [{}]: {}", note_id, e),
+            }
+        });
+    }
+}
+
 // ---------------------------------------------------------------------------
 // scan_vault — fast metadata-only walk (Phase 1)
 // ---------------------------------------------------------------------------
 
-/// Walk the vault directory and return file metadata immediately.
+/// Query kernel note metadata immediately.
 /// Does NOT read file content, extract PDF text, or upsert to the database.
 /// This lets the frontend show the file tree as fast as possible.
 #[tauri::command]
@@ -79,9 +288,9 @@ pub fn scan_vault(
 // index_vault_content — background content indexing (Phase 2)
 // ---------------------------------------------------------------------------
 
-/// Incrementally read text content for changed files, upsert to DB, and
-/// spawn embedding tasks. Designed to run in the background after
-/// `scan_vault` has already returned the file list.
+/// Refresh the AI compatibility cache from the kernel note catalog and spawn
+/// embedding tasks. The kernel is the content source; the Rust DB only stores
+/// legacy embedding rows until semantic retrieval moves behind the kernel too.
 #[tauri::command]
 pub fn index_vault_content(
     vault_path: String,
@@ -90,202 +299,35 @@ pub fn index_vault_content(
     db: State<DbState>,
     embedding_runtime: State<ai::EmbeddingRuntimeState>,
     vector_cache: State<ai::VectorCacheState>,
+    sealed_kernel: State<SealedKernelState>,
 ) -> Result<u32, AppError> {
-    let vault = Path::new(&vault_path);
-    if !vault.is_dir() {
-        return Ok(0);
-    }
     let ignored = parse_ignored_folders(ignored_folders);
     let ai_config = read_ai_config(&app)
         .ok()
         .filter(|config| !config.api_key.trim().is_empty());
-
-    // Read existing timestamps once
     let existing_timestamps = {
         let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
         db::get_all_note_timestamps(&conn)?
     };
 
-    let mut pending_upserts: Vec<PendingUpsert> = Vec::new();
-
-    for entry in walk_vault(vault, &ignored) {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-        if !entry.file_type().is_file() {
-            continue;
-        }
-        let path = entry.path();
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-
-        // Only index text and PDF files (skip images, molecular, spectroscopy, etc.)
-        let should_index = (is_text_extension(ext)
-            && !is_mol_extension(ext)
-            && !is_spectroscopy_extension(ext)
-            && !is_molecular_extension(ext)
-            && !is_paper_extension(ext))
-            || is_pdf_extension(ext);
-        if !should_index {
-            continue;
-        }
-
-        let metadata = match fs::metadata(path) {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-        let (created_at, updated_at) = match extract_timestamps(&metadata) {
-            Ok(ts) => ts,
-            Err(_) => continue,
-        };
-
-        let relative_path = path.strip_prefix(vault).unwrap_or(path);
-        let id = relative_path.to_string_lossy().into_owned();
-
-        let needs_update = match existing_timestamps.get(&id) {
-            None => true,
-            Some(&db_ts) => updated_at > db_ts,
-        };
-        if !needs_update {
-            continue;
-        }
-
-        let content = if is_pdf_extension(ext) {
-            match extract_pdf_text(path) {
-                Ok(text) => text,
-                Err(e) => {
-                    eprintln!("[PDF提取] {}", e);
-                    continue;
-                }
-            }
-        } else {
-            match fs::read_to_string(path) {
-                Ok(text) => text,
-                Err(_) => continue,
-            }
-        };
-
-        if content.trim().is_empty() {
-            continue;
-        }
-
-        let name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("未命名")
-            .to_string();
-
-        pending_upserts.push(PendingUpsert {
-            id,
-            name,
-            abs_path: path.to_string_lossy().into_owned(),
-            created_at,
-            updated_at,
-            content,
-            ext: ext.to_lowercase(),
-        });
-    }
+    let pending_upserts = collect_kernel_note_upserts(
+        &vault_path,
+        &ignored,
+        Some(&existing_timestamps),
+        sealed_kernel.inner(),
+    )?;
 
     let indexed_count = pending_upserts.len() as u32;
-
-    // Batch upsert
-    if !pending_upserts.is_empty() {
-        let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        conn.execute_batch("BEGIN")?;
-        for upsert in &pending_upserts {
-            db::upsert_note(
-                &conn,
-                &upsert.id,
-                &upsert.name,
-                &upsert.abs_path,
-                upsert.created_at,
-                upsert.updated_at,
-                &upsert.content,
-            )?;
-        }
-        conn.execute_batch("COMMIT")?;
-    }
-
-    // Spawn embedding tasks with version-based dedup
-    for upsert in pending_upserts {
-        if is_embeddable_extension(&upsert.ext) {
-            if let Some(config) = ai_config.clone() {
-                let db_conn = Arc::clone(&db.conn);
-                let embedding_runtime = embedding_runtime.inner().clone();
-                let vector_cache = vector_cache.inner().clone();
-                let note_id = upsert.id;
-                let text_for_embedding = upsert.content;
-                let note_info = NoteInfo {
-                    id: note_id.clone(),
-                    name: upsert.name,
-                    path: upsert.abs_path,
-                    created_at: upsert.created_at,
-                    updated_at: upsert.updated_at,
-                    file_extension: upsert.ext.clone(),
-                };
-                let version = embedding_runtime.bump_version(&note_id);
-
-                tauri::async_runtime::spawn(async move {
-                    match ai::fetch_embedding_cached(
-                        &text_for_embedding,
-                        &config,
-                        &embedding_runtime,
-                    )
-                    .await
-                    {
-                        Ok(embedding) => {
-                            // Only write if this is still the latest version
-                            if !embedding_runtime.is_current_version(&note_id, version) {
-                                eprintln!("[向量化] 跳过过期结果 [{}] v{}", note_id, version);
-                                return;
-                            }
-                            if let Ok(conn) = db_conn.lock() {
-                                if let Err(e) =
-                                    db::update_note_embedding(&conn, &note_id, &embedding)
-                                {
-                                    eprintln!("[向量化] 写入失败 [{}]: {}", note_id, e);
-                                } else {
-                                    vector_cache.upsert(note_info, embedding.clone());
-                                    eprintln!(
-                                        "[向量化] 成功 [{}]: {}维向量",
-                                        note_id,
-                                        embedding.len()
-                                    );
-                                }
-                            }
-                        }
-                        Err(e) => eprintln!("[向量化] 跳过 [{}]: {}", note_id, e),
-                    }
-                });
-            }
-        }
-    }
+    write_note_cache(db.inner(), &pending_upserts)?;
+    spawn_embedding_tasks(
+        pending_upserts,
+        ai_config,
+        db,
+        embedding_runtime,
+        vector_cache,
+    );
 
     Ok(indexed_count)
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers for vault walking
-// ---------------------------------------------------------------------------
-
-/// Create a filtered WalkDir iterator for the vault.
-fn walk_vault<'a>(
-    vault: &'a Path,
-    ignored: &'a HashSet<String>,
-) -> impl Iterator<Item = walkdir::Result<walkdir::DirEntry>> + 'a {
-    WalkDir::new(vault)
-        .follow_links(true)
-        .into_iter()
-        .filter_entry(move |e| {
-            if e.depth() == 0 {
-                return true;
-            }
-            let name = match e.file_name().to_str() {
-                Some(n) => n,
-                None => return false,
-            };
-            !name.starts_with('.') && !ignored.contains(name)
-        })
 }
 
 /// Extract created_at / updated_at timestamps from file metadata.
@@ -308,6 +350,7 @@ pub async fn rebuild_vector_index(
     db: State<'_, DbState>,
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
     vector_cache: State<'_, ai::VectorCacheState>,
+    sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<u32, AppError> {
     // 清空内存缓存，重建完成后下次查询会重新加载
     vector_cache.clear();
@@ -318,13 +361,33 @@ pub async fn rebuild_vector_index(
         ));
     }
 
-    // Lock optimization: merge get_all_notes + clear_all_embeddings into single lock
-    let all_notes = {
+    let vault_path = sealed_kernel::active_vault_path(sealed_kernel.inner())?;
+    let ignored = HashSet::new();
+    let pending_upserts =
+        collect_kernel_note_upserts(&vault_path, &ignored, None, sealed_kernel.inner())?;
+    let all_notes: Vec<_> = pending_upserts
+        .iter()
+        .map(|note| (note.id.clone(), note.abs_path.clone(), note.content.clone()))
+        .collect();
+
+    // Lock optimization: refresh the compatibility cache and clear embeddings in one lock.
+    {
         let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        let notes = db::get_all_notes_for_embedding(&conn)?;
         db::clear_all_embeddings(&conn)?;
-        notes
-    };
+        conn.execute_batch("BEGIN")?;
+        for upsert in &pending_upserts {
+            db::upsert_note(
+                &conn,
+                &upsert.id,
+                &upsert.name,
+                &upsert.abs_path,
+                upsert.created_at,
+                upsert.updated_at,
+                &upsert.content,
+            )?;
+        }
+        conn.execute_batch("COMMIT")?;
+    }
 
     // Process embeddings concurrently with buffer_unordered(4)
     let results: Vec<_> = stream::iter(all_notes)
@@ -396,47 +459,22 @@ pub async fn write_note(
 pub fn scan_changed_entries(
     vault_path: String,
     paths: Vec<String>,
+    sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    let vault = Path::new(&vault_path);
     let mut notes: Vec<NoteInfo> = Vec::new();
 
-    for rel in &paths {
-        let abs = vault.join(rel);
-        if !abs.is_file() {
-            continue;
+    for rel in paths {
+        if let Some((note, _content)) =
+            note_info_for_changed_markdown(&vault_path, &rel, sealed_kernel.inner())?
+        {
+            notes.push(note);
         }
-        let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or("");
-        if !is_supported_extension(ext) {
-            continue;
-        }
-        let metadata = match fs::metadata(&abs) {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-        let (created_at, updated_at) = match extract_timestamps(&metadata) {
-            Ok(ts) => ts,
-            Err(_) => continue,
-        };
-        let name = abs
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("未命名")
-            .to_string();
-
-        notes.push(NoteInfo {
-            id: rel.clone(),
-            name,
-            path: abs.to_string_lossy().into_owned(),
-            created_at,
-            updated_at,
-            file_extension: ext.to_lowercase(),
-        });
     }
 
     Ok(notes)
 }
 
-/// 只为指定的相对路径列表做内容索引（读文本 / PDF 抽取 + DB upsert + embedding）。
+/// 只为指定的相对路径列表刷新 kernel-backed Markdown 内容缓存并触发 embedding。
 #[tauri::command]
 pub fn index_changed_entries(
     vault_path: String,
@@ -445,8 +483,8 @@ pub fn index_changed_entries(
     db: State<DbState>,
     embedding_runtime: State<ai::EmbeddingRuntimeState>,
     vector_cache: State<ai::VectorCacheState>,
+    sealed_kernel: State<SealedKernelState>,
 ) -> Result<u32, AppError> {
-    let vault = Path::new(&vault_path);
     let ai_config = read_ai_config(&app)
         .ok()
         .filter(|config| !config.api_key.trim().is_empty());
@@ -456,145 +494,22 @@ pub fn index_changed_entries(
         db::get_all_note_timestamps(&conn)?
     };
 
-    let mut pending_upserts: Vec<PendingUpsert> = Vec::new();
-
-    for rel in &paths {
-        let abs = vault.join(rel);
-        if !abs.is_file() {
-            continue;
-        }
-        let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or("");
-
-        let should_index = (is_text_extension(ext)
-            && !is_mol_extension(ext)
-            && !is_spectroscopy_extension(ext)
-            && !is_molecular_extension(ext)
-            && !is_paper_extension(ext))
-            || is_pdf_extension(ext);
-        if !should_index {
-            continue;
-        }
-
-        let metadata = match fs::metadata(&abs) {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-        let (created_at, updated_at) = match extract_timestamps(&metadata) {
-            Ok(ts) => ts,
-            Err(_) => continue,
-        };
-
-        let id = rel.clone();
-
-        let needs_update = match existing_timestamps.get(&id) {
-            None => true,
-            Some(&db_ts) => updated_at > db_ts,
-        };
-        if !needs_update {
-            continue;
-        }
-
-        let content = if is_pdf_extension(ext) {
-            match extract_pdf_text(&abs) {
-                Ok(text) => text,
-                Err(e) => {
-                    eprintln!("[PDF提取] {}", e);
-                    continue;
-                }
-            }
-        } else {
-            match fs::read_to_string(&abs) {
-                Ok(text) => text,
-                Err(_) => continue,
-            }
-        };
-
-        if content.trim().is_empty() {
-            continue;
-        }
-
-        let name = abs
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("未命名")
-            .to_string();
-
-        pending_upserts.push(PendingUpsert {
-            id,
-            name,
-            abs_path: abs.to_string_lossy().into_owned(),
-            created_at,
-            updated_at,
-            content,
-            ext: ext.to_lowercase(),
-        });
-    }
+    let pending_upserts = collect_kernel_changed_upserts(
+        &vault_path,
+        &paths,
+        &existing_timestamps,
+        sealed_kernel.inner(),
+    )?;
 
     let indexed_count = pending_upserts.len() as u32;
-
-    if !pending_upserts.is_empty() {
-        let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        conn.execute_batch("BEGIN")?;
-        for upsert in &pending_upserts {
-            db::upsert_note(
-                &conn,
-                &upsert.id,
-                &upsert.name,
-                &upsert.abs_path,
-                upsert.created_at,
-                upsert.updated_at,
-                &upsert.content,
-            )?;
-        }
-        conn.execute_batch("COMMIT")?;
-    }
-
-    for upsert in pending_upserts {
-        if is_embeddable_extension(&upsert.ext) {
-            if let Some(config) = ai_config.clone() {
-                let db_conn = Arc::clone(&db.conn);
-                let embedding_runtime = embedding_runtime.inner().clone();
-                let vector_cache = vector_cache.inner().clone();
-                let note_id = upsert.id;
-                let text_for_embedding = upsert.content;
-                let note_info = NoteInfo {
-                    id: note_id.clone(),
-                    name: upsert.name,
-                    path: upsert.abs_path,
-                    created_at: upsert.created_at,
-                    updated_at: upsert.updated_at,
-                    file_extension: upsert.ext.clone(),
-                };
-                let version = embedding_runtime.bump_version(&note_id);
-
-                tauri::async_runtime::spawn(async move {
-                    match ai::fetch_embedding_cached(
-                        &text_for_embedding,
-                        &config,
-                        &embedding_runtime,
-                    )
-                    .await
-                    {
-                        Ok(embedding) => {
-                            if !embedding_runtime.is_current_version(&note_id, version) {
-                                return;
-                            }
-                            if let Ok(conn) = db_conn.lock() {
-                                if let Err(e) =
-                                    db::update_note_embedding(&conn, &note_id, &embedding)
-                                {
-                                    eprintln!("[向量化] 写入失败 [{}]: {}", note_id, e);
-                                } else {
-                                    vector_cache.upsert(note_info, embedding.clone());
-                                }
-                            }
-                        }
-                        Err(e) => eprintln!("[向量化] 跳过 [{}]: {}", note_id, e),
-                    }
-                });
-            }
-        }
-    }
+    write_note_cache(db.inner(), &pending_upserts)?;
+    spawn_embedding_tasks(
+        pending_upserts,
+        ai_config,
+        db,
+        embedding_runtime,
+        vector_cache,
+    );
 
     Ok(indexed_count)
 }

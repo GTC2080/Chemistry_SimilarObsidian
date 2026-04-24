@@ -19,7 +19,7 @@ interface UseFileWatcherOptions {
  *
  * 当 vault 打开时自动启动 Rust 端的文件监听器，
  * 收到 `vault:fs-change` 事件后增量更新 notes 列表：
- * - removed: 从列表中移除对应文件，并从 DB 中清理
+ * - removed: 从列表中移除对应文件，并清理 AI 兼容缓存
  * - changed: 只扫描变更文件的元数据并 merge 进现有列表
  *
  * vault 关闭或切换时自动停止旧的监听器。
@@ -38,7 +38,7 @@ export function useFileWatcher({
       const currentVault = vaultPathRef.current;
       if (!currentVault) return;
 
-      // 1. 处理删除：从前端列表中移除 + 从 DB 中清理
+      // 1. 处理删除：从前端列表中移除 + 清理 AI 兼容缓存
       if (removed.length > 0) {
         const removedSet = new Set(
           removed.map((r) => r.replace(/\\/g, "/"))
@@ -47,7 +47,7 @@ export function useFileWatcher({
           prev.filter((n) => !removedSet.has(n.id.replace(/\\/g, "/")))
         );
 
-        // 后台清理 DB 中已删除文件的索引
+        // 后台清理已删除文件的 AI 兼容缓存
         invoke("remove_deleted_entries", { paths: removed }).catch(
           (err: unknown) => {
             console.warn("[remove_deleted_entries]", err);
@@ -79,7 +79,7 @@ export function useFileWatcher({
             });
           }
 
-          // 后台增量索引（只处理变更文件的内容）
+          // 后台刷新 kernel-backed Markdown 内容缓存
           invoke("index_changed_entries", {
             vaultPath: currentVault,
             paths: changed,
