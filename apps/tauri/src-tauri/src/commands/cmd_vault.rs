@@ -9,9 +9,7 @@ use crate::ai;
 use crate::db::{self, DbState};
 use crate::models::NoteInfo;
 use crate::sealed_kernel::{self, SealedKernelState};
-use crate::shared::command_utils::{
-    is_embeddable_extension, parse_ignored_folders, read_ai_config,
-};
+use crate::shared::command_utils::{parse_ignored_folders, read_ai_config};
 use crate::watcher::WatcherState;
 use crate::AppError;
 
@@ -187,9 +185,6 @@ fn spawn_embedding_tasks(
     };
 
     for upsert in pending_upserts {
-        if !is_embeddable_extension(&upsert.ext) {
-            continue;
-        }
         let db_conn = Arc::clone(&db.conn);
         let embedding_runtime = embedding_runtime.inner().clone();
         let vector_cache = vector_cache.inner().clone();
@@ -323,7 +318,7 @@ pub async fn rebuild_vector_index(
         collect_kernel_note_upserts(&vault_path, "", None, sealed_kernel.inner())?;
     let all_notes: Vec<_> = pending_upserts
         .iter()
-        .map(|note| (note.id.clone(), note.abs_path.clone(), note.content.clone()))
+        .map(|note| (note.id.clone(), note.content.clone()))
         .collect();
 
     // Lock optimization: refresh the compatibility cache and clear embeddings in one lock.
@@ -346,13 +341,8 @@ pub async fn rebuild_vector_index(
 
     // Process embeddings concurrently with buffer_unordered(4)
     let results: Vec<_> = stream::iter(all_notes)
-        .filter_map(|(id, absolute_path, content)| {
-            let ext = Path::new(&absolute_path)
-                .extension()
-                .and_then(|s| s.to_str())
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            if !is_embeddable_extension(&ext) || content.trim().is_empty() {
+        .filter_map(|(id, content)| {
+            if content.trim().is_empty() {
                 return std::future::ready(None);
             }
             std::future::ready(Some((id, content)))

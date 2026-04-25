@@ -39,5 +39,5 @@ The note catalog is the host-facing metadata surface for active Markdown notes.
 Tauri Rust may still attach host-specific absolute paths for existing frontend
 DTOs and orchestrate AI embedding compatibility writes.
 
-Tauri Rust must not rebuild note catalog truth or ignored-root filtering from
-raw note rows.
+Tauri Rust must not rebuild note catalog truth, ignored-root filtering, or
+embeddable-note extension truth from raw note rows.

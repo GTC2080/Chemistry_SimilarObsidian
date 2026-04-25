@@ -23,3 +23,5 @@ Tauri bridge coverage:
 - `scan_vault` consumes `kernel_query_notes_filtered(...)`
 - `index_vault_content` consumes `kernel_query_notes_filtered(...)` before note
   content reads
+- AI embedding refresh treats kernel note catalog rows as the Markdown
+  embeddable note surface instead of applying a duplicate Rust extension gate

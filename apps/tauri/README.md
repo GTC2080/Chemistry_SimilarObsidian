@@ -79,6 +79,7 @@
 - `write_note` -> `kernel_write_note(...)`
 
 Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 兼容缓存和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
+Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单。
 
 已收口到 kernel 的关系读面：
 

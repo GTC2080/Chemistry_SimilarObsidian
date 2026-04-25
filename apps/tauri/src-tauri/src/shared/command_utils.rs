@@ -12,9 +12,6 @@ pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     "webp", "bmp", "ico", "pdf", "mol", "chemdraw", "paper", "csv", "jdx", "pdb", "xyz", "cif",
 ];
 
-/// 允许进行 AI 向量化的扩展名
-pub const EMBEDDABLE_EXTENSIONS: &[&str] = &["md"];
-
 pub fn read_ai_config(app: &AppHandle) -> Result<AiConfig, String> {
     let store = app
         .store("settings.json")
@@ -71,12 +68,6 @@ pub fn parse_ignored_folders(ignored_folders: Option<String>) -> HashSet<String>
 
 pub fn is_supported_extension(ext: &str) -> bool {
     SUPPORTED_EXTENSIONS
-        .iter()
-        .any(|e| e.eq_ignore_ascii_case(ext))
-}
-
-pub fn is_embeddable_extension(ext: &str) -> bool {
-    EMBEDDABLE_EXTENSIONS
         .iter()
         .any(|e| e.eq_ignore_ascii_case(ext))
 }
