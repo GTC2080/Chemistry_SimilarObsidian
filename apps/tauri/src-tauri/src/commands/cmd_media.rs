@@ -65,19 +65,22 @@ extern "C" {
 }
 
 #[tauri::command]
-pub async fn parse_spectroscopy(file_path: String) -> Result<SpectroscopyData, AppError> {
+pub async fn parse_spectroscopy(
+    file_path: String,
+    sealed_kernel: State<'_, SealedKernelState>,
+) -> Result<SpectroscopyData, AppError> {
+    let ext = Path::new(&file_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if !is_spectroscopy_extension(&ext) {
+        return Err(AppError::Custom(format!("不支持的波谱文件扩展名: {}", ext)));
+    }
+
+    let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
     tauri::async_runtime::spawn_blocking(move || {
-        let ext = Path::new(&file_path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-
-        if !is_spectroscopy_extension(&ext) {
-            return Err(AppError::Custom(format!("不支持的波谱文件扩展名: {}", ext)));
-        }
-
-        let raw = read_note_sync(&file_path)?;
         parse_spectroscopy_from_text(&raw, &ext).map_err(Into::into)
     })
     .await
@@ -147,65 +150,22 @@ fn build_molecular_preview(
 pub async fn read_molecular_preview(
     file_path: String,
     max_atoms: Option<usize>,
+    sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<MolecularPreview, AppError> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let ext = Path::new(&file_path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-        if !is_molecular_extension(&ext) {
-            return Err(AppError::Custom(format!("不支持的分子文件扩展名: {}", ext)));
-        }
-
-        let raw = read_note_sync(&file_path)?;
-        let limit = clamp_preview_limit(max_atoms);
-        build_molecular_preview(&raw, &ext, limit)
-    })
-    .await
-    .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
-}
-
-/// 同步读取文件内容（内部使用，被其他命令复用）
-fn read_note_sync(file_path: &str) -> Result<String, AppError> {
-    let path = Path::new(file_path);
-    if !path.exists() {
-        return Err(AppError::Custom(format!("文件不存在: {}", file_path)));
-    }
-    if !path.is_file() {
-        return Err(AppError::Custom(format!(
-            "指定路径不是一个文件: {}",
-            file_path
-        )));
-    }
-    let bytes = fs::read(path)?;
-
-    if bytes.len() >= 2 {
-        if bytes[0] == 0xFF && bytes[1] == 0xFE {
-            let u16s: Vec<u16> = bytes[2..]
-                .chunks_exact(2)
-                .map(|c| u16::from_le_bytes([c[0], c[1]]))
-                .collect();
-            return String::from_utf16(&u16s).map_err(|e| {
-                AppError::Custom(format!("UTF-16 LE 解码失败 [{}]: {}", file_path, e))
-            });
-        }
-        if bytes[0] == 0xFE && bytes[1] == 0xFF {
-            let u16s: Vec<u16> = bytes[2..]
-                .chunks_exact(2)
-                .map(|c| u16::from_be_bytes([c[0], c[1]]))
-                .collect();
-            return String::from_utf16(&u16s).map_err(|e| {
-                AppError::Custom(format!("UTF-16 BE 解码失败 [{}]: {}", file_path, e))
-            });
-        }
+    let ext = Path::new(&file_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    if !is_molecular_extension(&ext) {
+        return Err(AppError::Custom(format!("不支持的分子文件扩展名: {}", ext)));
     }
 
-    // 尝试零拷贝 UTF-8 转换，失败时再 lossy 解码
-    match String::from_utf8(bytes) {
-        Ok(s) => Ok(s),
-        Err(e) => Ok(String::from_utf8_lossy(e.as_bytes()).into_owned()),
-    }
+    let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
+    let limit = clamp_preview_limit(max_atoms);
+    tauri::async_runtime::spawn_blocking(move || build_molecular_preview(&raw, &ext, limit))
+        .await
+        .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
 }
 
 #[tauri::command]
