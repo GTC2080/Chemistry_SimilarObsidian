@@ -136,6 +136,34 @@ void test_filter_changed_markdown_paths_normalizes_filters_and_deduplicates() {
       "changed path filter should require output pointer");
 }
 
+void test_filter_supported_vault_paths_normalizes_filters_and_deduplicates() {
+  kernel_path_list paths{};
+  expect_ok(kernel_filter_supported_vault_paths(
+      " Folder\\Note.md \n"
+      "Folder/Note.md\n"
+      "Folder/Note.exe\n"
+      "Image.PNG\n"
+      "Molecule.PDB\n"
+      "\n",
+      &paths));
+
+  require_true(paths.count == 3, "supported path filter should keep only app-supported paths");
+  require_true(
+      std::string(paths.paths[0]) == "Folder/Note.md",
+      "supported path filter should trim and normalize backslashes");
+  require_true(
+      std::string(paths.paths[1]) == "Image.PNG",
+      "supported path filter should preserve original path case");
+  require_true(
+      std::string(paths.paths[2]) == "Molecule.PDB",
+      "supported path filter should keep chemistry structure paths");
+  kernel_free_path_list(&paths);
+  require_true(paths.paths == nullptr && paths.count == 0, "supported path free should reset output");
+  require_true(
+      kernel_filter_supported_vault_paths("note.md", nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "supported path filter should require output pointer");
+}
+
 }  // namespace
 
 void run_kernel_api_core_vault_entry_contract_tests() {
@@ -144,4 +172,5 @@ void run_kernel_api_core_vault_entry_contract_tests() {
   test_delete_note_removes_catalog_entry();
   test_move_note_updates_catalog();
   test_filter_changed_markdown_paths_normalizes_filters_and_deduplicates();
+  test_filter_supported_vault_paths_normalizes_filters_and_deduplicates();
 }

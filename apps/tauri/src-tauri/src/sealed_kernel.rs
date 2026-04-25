@@ -65,6 +65,11 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_filter_supported_vault_paths_json(
+        changed_paths_lf_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_read_note_json(
         session: *mut SealedKernelBridgeSession,
         rel_path_utf8: *const c_char,
@@ -576,6 +581,35 @@ pub fn filter_changed_markdown_paths(paths: &[String]) -> AppResult<Vec<String>>
     Ok(catalog.paths)
 }
 
+pub fn filter_supported_vault_paths(paths: &[String]) -> AppResult<Vec<String>> {
+    let joined = paths.join("\n");
+    let paths_c = cstring_arg(joined, "changed_paths")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_filter_supported_vault_paths_json(
+            paths_c.as_ptr(),
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_filter_supported_vault_paths",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    let catalog: SealedKernelPathCatalog = serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel supported vault path JSON is invalid: {err}"
+        ))
+    })?;
+    Ok(catalog.paths)
+}
+
 pub fn query_search_note_infos(
     state: &SealedKernelState,
     query: &str,
@@ -1075,5 +1109,20 @@ mod tests {
     fn validate_rel_path_rejects_rooted_paths() {
         assert!(validate_rel_path("/note.md", "笔记").is_err());
         assert!(validate_rel_path("C:/vault/note.md", "笔记").is_err());
+    }
+
+    #[test]
+    fn filter_supported_vault_paths_uses_kernel_path_filter() {
+        let paths = vec![
+            " Folder\\Note.md ".to_string(),
+            "Folder/Note.md".to_string(),
+            "Folder/Note.exe".to_string(),
+            "Molecule.PDB".to_string(),
+        ];
+
+        assert_eq!(
+            filter_supported_vault_paths(&paths).expect("kernel supported path filter"),
+            vec!["Folder/Note.md".to_string(), "Molecule.PDB".to_string()]
+        );
     }
 }

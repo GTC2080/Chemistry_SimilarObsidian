@@ -71,6 +71,7 @@
 
 - `scan_vault` / `scan_changed_entries` -> `kernel_query_notes(...)` / `kernel_query_notes_filtered(...)`
 - `build_file_tree` -> `kernel_query_file_tree_filtered(...)`
+- watcher supported path filtering -> `kernel_filter_supported_vault_paths(...)`
 - changed-entry path normalization -> `kernel_filter_changed_markdown_paths(...)`
 - `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`

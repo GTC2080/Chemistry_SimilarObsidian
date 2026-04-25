@@ -5,13 +5,6 @@ use tauri_plugin_store::StoreExt;
 
 use crate::ai::AiConfig;
 
-/// 支持的文件扩展名白名单
-pub const SUPPORTED_EXTENSIONS: &[&str] = &[
-    "md", "txt", "json", "py", "rs", "js", "ts", "jsx", "tsx", "css", "html", "toml", "yaml",
-    "yml", "xml", "sh", "bat", "c", "cpp", "h", "java", "go", "png", "jpg", "jpeg", "gif", "svg",
-    "webp", "bmp", "ico", "pdf", "mol", "chemdraw", "paper", "csv", "jdx", "pdb", "xyz", "cif",
-];
-
 pub fn read_ai_config(app: &AppHandle) -> Result<AiConfig, String> {
     let store = app
         .store("settings.json")
@@ -64,10 +57,4 @@ pub fn parse_ignored_folders(ignored_folders: Option<String>) -> HashSet<String>
         .map(|s| s.trim().trim_matches('/').trim_matches('\\').to_string())
         .filter(|s| !s.is_empty())
         .collect()
-}
-
-pub fn is_supported_extension(ext: &str) -> bool {
-    SUPPORTED_EXTENSIONS
-        .iter()
-        .any(|e| e.eq_ignore_ascii_case(ext))
 }

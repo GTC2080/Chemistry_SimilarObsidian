@@ -57,7 +57,30 @@ bool is_markdown_path(std::string_view rel_path) {
   return extension == "md";
 }
 
-std::vector<std::string> split_lf_paths(const char* changed_paths_lf) {
+bool is_supported_vault_event_path(std::string_view rel_path) {
+  const std::string leaf = basename(rel_path);
+  const std::size_t dot = leaf.find_last_of('.');
+  if (dot == std::string::npos || dot + 1 >= leaf.size()) {
+    return false;
+  }
+
+  std::string extension = leaf.substr(dot + 1);
+  std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+
+  static const std::set<std::string> supported_extensions = {
+      "md",   "txt", "json", "py",      "rs",  "js",  "ts",  "jsx",
+      "tsx",  "css", "html", "toml",    "yaml", "yml", "xml", "sh",
+      "bat",  "c",   "cpp",  "h",       "java", "go",  "png", "jpg",
+      "jpeg", "gif", "svg",  "webp",    "bmp", "ico", "pdf", "mol",
+      "chemdraw",    "paper", "csv",    "jdx", "pdb", "xyz", "cif"};
+  return supported_extensions.find(extension) != supported_extensions.end();
+}
+
+std::vector<std::string> split_lf_paths(
+    const char* changed_paths_lf,
+    bool (*keep_path)(std::string_view)) {
   std::vector<std::string> paths;
   if (changed_paths_lf == nullptr || changed_paths_lf[0] == '\0') {
     return paths;
@@ -71,7 +94,7 @@ std::vector<std::string> split_lf_paths(const char* changed_paths_lf) {
         normalize_change_path(next == std::string_view::npos
                                   ? raw.substr(start)
                                   : raw.substr(start, next - start));
-    if (!normalized.empty() && is_markdown_path(normalized)) {
+    if (!normalized.empty() && keep_path(normalized)) {
       paths.push_back(normalized);
     }
     if (next == std::string_view::npos) {
@@ -121,11 +144,10 @@ kernel_status fill_path_list(const std::vector<std::string>& paths, kernel_path_
   return kernel::core::make_status(KERNEL_OK);
 }
 
-}  // namespace
-
-extern "C" kernel_status kernel_filter_changed_markdown_paths(
+kernel_status filter_paths(
     const char* changed_paths_lf,
-    kernel_path_list* out_paths) {
+    kernel_path_list* out_paths,
+    bool (*keep_path)(std::string_view)) {
   reset_path_list(out_paths);
   if (out_paths == nullptr) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
@@ -133,13 +155,27 @@ extern "C" kernel_status kernel_filter_changed_markdown_paths(
 
   std::set<std::string> seen;
   std::vector<std::string> filtered;
-  for (const auto& path : split_lf_paths(changed_paths_lf)) {
+  for (const auto& path : split_lf_paths(changed_paths_lf, keep_path)) {
     if (seen.insert(path).second) {
       filtered.push_back(path);
     }
   }
 
   return fill_path_list(filtered, out_paths);
+}
+
+}  // namespace
+
+extern "C" kernel_status kernel_filter_changed_markdown_paths(
+    const char* changed_paths_lf,
+    kernel_path_list* out_paths) {
+  return filter_paths(changed_paths_lf, out_paths, is_markdown_path);
+}
+
+extern "C" kernel_status kernel_filter_supported_vault_paths(
+    const char* changed_paths_lf,
+    kernel_path_list* out_paths) {
+  return filter_paths(changed_paths_lf, out_paths, is_supported_vault_event_path);
 }
 
 extern "C" void kernel_free_path_list(kernel_path_list* paths) {

@@ -40,6 +40,9 @@ kernel_status kernel_query_file_tree_filtered(
 kernel_status kernel_filter_changed_markdown_paths(
     const char* changed_paths_lf,
     kernel_path_list* out_paths);
+kernel_status kernel_filter_supported_vault_paths(
+    const char* changed_paths_lf,
+    kernel_path_list* out_paths);
 kernel_status kernel_write_note(
     kernel_handle* handle,
     const char* rel_path,

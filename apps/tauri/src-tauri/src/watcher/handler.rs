@@ -8,13 +8,15 @@ use tauri::{AppHandle, Emitter};
 
 use super::filter::should_ignore;
 use super::FsChangeEvent;
+use crate::sealed_kernel;
 
 /// 构建 debouncer 回调闭包。
 ///
 /// 返回的闭包会：
-/// 1. 过滤不关心的路径（目录、隐藏文件、非支持扩展名）
+/// 1. 过滤不关心的路径（目录、隐藏文件、用户忽略目录）
 /// 2. 将事件分类为 changed / removed
-/// 3. 去重后通过 Tauri 事件总线发送 `vault:fs-change`
+/// 3. 通过 kernel 过滤支持的 vault 文件类型并去重
+/// 4. 通过 Tauri 事件总线发送 `vault:fs-change`
 pub fn build_event_handler(
     vault: PathBuf,
     ignored: HashSet<String>,
@@ -74,10 +76,22 @@ fn classify_events(
         }
     }
 
-    changed.sort();
-    changed.dedup();
-    removed.sort();
-    removed.dedup();
+    changed = filter_supported_vault_paths(changed);
+    removed = filter_supported_vault_paths(removed);
 
     (changed, removed)
+}
+
+fn filter_supported_vault_paths(paths: Vec<String>) -> Vec<String> {
+    if paths.is_empty() {
+        return paths;
+    }
+
+    match sealed_kernel::filter_supported_vault_paths(&paths) {
+        Ok(filtered) => filtered,
+        Err(err) => {
+            eprintln!("[watcher] kernel path filter failed: {}", err);
+            Vec::new()
+        }
+    }
 }
