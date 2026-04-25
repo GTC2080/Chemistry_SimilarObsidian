@@ -27,6 +27,11 @@ kernel_status kernel_query_file_tree(
     kernel_handle* handle,
     size_t limit,
     kernel_file_tree* out_tree);
+kernel_status kernel_query_file_tree_filtered(
+    kernel_handle* handle,
+    size_t limit,
+    const char* ignored_roots_csv,
+    kernel_file_tree* out_tree);
 kernel_status kernel_write_note(
     kernel_handle* handle,
     const char* rel_path,

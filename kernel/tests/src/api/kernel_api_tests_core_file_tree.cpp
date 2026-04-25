@@ -88,6 +88,29 @@ void test_query_file_tree_limit_is_applied_before_tree_construction() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_query_file_tree_filtered_ignores_only_matching_roots() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  write_note(handle, "node_modules/pkg.md", "# Package\n");
+  write_note(handle, "node_modules.md", "# Root File\n");
+  write_note(handle, "lab/a.md", "# A\n");
+
+  kernel_file_tree tree{};
+  expect_ok(kernel_query_file_tree_filtered(handle, 16, " node_modules/ ", &tree));
+  require_true(tree.count == 2, "filtered file tree should keep lab folder and similarly named root file");
+  require_true(std::string(tree.nodes[0].relative_path) == "lab", "filtered tree should keep lab folder");
+  require_true(
+      std::string(tree.nodes[1].relative_path) == "node_modules.md",
+      "filtered tree should not hide root files with similar names");
+  kernel_free_file_tree(&tree);
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
 void test_query_file_tree_requires_valid_arguments() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -114,5 +137,6 @@ void test_query_file_tree_requires_valid_arguments() {
 void run_kernel_api_core_file_tree_contract_tests() {
   test_query_file_tree_builds_sorted_folder_first_tree();
   test_query_file_tree_limit_is_applied_before_tree_construction();
+  test_query_file_tree_filtered_ignores_only_matching_roots();
   test_query_file_tree_requires_valid_arguments();
 }

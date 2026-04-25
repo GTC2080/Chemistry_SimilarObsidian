@@ -12,6 +12,12 @@ Required coverage:
 - nested folder `file_count` includes all descendant note leaves
 - file leaves preserve relative path, stem name, extension, and mtime payload
 - `kernel_free_file_tree(...)` resets output and is safe on repeat calls
+- `kernel_query_file_tree_filtered(...)` removes notes below exactly matching
+  ignored top-level roots
+- filtered file tree queries trim whitespace and leading/trailing slashes from
+  ignored root names
+- filtered file tree queries keep root files with names similar to ignored
+  folder names
 - zero limit returns `KERNEL_ERROR_INVALID_ARGUMENT`
 - null handle returns `KERNEL_ERROR_INVALID_ARGUMENT`
 - null output returns `KERNEL_ERROR_INVALID_ARGUMENT`
@@ -21,5 +27,5 @@ Required coverage:
 Required coverage:
 
 - `build_file_tree` consumes the kernel file tree instead of rebuilding from note infos
-- ignored top-level folders are filtered after kernel tree construction
-- root files with names similar to ignored folder names remain visible unless their first path segment exactly matches
+- ignored top-level folders are passed through the Tauri native bridge into the
+  kernel filtered file tree surface

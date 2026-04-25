@@ -39,6 +39,7 @@ int32_t sealed_kernel_bridge_query_notes_json(
 int32_t sealed_kernel_bridge_query_file_tree_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,
+    const char* ignored_roots_utf8,
     char** out_json,
     char** out_error);
 

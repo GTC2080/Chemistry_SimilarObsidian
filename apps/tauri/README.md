@@ -43,7 +43,7 @@
 ## 最近更新
 
 - **v1.0.6-dev** — 产品计算面继续内核化：`compute_truth_diff` 改为桥接 `kernel_compute_truth_diff(...)`，`build_semantic_context` 改为桥接 `kernel_build_semantic_context(...)`；TRUTH_SYSTEM 经验归因、代码块语言增量、分子编辑行数规则和 AI 语义上下文裁剪由 C++ sealed kernel 统一提供。Tauri Rust 只保留 DTO 映射、中文 reason 文案和 buffer 释放桥接。
-- **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文与 media 文本读取走 kernel note read surface；Tauri Rust 只保留命令编排、embedding 兼容缓存写入和后台任务调度。
+- **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文与 media 文本读取走 kernel note read surface；`build_file_tree` 的 ignored root 过滤也改由 `kernel_query_file_tree_filtered(...)` 提供。Tauri Rust 只保留命令编排、embedding 兼容缓存写入和后台任务调度。
 - **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
 - **v1.0.6-dev** — 化学无状态计算继续内核化：高分子动力学、化学计量、波谱解析、分子预览、逆合成 mock pathway 规则均通过 `kernel/` C ABI 提供；Tauri Rust 只保留 PubChem HTTP 查询、命令 DTO 映射和 kernel 内存释放桥接。
 - **v1.0.6-dev** — 晶体计算 full-result 化：`parse_and_build_lattice` 通过 `kernel_build_lattice_from_cif(...)` 一次性取得 CIF 解析、晶胞基矢、超晶胞原子；`calculate_miller_plane` 通过 `kernel_calculate_miller_plane_from_cif(...)` 完成 CIF 解析与密勒面计算。Rust `crystal/` 只保留最终 DTO 和错误文案。
@@ -70,6 +70,7 @@
 已收口到 kernel 的内容/文件工作流读写面：
 
 - `scan_vault` / `scan_changed_entries` -> `kernel_query_notes(...)`
+- `build_file_tree` -> `kernel_query_file_tree_filtered(...)`
 - `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_read_note(...)`
 - `parse_spectroscopy` / `read_molecular_preview` -> `kernel_read_note(...)` + chemistry kernel compute ABI

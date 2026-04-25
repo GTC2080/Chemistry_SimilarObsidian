@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cstdint>
 #include <new>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -54,6 +55,54 @@ std::vector<std::string> split_rel_path(const std::string& rel_path) {
     start = slash + 1;
   }
   return parts;
+}
+
+std::string trim_ignored_root(std::string_view value) {
+  std::size_t start = 0;
+  while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start])) != 0) {
+    ++start;
+  }
+  while (start < value.size() && (value[start] == '/' || value[start] == '\\')) {
+    ++start;
+  }
+
+  std::size_t end = value.size();
+  while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0) {
+    --end;
+  }
+  while (end > start && (value[end - 1] == '/' || value[end - 1] == '\\')) {
+    --end;
+  }
+
+  return std::string(value.substr(start, end - start));
+}
+
+std::set<std::string> parse_ignored_roots(const char* ignored_roots_csv) {
+  std::set<std::string> ignored;
+  if (ignored_roots_csv == nullptr || ignored_roots_csv[0] == '\0') {
+    return ignored;
+  }
+
+  const std::string_view raw(ignored_roots_csv);
+  std::size_t start = 0;
+  while (start <= raw.size()) {
+    const std::size_t next = raw.find(',', start);
+    const std::string root = trim_ignored_root(
+        next == std::string_view::npos ? raw.substr(start) : raw.substr(start, next - start));
+    if (!root.empty()) {
+      ignored.insert(root);
+    }
+    if (next == std::string_view::npos) {
+      break;
+    }
+    start = next + 1;
+  }
+  return ignored;
+}
+
+std::string first_rel_path_segment(const std::string& rel_path) {
+  const std::size_t slash = rel_path.find('/');
+  return slash == std::string::npos ? rel_path : rel_path.substr(0, slash);
 }
 
 std::string basename_stem(const std::string& basename) {
@@ -168,9 +217,14 @@ std::uint32_t sort_and_count(std::vector<TreeNode>& nodes) {
   return total;
 }
 
-std::vector<TreeNode> build_tree(const kernel_note_list& notes) {
+std::vector<TreeNode> build_tree(const kernel_note_list& notes, const std::set<std::string>& ignored_roots) {
   std::vector<TreeNode> root;
   for (std::size_t index = 0; index < notes.count; ++index) {
+    const std::string rel_path =
+        normalize_rel_path(notes.notes[index].rel_path == nullptr ? std::string{} : std::string(notes.notes[index].rel_path));
+    if (!ignored_roots.empty() && ignored_roots.contains(first_rel_path_segment(rel_path))) {
+      continue;
+    }
     insert_note(root, notes.notes[index]);
   }
   sort_and_count(root);
@@ -273,9 +327,10 @@ bool fill_file_tree_nodes(const std::vector<TreeNode>& source, kernel_file_tree_
 
 }  // namespace
 
-extern "C" kernel_status kernel_query_file_tree(
+kernel_status query_file_tree_impl(
     kernel_handle* handle,
     const size_t limit,
+    const char* ignored_roots_csv,
     kernel_file_tree* out_tree) {
   reset_file_tree(out_tree);
   if (handle == nullptr || out_tree == nullptr || limit == 0) {
@@ -288,7 +343,8 @@ extern "C" kernel_status kernel_query_file_tree(
     return note_status;
   }
 
-  const std::vector<TreeNode> tree = build_tree(notes);
+  const std::set<std::string> ignored_roots = parse_ignored_roots(ignored_roots_csv);
+  const std::vector<TreeNode> tree = build_tree(notes, ignored_roots);
   kernel_free_note_list(&notes);
   out_tree->count = tree.size();
   if (!fill_file_tree_nodes(tree, &out_tree->nodes)) {
@@ -296,6 +352,21 @@ extern "C" kernel_status kernel_query_file_tree(
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_query_file_tree(
+    kernel_handle* handle,
+    const size_t limit,
+    kernel_file_tree* out_tree) {
+  return query_file_tree_impl(handle, limit, nullptr, out_tree);
+}
+
+extern "C" kernel_status kernel_query_file_tree_filtered(
+    kernel_handle* handle,
+    const size_t limit,
+    const char* ignored_roots_csv,
+    kernel_file_tree* out_tree) {
+  return query_file_tree_impl(handle, limit, ignored_roots_csv, out_tree);
 }
 
 extern "C" void kernel_free_file_tree(kernel_file_tree* tree) {

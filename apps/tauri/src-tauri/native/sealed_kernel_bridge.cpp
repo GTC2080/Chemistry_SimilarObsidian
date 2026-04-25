@@ -361,6 +361,7 @@ int32_t sealed_kernel_bridge_query_notes_json(
 int32_t sealed_kernel_bridge_query_file_tree_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,
+    const char* ignored_roots_utf8,
     char** out_json,
     char** out_error) {
   if (out_json != nullptr) {
@@ -372,10 +373,14 @@ int32_t sealed_kernel_bridge_query_file_tree_json(
   }
 
   kernel_file_tree tree{};
-  const kernel_status status =
-      kernel_query_file_tree(session->handle, static_cast<size_t>(limit), &tree);
+  const std::string ignored_roots = Utf8ToActiveCodePage(ignored_roots_utf8);
+  const kernel_status status = kernel_query_file_tree_filtered(
+      session->handle,
+      static_cast<size_t>(limit),
+      ignored_roots.empty() ? nullptr : ignored_roots.c_str(),
+      &tree);
   if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_query_file_tree", out_error);
+    return ReturnKernelError(status, "kernel_query_file_tree_filtered", out_error);
   }
 
   std::string json = "{\"nodes\":[";

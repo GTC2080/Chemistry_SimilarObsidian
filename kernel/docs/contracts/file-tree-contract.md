@@ -7,6 +7,7 @@
 Current surface:
 
 - `kernel_query_file_tree(handle, limit, out_tree)`
+- `kernel_query_file_tree_filtered(handle, limit, ignored_roots_csv, out_tree)`
 - `kernel_free_file_tree(out_tree)`
 
 The tree is derived from the same live note catalog used by `kernel_query_notes(...)`.
@@ -27,13 +28,19 @@ The tree is derived from the same live note catalog used by `kernel_query_notes(
 - file leaves carry a note payload with relative path, file stem, extension, and mtime
 - path separators are normalized to `/`
 - the limit applies to the source note catalog before tree construction
+- filtered queries parse comma-separated ignored root names by trimming
+  whitespace and leading/trailing slashes
+- filtered queries remove only notes whose first relative-path segment exactly
+  matches an ignored root
+- root files with similar names remain visible unless the whole first segment
+  matches an ignored root
 
 ## Host Boundary
 
 Tauri Rust may still:
 
-- filter ignored top-level folders from the kernel tree
 - attach host-specific absolute paths for existing frontend DTOs
 - register the Tauri command and serialize the response
 
-Tauri Rust must not rebuild folder hierarchy, sorting, or recursive counts from raw note rows.
+Tauri Rust must not rebuild folder hierarchy, sorting, recursive counts, or
+ignored-root filtering from raw note rows.

@@ -49,6 +49,7 @@ extern "C" {
     fn sealed_kernel_bridge_query_file_tree_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
+        ignored_roots_utf8: *const c_char,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -455,6 +456,7 @@ pub fn query_file_tree(
     vault_path: &str,
     state: &SealedKernelState,
     limit: u64,
+    ignored_roots: &str,
 ) -> AppResult<Vec<FileTreeNode>> {
     ensure_vault_open(vault_path, state)?;
     wait_for_catalog_ready(active_session(state)?)?;
@@ -466,10 +468,19 @@ pub fn query_file_tree(
     }
 
     let session = active_session(state)?;
+    let ignored_roots = CString::new(ignored_roots).map_err(|_| {
+        AppError::Custom("ignored folder list contains an invalid NUL byte.".to_string())
+    })?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
     let code = unsafe {
-        sealed_kernel_bridge_query_file_tree_json(session, limit, &mut raw_json, &mut error)
+        sealed_kernel_bridge_query_file_tree_json(
+            session,
+            limit,
+            ignored_roots.as_ptr(),
+            &mut raw_json,
+            &mut error,
+        )
     };
     if code != 0 {
         return Err(bridge_error("sealed_kernel_query_file_tree", code, error));
