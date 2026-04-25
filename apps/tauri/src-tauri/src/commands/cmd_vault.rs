@@ -1,8 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
 
 use futures_util::stream::{self, StreamExt};
 use tauri::{AppHandle, State};
@@ -82,6 +80,42 @@ fn pending_upsert_from_note(note: NoteInfo, content: String) -> PendingUpsert {
     }
 }
 
+fn changed_markdown_rel_paths(paths: &[String]) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut rel_paths = Vec::new();
+
+    for raw in paths {
+        let rel_path = normalize_rel_path(raw);
+        if rel_path.is_empty() || !is_markdown_rel_path(&rel_path) || !seen.insert(rel_path.clone())
+        {
+            continue;
+        }
+        rel_paths.push(rel_path);
+    }
+
+    rel_paths
+}
+
+fn kernel_note_info_map_for_rel_paths(
+    vault_path: &str,
+    rel_paths: &[String],
+    kernel_state: &SealedKernelState,
+) -> Result<HashMap<String, NoteInfo>, AppError> {
+    if rel_paths.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let wanted: HashSet<&str> = rel_paths.iter().map(String::as_str).collect();
+    let notes =
+        sealed_kernel::query_note_infos(vault_path, kernel_state, KERNEL_NOTE_CATALOG_LIMIT)?;
+
+    Ok(notes
+        .into_iter()
+        .filter(|note| wanted.contains(note.id.as_str()))
+        .map(|note| (note.id.clone(), note))
+        .collect())
+}
+
 fn collect_kernel_note_upserts(
     vault_path: &str,
     ignored: &HashSet<String>,
@@ -112,66 +146,31 @@ fn collect_kernel_note_upserts(
     Ok(pending_upserts)
 }
 
-fn note_info_for_changed_markdown(
-    vault_path: &str,
-    rel_path: &str,
-    kernel_state: &SealedKernelState,
-) -> Result<Option<(NoteInfo, String)>, AppError> {
-    let rel_path = normalize_rel_path(rel_path);
-    if rel_path.is_empty() || !is_markdown_rel_path(&rel_path) {
-        return Ok(None);
-    }
-
-    let content = match sealed_kernel::read_note_by_rel_path(&rel_path, kernel_state) {
-        Ok(content) => content,
-        Err(_) => return Ok(None),
-    };
-    let abs = Path::new(vault_path).join(&rel_path);
-    let metadata = match fs::metadata(&abs) {
-        Ok(metadata) => metadata,
-        Err(_) => return Ok(None),
-    };
-    let (created_at, updated_at) = match extract_timestamps(&metadata) {
-        Ok(timestamps) => timestamps,
-        Err(_) => return Ok(None),
-    };
-    let name = Path::new(&rel_path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("未命名")
-        .to_string();
-    let ext = Path::new(&rel_path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-
-    Ok(Some((
-        NoteInfo {
-            id: rel_path,
-            name,
-            path: abs.to_string_lossy().into_owned(),
-            created_at,
-            updated_at,
-            file_extension: ext,
-        },
-        content,
-    )))
-}
-
 fn collect_kernel_changed_upserts(
     vault_path: &str,
     paths: &[String],
     existing_timestamps: &HashMap<String, i64>,
     kernel_state: &SealedKernelState,
 ) -> Result<Vec<PendingUpsert>, AppError> {
+    let rel_paths = changed_markdown_rel_paths(paths);
+    let mut notes_by_id = kernel_note_info_map_for_rel_paths(vault_path, &rel_paths, kernel_state)?;
     let mut pending_upserts = Vec::new();
-    for rel in paths {
-        let Some((note, content)) = note_info_for_changed_markdown(vault_path, rel, kernel_state)?
-        else {
+
+    for rel_path in rel_paths {
+        let Some(note) = notes_by_id.remove(&rel_path) else {
             continue;
         };
-        if !should_refresh_note(&note, Some(existing_timestamps)) || content.trim().is_empty() {
+        if !should_refresh_note(&note, Some(existing_timestamps)) {
+            continue;
+        }
+        let content = match sealed_kernel::read_note_by_rel_path(&note.id, kernel_state) {
+            Ok(content) => content,
+            Err(err) => {
+                eprintln!("[kernel-index] 跳过 [{}]: {}", note.id, err);
+                continue;
+            }
+        };
+        if content.trim().is_empty() {
             continue;
         }
         pending_upserts.push(pending_upsert_from_note(note, content));
@@ -329,20 +328,6 @@ pub fn index_vault_content(
     Ok(indexed_count)
 }
 
-/// Extract created_at / updated_at timestamps from file metadata.
-fn extract_timestamps(metadata: &fs::Metadata) -> Result<(i64, i64), AppError> {
-    let updated_at = metadata
-        .modified()?
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
-    let created_at = metadata
-        .created()
-        .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64)
-        .unwrap_or(updated_at);
-    Ok((created_at, updated_at))
-}
-
 #[tauri::command]
 pub async fn rebuild_vector_index(
     app: AppHandle,
@@ -459,12 +444,13 @@ pub fn scan_changed_entries(
     paths: Vec<String>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    let mut notes: Vec<NoteInfo> = Vec::new();
+    let rel_paths = changed_markdown_rel_paths(&paths);
+    let mut notes_by_id =
+        kernel_note_info_map_for_rel_paths(&vault_path, &rel_paths, sealed_kernel.inner())?;
+    let mut notes = Vec::new();
 
-    for rel in paths {
-        if let Some((note, _content)) =
-            note_info_for_changed_markdown(&vault_path, &rel, sealed_kernel.inner())?
-        {
+    for rel_path in rel_paths {
+        if let Some(note) = notes_by_id.remove(&rel_path) {
             notes.push(note);
         }
     }
@@ -553,4 +539,25 @@ pub fn start_watcher(
 pub fn stop_watcher(watcher: State<WatcherState>) -> Result<(), AppError> {
     watcher.stop();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn changed_markdown_rel_paths_normalizes_filters_and_deduplicates() {
+        let paths = vec![
+            " Folder\\Note.md ".to_string(),
+            "Folder/Note.md".to_string(),
+            "Folder/Note.txt".to_string(),
+            "".to_string(),
+            "Folder/Sub.MD".to_string(),
+        ];
+
+        assert_eq!(
+            changed_markdown_rel_paths(&paths),
+            vec!["Folder/Note.md".to_string(), "Folder/Sub.MD".to_string()]
+        );
+    }
 }

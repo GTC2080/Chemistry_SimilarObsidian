@@ -42,6 +42,7 @@
 
 ## 最近更新
 
+- **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文读取走 kernel note read surface；Tauri Rust 只保留命令编排、embedding 兼容缓存写入和后台任务调度。
 - **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
 - **v1.0.6-dev** — 化学无状态计算继续内核化：高分子动力学、化学计量、波谱解析、分子预览、逆合成 mock pathway 规则均通过 `kernel/` C ABI 提供；Tauri Rust 只保留 PubChem HTTP 查询、命令 DTO 映射和 kernel 内存释放桥接。
 - **v1.0.6-dev** — 对称性计算管线继续内核化：`calculate_symmetry` 现在单点桥接 `kernel_calculate_symmetry(...)`，由 kernel 完成 `XYZ` / `PDB` / simple `CIF` 原子解析、形状分析、主轴计算、候选生成、操作匹配、点群分类和渲染几何；Rust 只保留命令 DTO、localized error 映射和 kernel-owned 结果释放。
@@ -63,6 +64,15 @@
 ## Kernel 接线边界
 
 当前 Tauri 宿主通过 `src-tauri/native/sealed_kernel_bridge.cpp` 嵌入并调用 `kernel/` C ABI。
+
+已收口到 kernel 的内容/文件工作流读写面：
+
+- `scan_vault` / `scan_changed_entries` -> `kernel_query_notes(...)`
+- `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
+- `read_note` / `read_note_indexed_content` -> `kernel_read_note(...)`
+- `write_note` -> `kernel_write_note(...)`
+
+Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 兼容缓存和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
 
 已收口到 kernel 的关系读面：
 

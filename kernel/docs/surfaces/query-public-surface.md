@@ -2,7 +2,7 @@
 
 # Query Public Surface
 
-Last updated: `2026-04-24`
+Last updated: `2026-04-25`
 
 ## Scope
 
@@ -10,6 +10,9 @@ This document freezes the Phase 1 host-facing behavior for:
 
 - `kernel_search_notes(...)`
 - `kernel_search_notes_limited(...)`
+- `kernel_query_notes(...)`
+- `kernel_read_note(...)`
+- `kernel_write_note(...)`
 - `kernel_query_tag_notes(...)`
 - `kernel_query_tags(...)`
 - `kernel_query_graph(...)`
@@ -20,6 +23,22 @@ This document freezes the Phase 1 host-facing behavior for:
 
 It is a contract for hosts.
 It is not an internal implementation guide.
+
+## Note Catalog and IO Host Boundary
+
+`kernel_query_notes(...)` returns the live note metadata catalog that hosts use for file workflow metadata.
+`kernel_read_note(...)` and `kernel_write_note(...)` are the paired note content IO surface.
+
+Current Tauri host wiring:
+
+- `scan_vault` and `scan_changed_entries` read `NoteInfo` data from `kernel_query_notes(...)`
+- `index_vault_content` and `index_changed_entries` pair `kernel_query_notes(...)` metadata with `kernel_read_note(...)` content
+- `read_note` and `read_note_indexed_content` call `kernel_read_note(...)`
+- `write_note` calls `kernel_write_note(...)`
+
+Host rule:
+
+- hosts may keep compatibility caches such as embedding rows, but they must not rebuild note metadata truth from their own filesystem walk or legacy Rust DB rows when a kernel note catalog entry is available
 
 Legacy note-search status:
 
