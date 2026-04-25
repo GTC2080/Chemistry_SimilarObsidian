@@ -2,7 +2,7 @@
 
 # Chemistry Capability Contract
 
-Last updated: `2026-04-24`
+Last updated: `2026-04-25`
 
 ## Scope
 
@@ -60,13 +60,15 @@ Frozen rules:
   derived only from caller-provided text and extension
 - the molecular preview builder returns deterministic PDB/XYZ/CIF preview text
   derived only from caller-provided text, extension, and atom limit
+- spectroscopy and molecular file extension support decisions are owned by the
+  kernel compute surfaces, not by host command preflight checks
 - Tauri Rust may own serde command marshalling, but not the simulation model
 - Tauri Rust may own PubChem HTTP lookup and serde command marshalling, but
   not retrosynthesis pathway expansion rules
 - Tauri Rust may own file IO and serde command marshalling, but not
-  spectroscopy CSV/JDX parsing rules
-- Tauri Rust may own file IO and serde command marshalling, but not PDB/XYZ
-  molecular preview construction rules
+  spectroscopy extension support or CSV/JDX parsing rules
+- Tauri Rust may own file IO and serde command marshalling, but not molecular
+  extension support or PDB/XYZ/CIF preview construction rules
 - Tauri Rust and other hosts keep row identity, names, formulas, and UI labels;
   the kernel owns stoichiometry numeric propagation rules
 - all returned kinetics arrays are kernel-owned until released with

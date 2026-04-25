@@ -8,7 +8,6 @@ use tauri::State;
 use crate::models::SpectroscopyData;
 use crate::sealed_kernel::{self, SealedKernelState};
 use crate::services::spectroscopy::parse_spectroscopy_from_text;
-use crate::shared::command_utils::{is_molecular_extension, is_spectroscopy_extension};
 use crate::AppError;
 
 const DEFAULT_PREVIEW_ATOM_LIMIT: usize = 2000;
@@ -74,10 +73,6 @@ pub async fn parse_spectroscopy(
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
-
-    if !is_spectroscopy_extension(&ext) {
-        return Err(AppError::Custom(format!("不支持的波谱文件扩展名: {}", ext)));
-    }
 
     let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -157,10 +152,6 @@ pub async fn read_molecular_preview(
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
-    if !is_molecular_extension(&ext) {
-        return Err(AppError::Custom(format!("不支持的分子文件扩展名: {}", ext)));
-    }
-
     let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
     let limit = clamp_preview_limit(max_atoms);
     tauri::async_runtime::spawn_blocking(move || build_molecular_preview(&raw, &ext, limit))
@@ -239,6 +230,14 @@ mod tests {
         assert!(preview.truncated);
         assert!(preview.preview_data.starts_with("2\ncomment\n"));
         assert!(!preview.preview_data.contains("H 0 -1 0"));
+    }
+
+    #[test]
+    fn molecular_preview_delegates_extension_support_to_kernel() {
+        let error =
+            build_molecular_preview("raw text", "txt", 2).expect_err("unsupported extension");
+
+        assert_eq!(error.to_string(), "不支持的分子文件扩展名: txt".to_string());
     }
 
     #[test]

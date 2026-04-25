@@ -2,7 +2,7 @@
 
 # Chemistry Regression Matrix
 
-Last updated: `2026-04-24`
+Last updated: `2026-04-25`
 
 ## Frozen Cross-Batch Invariants
 
@@ -62,6 +62,8 @@ The repository must retain regression coverage for:
 - spectroscopy JDX parsing preserves title, x label, y label, and NMR inference
 - spectroscopy parser failures report typed parse errors without allocating
   stale result buffers
+- Tauri `parse_spectroscopy` delegates extension support decisions to
+  `kernel_parse_spectroscopy_text(...)`
 - `kernel_free_spectroscopy_data(...)` leaves the result empty and is safe on
   partially filled data
 - `kernel_build_molecular_preview(...)` counts and truncates PDB `ATOM` /
@@ -70,6 +72,8 @@ The repository must retain regression coverage for:
 - molecular preview preserves CIF text without inferring atom counts
 - unsupported molecular preview extensions report
   `KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION`
+- Tauri `read_molecular_preview` delegates extension support decisions to
+  `kernel_build_molecular_preview(...)`
 - `kernel_free_molecular_preview(...)` leaves the result empty and is safe on
   partially filled data
 

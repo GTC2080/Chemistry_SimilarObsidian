@@ -71,13 +71,3 @@ pub fn is_supported_extension(ext: &str) -> bool {
         .iter()
         .any(|e| e.eq_ignore_ascii_case(ext))
 }
-
-pub fn is_spectroscopy_extension(ext: &str) -> bool {
-    ext.eq_ignore_ascii_case("csv") || ext.eq_ignore_ascii_case("jdx")
-}
-
-pub fn is_molecular_extension(ext: &str) -> bool {
-    ext.eq_ignore_ascii_case("pdb")
-        || ext.eq_ignore_ascii_case("xyz")
-        || ext.eq_ignore_ascii_case("cif")
-}
