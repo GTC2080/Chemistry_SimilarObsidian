@@ -32,6 +32,9 @@ kernel_status kernel_query_file_tree_filtered(
     size_t limit,
     const char* ignored_roots_csv,
     kernel_file_tree* out_tree);
+kernel_status kernel_filter_changed_markdown_paths(
+    const char* changed_paths_lf,
+    kernel_path_list* out_paths);
 kernel_status kernel_write_note(
     kernel_handle* handle,
     const char* rel_path,
@@ -325,6 +328,7 @@ kernel_status kernel_rebuild_index(kernel_handle* handle);
 kernel_status kernel_export_diagnostics(kernel_handle* handle, const char* output_path);
 void kernel_free_buffer(kernel_owned_buffer* buffer);
 void kernel_free_note_list(kernel_note_list* notes);
+void kernel_free_path_list(kernel_path_list* paths);
 void kernel_free_file_tree(kernel_file_tree* tree);
 void kernel_free_tag_list(kernel_tag_list* tags);
 void kernel_free_graph(kernel_graph* graph);

@@ -43,17 +43,6 @@ struct PendingUpsert {
     ext: String,
 }
 
-fn normalize_rel_path(value: &str) -> String {
-    value.trim().replace('\\', "/")
-}
-
-fn is_markdown_rel_path(value: &str) -> bool {
-    Path::new(value)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
-}
-
 fn is_ignored_note(note_id: &str, ignored: &HashSet<String>) -> bool {
     let first = note_id.split('/').next().unwrap_or("");
     ignored.contains(first)
@@ -78,22 +67,6 @@ fn pending_upsert_from_note(note: NoteInfo, content: String) -> PendingUpsert {
         content,
         ext: note.file_extension,
     }
-}
-
-fn changed_markdown_rel_paths(paths: &[String]) -> Vec<String> {
-    let mut seen = HashSet::new();
-    let mut rel_paths = Vec::new();
-
-    for raw in paths {
-        let rel_path = normalize_rel_path(raw);
-        if rel_path.is_empty() || !is_markdown_rel_path(&rel_path) || !seen.insert(rel_path.clone())
-        {
-            continue;
-        }
-        rel_paths.push(rel_path);
-    }
-
-    rel_paths
 }
 
 fn kernel_note_info_map_for_rel_paths(
@@ -152,7 +125,7 @@ fn collect_kernel_changed_upserts(
     existing_timestamps: &HashMap<String, i64>,
     kernel_state: &SealedKernelState,
 ) -> Result<Vec<PendingUpsert>, AppError> {
-    let rel_paths = changed_markdown_rel_paths(paths);
+    let rel_paths = sealed_kernel::filter_changed_markdown_paths(paths)?;
     let mut notes_by_id = kernel_note_info_map_for_rel_paths(vault_path, &rel_paths, kernel_state)?;
     let mut pending_upserts = Vec::new();
 
@@ -444,7 +417,7 @@ pub fn scan_changed_entries(
     paths: Vec<String>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    let rel_paths = changed_markdown_rel_paths(&paths);
+    let rel_paths = sealed_kernel::filter_changed_markdown_paths(&paths)?;
     let mut notes_by_id =
         kernel_note_info_map_for_rel_paths(&vault_path, &rel_paths, sealed_kernel.inner())?;
     let mut notes = Vec::new();
@@ -539,25 +512,4 @@ pub fn start_watcher(
 pub fn stop_watcher(watcher: State<WatcherState>) -> Result<(), AppError> {
     watcher.stop();
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn changed_markdown_rel_paths_normalizes_filters_and_deduplicates() {
-        let paths = vec![
-            " Folder\\Note.md ".to_string(),
-            "Folder/Note.md".to_string(),
-            "Folder/Note.txt".to_string(),
-            "".to_string(),
-            "Folder/Sub.MD".to_string(),
-        ];
-
-        assert_eq!(
-            changed_markdown_rel_paths(&paths),
-            vec!["Folder/Note.md".to_string(), "Folder/Sub.MD".to_string()]
-        );
-    }
 }

@@ -53,6 +53,11 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_filter_changed_markdown_paths_json(
+        changed_paths_lf_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_read_note_json(
         session: *mut SealedKernelBridgeSession,
         rel_path_utf8: *const c_char,
@@ -177,6 +182,11 @@ struct SealedKernelReadNoteResult {
 #[derive(Deserialize)]
 struct SealedKernelFileTreeCatalog {
     nodes: Vec<SealedKernelFileTreeNode>,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelPathCatalog {
+    paths: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -495,6 +505,33 @@ pub fn query_file_tree(
         .into_iter()
         .map(|node| file_tree_node_from_kernel(vault_path, node))
         .collect())
+}
+
+pub fn filter_changed_markdown_paths(paths: &[String]) -> AppResult<Vec<String>> {
+    let joined = paths.join("\n");
+    let paths_c = cstring_arg(joined, "changed_paths")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_filter_changed_markdown_paths_json(
+            paths_c.as_ptr(),
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_filter_changed_markdown_paths",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    let catalog: SealedKernelPathCatalog = serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!("sealed kernel changed path JSON is invalid: {err}"))
+    })?;
+    Ok(catalog.paths)
 }
 
 pub fn query_search_note_infos(

@@ -111,6 +111,31 @@ void test_move_note_updates_catalog() {
   close_and_cleanup(handle, vault);
 }
 
+void test_filter_changed_markdown_paths_normalizes_filters_and_deduplicates() {
+  kernel_path_list paths{};
+  expect_ok(kernel_filter_changed_markdown_paths(
+      " Folder\\Note.md \n"
+      "Folder/Note.md\n"
+      "Folder/Note.txt\n"
+      "\n"
+      "Folder/Sub.MD\n",
+      &paths));
+
+  require_true(paths.count == 2, "changed path filter should keep only unique markdown paths");
+  require_true(
+      std::string(paths.paths[0]) == "Folder/Note.md",
+      "changed path filter should trim and normalize backslashes");
+  require_true(
+      std::string(paths.paths[1]) == "Folder/Sub.MD",
+      "changed path filter should preserve original path case");
+  kernel_free_path_list(&paths);
+  require_true(paths.paths == nullptr && paths.count == 0, "changed path free should reset output");
+  kernel_free_path_list(&paths);
+  require_true(
+      kernel_filter_changed_markdown_paths("note.md", nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed path filter should require output pointer");
+}
+
 }  // namespace
 
 void run_kernel_api_core_vault_entry_contract_tests() {
@@ -118,4 +143,5 @@ void run_kernel_api_core_vault_entry_contract_tests() {
   test_rename_note_updates_catalog_and_preserves_content();
   test_delete_note_removes_catalog_entry();
   test_move_note_updates_catalog();
+  test_filter_changed_markdown_paths_normalizes_filters_and_deduplicates();
 }

@@ -87,6 +87,11 @@ typedef struct kernel_note_list {
   size_t count;
 } kernel_note_list;
 
+typedef struct kernel_path_list {
+  char** paths;
+  size_t count;
+} kernel_path_list;
+
 typedef struct kernel_file_tree_note {
   char* rel_path;
   char* name;
