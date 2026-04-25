@@ -1,9 +1,19 @@
-use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::sync::OnceLock;
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 
 use crate::AppError;
+
+const KERNEL_OK: i32 = 0;
+const KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA: i32 = 1;
+const KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE: i32 = 2;
+const KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT: i32 = 3;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelStatus {
+    code: i32,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,65 +29,74 @@ pub struct TruthDiffResultDto {
     pub awards: Vec<TruthExpAwardDto>,
 }
 
-fn code_block_regex() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"```(\w+)").expect("代码块正则编译失败"))
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct KernelTruthAward {
+    attr: *mut c_char,
+    amount: i32,
+    reason: i32,
+    detail: *mut c_char,
 }
 
-fn route_by_extension(ext: &str) -> &'static str {
-    let lower = ext.to_ascii_lowercase();
-    if ["jdx", "csv"].contains(&lower.as_str()) {
-        return "science";
-    }
-    if [
-        "py", "js", "ts", "tsx", "jsx", "rs", "go", "c", "cpp", "java",
-    ]
-    .contains(&lower.as_str())
-    {
-        return "engineering";
-    }
-    if ["mol", "chemdraw"].contains(&lower.as_str()) {
-        return "creation";
-    }
-    if ["dashboard", "base"].contains(&lower.as_str()) {
-        return "finance";
-    }
-    "creation"
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+struct KernelTruthDiffResult {
+    awards: *mut KernelTruthAward,
+    count: usize,
 }
 
-fn route_by_code_language(lang: &str) -> Option<&'static str> {
-    let lower = lang.to_ascii_lowercase();
-    if [
-        "python",
-        "py",
-        "rust",
-        "go",
-        "javascript",
-        "js",
-        "typescript",
-        "ts",
-        "java",
-        "c",
-        "cpp",
-    ]
-    .contains(&lower.as_str())
-    {
-        return Some("engineering");
+fn kernel_string(ptr: *mut c_char) -> String {
+    if ptr.is_null() {
+        return String::new();
     }
-    if ["smiles", "chemical", "latex", "math"].contains(&lower.as_str()) {
-        return Some("science");
-    }
-    if ["sql", "r", "stata"].contains(&lower.as_str()) {
-        return Some("finance");
-    }
-    None
+    unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() }
 }
 
-fn extract_code_languages(content: &str) -> HashSet<String> {
-    code_block_regex()
-        .captures_iter(content)
-        .filter_map(|cap| cap.get(1).map(|m| m.as_str().to_ascii_lowercase()))
+fn truth_reason_message(reason: i32, detail: &str) -> String {
+    match reason {
+        KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA => "文本净增量经验".to_string(),
+        KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE => format!("新增代码块语言: {detail}"),
+        KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT => "分子编辑变更".to_string(),
+        _ => "内容变更".to_string(),
+    }
+}
+
+fn truth_awards_from_kernel(
+    raw: &KernelTruthDiffResult,
+) -> Result<Vec<TruthExpAwardDto>, AppError> {
+    if raw.count == 0 {
+        return Ok(Vec::new());
+    }
+    if raw.awards.is_null() {
+        return Err(AppError::Custom("Truth diff 内核返回结果无效".to_string()));
+    }
+
+    let awards = unsafe { std::slice::from_raw_parts(raw.awards, raw.count) };
+    awards
+        .iter()
+        .map(|award| {
+            let attr = kernel_string(award.attr);
+            let detail = kernel_string(award.detail);
+            Ok(TruthExpAwardDto {
+                attr,
+                amount: award.amount,
+                reason: truth_reason_message(award.reason, &detail),
+            })
+        })
         .collect()
+}
+
+extern "C" {
+    fn kernel_compute_truth_diff(
+        prev_content: *const c_char,
+        prev_size: usize,
+        curr_content: *const c_char,
+        curr_size: usize,
+        file_extension: *const c_char,
+        out_result: *mut KernelTruthDiffResult,
+    ) -> KernelStatus;
+
+    fn kernel_free_truth_diff_result(result: *mut KernelTruthDiffResult);
 }
 
 #[tauri::command]
@@ -86,53 +105,32 @@ pub fn compute_truth_diff(
     curr_content: String,
     file_extension: String,
 ) -> Result<TruthDiffResultDto, AppError> {
-    const EXP_PER_100_CHARS: i32 = 2;
-    const EXP_PER_MOL_EDIT: i32 = 5;
-    const EXP_PER_CODE_BLOCK: i32 = 8;
-
-    if prev_content.is_empty() || curr_content.is_empty() {
-        return Ok(TruthDiffResultDto { awards: Vec::new() });
-    }
-
-    let mut awards = Vec::new();
-    let delta = curr_content.len() as i32 - prev_content.len() as i32;
-    if delta > 10 {
-        let char_exp = ((delta as f64 / 100.0) * EXP_PER_100_CHARS as f64).floor() as i32;
-        if char_exp > 0 {
-            awards.push(TruthExpAwardDto {
-                attr: route_by_extension(&file_extension).to_string(),
-                amount: char_exp,
-                reason: "文本净增量经验".to_string(),
-            });
+    let extension = CString::new(file_extension)
+        .map_err(|_| AppError::Custom("Truth diff 文件扩展名包含非法字符".to_string()))?;
+    let mut result = KernelTruthDiffResult::default();
+    let status = unsafe {
+        kernel_compute_truth_diff(
+            prev_content.as_ptr() as *const c_char,
+            prev_content.len(),
+            curr_content.as_ptr() as *const c_char,
+            curr_content.len(),
+            extension.as_ptr(),
+            &mut result,
+        )
+    };
+    if status.code != KERNEL_OK {
+        unsafe {
+            kernel_free_truth_diff_result(&mut result);
         }
+        return Err(AppError::Custom("Truth diff 内核计算失败".to_string()));
     }
 
-    let new_blocks = extract_code_languages(&curr_content);
-    let old_blocks = extract_code_languages(&prev_content);
-    for lang in new_blocks.difference(&old_blocks) {
-        if let Some(attr) = route_by_code_language(lang) {
-            awards.push(TruthExpAwardDto {
-                attr: attr.to_string(),
-                amount: EXP_PER_CODE_BLOCK,
-                reason: format!("新增代码块语言: {}", lang),
-            });
-        }
+    let awards = truth_awards_from_kernel(&result);
+    unsafe {
+        kernel_free_truth_diff_result(&mut result);
     }
 
-    if file_extension.eq_ignore_ascii_case("mol") || file_extension.eq_ignore_ascii_case("chemdraw")
-    {
-        let prev_lines = prev_content.lines().count();
-        let curr_lines = curr_content.lines().count();
-        if curr_lines > prev_lines {
-            awards.push(TruthExpAwardDto {
-                attr: "creation".to_string(),
-                amount: (curr_lines - prev_lines) as i32 * EXP_PER_MOL_EDIT,
-                reason: "分子编辑变更".to_string(),
-            });
-        }
-    }
-
-    Ok(TruthDiffResultDto { awards })
+    Ok(TruthDiffResultDto { awards: awards? })
 }
 
 // ──────────────────────────────────────────
@@ -209,14 +207,6 @@ pub fn build_semantic_context(content: String) -> String {
 // ──────────────────────────────────────────
 // 化学计量计算（Rust 桥接 C++ kernel）
 // ──────────────────────────────────────────
-
-const KERNEL_OK: i32 = 0;
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelStatus {
-    code: i32,
-}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -463,6 +453,36 @@ pub fn normalize_database(input: serde_json::Value) -> DatabasePayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compute_truth_diff_uses_kernel_code_language_award() {
+        let result = compute_truth_diff(
+            "note".to_string(),
+            "note\n```rust\nfn main() {}\n```".to_string(),
+            "md".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(result.awards.len(), 1);
+        assert_eq!(result.awards[0].attr, "engineering");
+        assert_eq!(result.awards[0].amount, 8);
+        assert_eq!(result.awards[0].reason, "新增代码块语言: rust");
+    }
+
+    #[test]
+    fn compute_truth_diff_uses_kernel_molecular_line_award() {
+        let result = compute_truth_diff(
+            "atom-a".to_string(),
+            "atom-a\natom-b\natom-c".to_string(),
+            "mol".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(result.awards.len(), 1);
+        assert_eq!(result.awards[0].attr, "creation");
+        assert_eq!(result.awards[0].amount, 10);
+        assert_eq!(result.awards[0].reason, "分子编辑变更");
+    }
 
     fn stoich_row(
         id: &str,

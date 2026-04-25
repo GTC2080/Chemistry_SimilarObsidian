@@ -70,6 +70,7 @@ cmake --build --preset build-debug --target kernel_phase_gate
 - Release checklist: `docs/governance/release-checklist.md`
 - Benchmark baselines: `docs/governance/benchmark-baselines.md`
 - Public query ABI overview: `docs/surfaces/query-public-surface.md`
+- Product compute contract: `docs/contracts/product-compute-contract.md`
 
 ## Local Overrides
 

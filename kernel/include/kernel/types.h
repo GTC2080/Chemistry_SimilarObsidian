@@ -491,6 +491,24 @@ typedef struct kernel_stoichiometry_row_output {
   uint8_t is_reference;
 } kernel_stoichiometry_row_output;
 
+typedef enum kernel_truth_award_reason {
+  KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA = 1,
+  KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE = 2,
+  KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT = 3
+} kernel_truth_award_reason;
+
+typedef struct kernel_truth_award {
+  char* attr;
+  int32_t amount;
+  kernel_truth_award_reason reason;
+  char* detail;
+} kernel_truth_award;
+
+typedef struct kernel_truth_diff_result {
+  kernel_truth_award* awards;
+  size_t count;
+} kernel_truth_diff_result;
+
 typedef struct kernel_retro_precursor {
   char* id;
   char* smiles;

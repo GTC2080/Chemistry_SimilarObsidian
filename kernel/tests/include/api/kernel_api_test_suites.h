@@ -14,6 +14,7 @@ void run_domain_reference_tests();
 void run_domain_diagnostics_tests();
 void run_pdf_surface_tests();
 void run_pdf_diagnostics_tests();
+void run_product_compute_tests();
 void run_runtime_recovery_tests();
 void run_search_public_surface_tests();
 void run_search_expanded_tests();

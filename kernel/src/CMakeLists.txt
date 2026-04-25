@@ -29,6 +29,7 @@ add_library(
   impl/core/kernel_chemistry_retrosynthesis_public_api.cpp
   impl/core/kernel_chemistry_spectroscopy_public_api.cpp
   impl/core/kernel_chemistry_molecular_preview_public_api.cpp
+  impl/core/kernel_product_compute_public_api.cpp
   impl/core/kernel_crystal_public_api.cpp
   impl/core/kernel_symmetry_public_api.cpp
   impl/core/kernel_symmetry_atom_parser_public_api.cpp
