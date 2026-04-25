@@ -334,6 +334,134 @@ void test_supercell_rejects_invalid_inputs_with_typed_errors() {
       "supercell should reject null output");
 }
 
+void test_lattice_from_cif_builds_full_viewer_payload() {
+  constexpr std::string_view cif = R"cif(
+data_NaCl
+_cell_length_a 5.64
+_cell_length_b 5.64
+_cell_length_c 5.64
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+Cl 0.5 0.5 0.5
+)cif";
+
+  kernel_lattice_result result{};
+  require_ok_status(
+      kernel_build_lattice_from_cif(cif.data(), cif.size(), 2, 2, 2, &result),
+      "full lattice from CIF");
+
+  require_near(result.unit_cell.a, 5.64, "lattice unit cell a");
+  require_near(result.unit_cell.vectors[0][0], 5.64, "lattice vector ax");
+  require_true(result.atom_count == 16, "lattice should emit expanded atom payload");
+  require_true(
+      result.atoms != nullptr && result.atoms[0].element != nullptr,
+      "lattice should allocate atom payload");
+  require_true(result.parse_error == KERNEL_CRYSTAL_PARSE_ERROR_NONE, "lattice parse ok");
+  require_true(
+      result.supercell_error == KERNEL_CRYSTAL_SUPERCELL_ERROR_NONE,
+      "lattice supercell ok");
+
+  kernel_free_lattice_result(&result);
+  require_true(result.atoms == nullptr && result.atom_count == 0, "lattice free resets atoms");
+}
+
+void test_lattice_from_cif_reports_typed_parse_and_supercell_errors() {
+  constexpr std::string_view no_cell = R"cif(
+data_test
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+)cif";
+  constexpr std::string_view too_many = R"cif(
+data_test
+_cell_length_a 3.0
+_cell_length_b 3.0
+_cell_length_c 3.0
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+)cif";
+
+  kernel_lattice_result result{};
+  require_true(
+      kernel_build_lattice_from_cif(no_cell.data(), no_cell.size(), 1, 1, 1, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "full lattice should reject missing cell");
+  require_true(
+      result.parse_error == KERNEL_CRYSTAL_PARSE_ERROR_MISSING_CELL,
+      "full lattice should report parse error");
+
+  require_true(
+      kernel_build_lattice_from_cif(too_many.data(), too_many.size(), 50001, 1, 1, &result)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "full lattice should reject too many atoms");
+  require_true(
+      result.supercell_error == KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS,
+      "full lattice should report supercell error");
+  require_true(result.estimated_count == 50001, "full lattice should report estimate");
+}
+
+void test_miller_plane_from_cif_keeps_host_bridge_thin() {
+  constexpr std::string_view cif = R"cif(
+data_test
+_cell_length_a 5.0
+_cell_length_b 5.0
+_cell_length_c 5.0
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+)cif";
+
+  kernel_cif_miller_plane_result result{};
+  require_ok_status(
+      kernel_calculate_miller_plane_from_cif(cif.data(), cif.size(), 1, 1, 1, &result),
+      "miller plane from CIF");
+
+  const double inv_sqrt3 = 1.0 / std::sqrt(3.0);
+  require_near(result.plane.normal[0], inv_sqrt3, "cif miller normal x");
+  require_true(result.parse_error == KERNEL_CRYSTAL_PARSE_ERROR_NONE, "cif miller parse ok");
+  require_true(
+      result.plane.error == KERNEL_CRYSTAL_MILLER_ERROR_NONE,
+      "cif miller plane ok");
+
+  require_true(
+      kernel_calculate_miller_plane_from_cif(cif.data(), cif.size(), 0, 0, 0, &result).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "cif miller should reject zero index");
+  require_true(
+      result.plane.error == KERNEL_CRYSTAL_MILLER_ERROR_ZERO_INDEX,
+      "cif miller should report zero index");
+}
+
 }  // namespace
 
 void run_crystal_compute_tests() {
@@ -346,4 +474,7 @@ void run_crystal_compute_tests() {
   test_supercell_expands_simple_cubic_cell();
   test_supercell_deduplicates_identical_symmetry_ops();
   test_supercell_rejects_invalid_inputs_with_typed_errors();
+  test_lattice_from_cif_builds_full_viewer_payload();
+  test_lattice_from_cif_reports_typed_parse_and_supercell_errors();
+  test_miller_plane_from_cif_keeps_host_bridge_thin();
 }

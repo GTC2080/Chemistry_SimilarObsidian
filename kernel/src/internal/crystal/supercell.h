@@ -1,5 +1,5 @@
 // Reason: This file isolates stateless supercell expansion in the kernel while
-// hosts keep CIF parsing and command DTO marshalling.
+// public full-result ABI keeps host crystal commands thin.
 
 #pragma once
 

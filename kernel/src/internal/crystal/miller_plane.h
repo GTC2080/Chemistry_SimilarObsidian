@@ -1,5 +1,5 @@
 // Reason: This file isolates stateless crystal Miller-plane computation in
-// the kernel while hosts keep CIF parsing and UI marshalling.
+// the kernel while public full-result ABI keeps host crystal commands thin.
 
 #pragma once
 

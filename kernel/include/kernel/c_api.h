@@ -173,6 +173,20 @@ kernel_status kernel_build_supercell(
     uint32_t ny,
     uint32_t nz,
     kernel_supercell_result* out_result);
+kernel_status kernel_build_lattice_from_cif(
+    const char* raw,
+    size_t raw_size,
+    uint32_t nx,
+    uint32_t ny,
+    uint32_t nz,
+    kernel_lattice_result* out_result);
+kernel_status kernel_calculate_miller_plane_from_cif(
+    const char* raw,
+    size_t raw_size,
+    int32_t h,
+    int32_t k,
+    int32_t l,
+    kernel_cif_miller_plane_result* out_result);
 kernel_status kernel_classify_point_group(
     const kernel_symmetry_axis_input* axes,
     size_t axis_count,
@@ -319,6 +333,7 @@ void kernel_free_spectroscopy_data(kernel_spectroscopy_data* data);
 void kernel_free_molecular_preview(kernel_molecular_preview* preview);
 void kernel_free_crystal_parse_result(kernel_crystal_parse_result* result);
 void kernel_free_supercell_result(kernel_supercell_result* result);
+void kernel_free_lattice_result(kernel_lattice_result* result);
 void kernel_free_symmetry_atom_list(kernel_symmetry_atom_list* atoms);
 void kernel_free_symmetry_calculation_result(kernel_symmetry_calculation_result* result);
 void kernel_free_chem_spectrum_source_refs(kernel_chem_spectrum_source_refs* refs);

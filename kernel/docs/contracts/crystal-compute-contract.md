@@ -2,7 +2,7 @@
 
 # Crystal Compute Contract
 
-Last updated: `2026-04-24`
+Last updated: `2026-04-25`
 
 ## Scope
 
@@ -15,6 +15,9 @@ Current surface:
 - `kernel_calculate_miller_plane(cell, h, k, l, out_result)`
 - `kernel_build_supercell(cell, atoms, atom_count, symops, symop_count, nx, ny, nz, out_result)`
 - `kernel_free_supercell_result(out_result)`
+- `kernel_build_lattice_from_cif(raw, raw_size, nx, ny, nz, out_result)`
+- `kernel_calculate_miller_plane_from_cif(raw, raw_size, h, k, l, out_result)`
+- `kernel_free_lattice_result(out_result)`
 
 Current exclusions:
 
@@ -36,6 +39,12 @@ Frozen rules:
 - Miller-plane output buffers are host-owned and require no kernel free call
 - supercell atom arrays and element strings are kernel-owned until released with
   `kernel_free_supercell_result(...)`
+- full lattice atom arrays and element strings are kernel-owned until released
+  with `kernel_free_lattice_result(...)`
+- full lattice output includes the unit-cell dimensions, origin, lattice
+  vectors, and expanded Cartesian atom payload in one host-facing result
+- CIF-backed Miller-plane output parses the CIF and computes the plane inside
+  the kernel; hosts only map the typed parse or Miller error to localized text
 - failures return `KERNEL_ERROR_INVALID_ARGUMENT` with a typed
   crystal compute error
 
@@ -63,6 +72,8 @@ Frozen rules:
 - hosts must not reimplement CIF cell, fractional atom, or symmetry operation parsing
 - hosts must not reimplement Miller-plane geometry
 - hosts must not reimplement supercell expansion or atom deduplication
+- hosts must not reimplement crystal unit-cell vector construction when using
+  `kernel_build_lattice_from_cif(...)`
 - hosts must preserve the existing Tauri command shape for
   `calculate_miller_plane` and `parse_and_build_lattice`
 - frontends continue to consume host commands rather than kernel ABI directly

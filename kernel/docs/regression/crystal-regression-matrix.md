@@ -2,7 +2,7 @@
 
 # Crystal Regression Matrix
 
-Last updated: `2026-04-24`
+Last updated: `2026-04-25`
 
 ## Stateless Crystal Compute
 
@@ -40,3 +40,13 @@ The repository must retain regression coverage for:
   for degenerate cell geometry
 - `kernel_free_supercell_result(...)` leaves the result empty and is safe on
   partially filled data
+- `kernel_build_lattice_from_cif(...)` emits a full viewer payload with unit
+  cell dimensions, lattice vectors, and expanded atoms
+- full lattice results preserve typed CIF parse errors
+- full lattice results preserve typed supercell errors and estimated atom count
+- `kernel_free_lattice_result(...)` leaves the result empty and is safe on
+  partially filled data
+- `kernel_calculate_miller_plane_from_cif(...)` parses CIF and computes the
+  Miller-plane result inside the kernel
+- CIF-backed Miller-plane results preserve typed CIF parse errors and typed
+  Miller errors

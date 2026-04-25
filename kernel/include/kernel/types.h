@@ -624,6 +624,31 @@ typedef struct kernel_supercell_result {
   kernel_crystal_supercell_error error;
 } kernel_supercell_result;
 
+typedef struct kernel_unit_cell_box {
+  double a;
+  double b;
+  double c;
+  double alpha_deg;
+  double beta_deg;
+  double gamma_deg;
+  double origin[3];
+  double vectors[3][3];
+} kernel_unit_cell_box;
+
+typedef struct kernel_lattice_result {
+  kernel_unit_cell_box unit_cell;
+  kernel_atom_node* atoms;
+  size_t atom_count;
+  uint64_t estimated_count;
+  kernel_crystal_parse_error parse_error;
+  kernel_crystal_supercell_error supercell_error;
+} kernel_lattice_result;
+
+typedef struct kernel_cif_miller_plane_result {
+  kernel_miller_plane_result plane;
+  kernel_crystal_parse_error parse_error;
+} kernel_cif_miller_plane_result;
+
 typedef struct kernel_symmetry_axis_input {
   double dir[3];
   uint8_t order;
