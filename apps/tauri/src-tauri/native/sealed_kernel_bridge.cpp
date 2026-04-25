@@ -314,9 +314,10 @@ int32_t sealed_kernel_bridge_get_state(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
-int32_t sealed_kernel_bridge_query_notes_json(
+int32_t QueryNotesJson(
     sealed_kernel_bridge_session* session,
     uint64_t limit,
+    const char* ignored_roots_utf8,
     char** out_json,
     char** out_error) {
   if (out_json != nullptr) {
@@ -328,10 +329,19 @@ int32_t sealed_kernel_bridge_query_notes_json(
   }
 
   kernel_note_list notes{};
-  const kernel_status status =
-      kernel_query_notes(session->handle, static_cast<size_t>(limit), &notes);
+  const std::string ignored_roots = Utf8ToActiveCodePage(ignored_roots_utf8);
+  const kernel_status status = ignored_roots.empty()
+      ? kernel_query_notes(session->handle, static_cast<size_t>(limit), &notes)
+      : kernel_query_notes_filtered(
+            session->handle,
+            static_cast<size_t>(limit),
+            ignored_roots.c_str(),
+            &notes);
   if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_query_notes", out_error);
+    return ReturnKernelError(
+        status,
+        ignored_roots.empty() ? "kernel_query_notes" : "kernel_query_notes_filtered",
+        out_error);
   }
 
   std::string json = "{\"notes\":[";
@@ -356,6 +366,23 @@ int32_t sealed_kernel_bridge_query_notes_json(
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_notes_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  return QueryNotesJson(session, limit, nullptr, out_json, out_error);
+}
+
+int32_t sealed_kernel_bridge_query_notes_filtered_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    const char* ignored_roots_utf8,
+    char** out_json,
+    char** out_error) {
+  return QueryNotesJson(session, limit, ignored_roots_utf8, out_json, out_error);
 }
 
 int32_t sealed_kernel_bridge_query_file_tree_json(

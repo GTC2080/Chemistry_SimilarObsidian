@@ -71,6 +71,29 @@ void test_query_notes_limit_is_applied() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_query_notes_filtered_ignores_only_matching_roots() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  write_note(handle, "node_modules/pkg.md", "# Package\n");
+  write_note(handle, "node_modules.md", "# Root File\n");
+  write_note(handle, "lab/a.md", "# A\n");
+
+  kernel_note_list notes{};
+  expect_ok(kernel_query_notes_filtered(handle, 16, " node_modules/ ", &notes));
+  require_true(notes.count == 2, "filtered note catalog should remove only exact ignored roots");
+  require_true(std::string(notes.notes[0].rel_path) == "lab/a.md", "filtered note catalog should keep lab");
+  require_true(
+      std::string(notes.notes[1].rel_path) == "node_modules.md",
+      "filtered note catalog should keep similarly named root files");
+  kernel_free_note_list(&notes);
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
 void test_query_notes_requires_valid_arguments() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -97,5 +120,6 @@ void test_query_notes_requires_valid_arguments() {
 void run_kernel_api_core_note_catalog_contract_tests() {
   test_query_notes_returns_sorted_live_catalog();
   test_query_notes_limit_is_applied();
+  test_query_notes_filtered_ignores_only_matching_roots();
   test_query_notes_requires_valid_arguments();
 }

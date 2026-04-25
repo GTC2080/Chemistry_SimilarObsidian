@@ -23,6 +23,11 @@ kernel_status kernel_query_notes(
     kernel_handle* handle,
     size_t limit,
     kernel_note_list* out_notes);
+kernel_status kernel_query_notes_filtered(
+    kernel_handle* handle,
+    size_t limit,
+    const char* ignored_roots_csv,
+    kernel_note_list* out_notes);
 kernel_status kernel_query_file_tree(
     kernel_handle* handle,
     size_t limit,

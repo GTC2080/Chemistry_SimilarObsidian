@@ -46,6 +46,13 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_query_notes_filtered_json(
+        session: *mut SealedKernelBridgeSession,
+        limit: u64,
+        ignored_roots_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_query_file_tree_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
@@ -345,7 +352,11 @@ pub fn active_vault_path(state: &SealedKernelState) -> AppResult<String> {
         .ok_or_else(|| AppError::Custom("sealed kernel vault is not open.".to_string()))
 }
 
-fn query_note_catalog(state: &SealedKernelState, limit: u64) -> AppResult<SealedKernelNoteCatalog> {
+fn query_note_catalog(
+    state: &SealedKernelState,
+    limit: u64,
+    ignored_roots: Option<&str>,
+) -> AppResult<SealedKernelNoteCatalog> {
     if limit == 0 {
         return Err(AppError::Custom(
             "limit must be greater than zero.".to_string(),
@@ -353,10 +364,25 @@ fn query_note_catalog(state: &SealedKernelState, limit: u64) -> AppResult<Sealed
     }
 
     let session = active_session(state)?;
+    let ignored_roots_c = ignored_roots
+        .map(|value| cstring_arg(value.to_string(), "ignored_roots"))
+        .transpose()?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
-    let code =
-        unsafe { sealed_kernel_bridge_query_notes_json(session, limit, &mut raw_json, &mut error) };
+    let code = match ignored_roots_c.as_ref() {
+        Some(ignored_roots) => unsafe {
+            sealed_kernel_bridge_query_notes_filtered_json(
+                session,
+                limit,
+                ignored_roots.as_ptr(),
+                &mut raw_json,
+                &mut error,
+            )
+        },
+        None => unsafe {
+            sealed_kernel_bridge_query_notes_json(session, limit, &mut raw_json, &mut error)
+        },
+    };
     if code != 0 {
         return Err(bridge_error("sealed_kernel_query_notes", code, error));
     }
@@ -454,7 +480,23 @@ pub fn query_note_infos(
 ) -> AppResult<Vec<NoteInfo>> {
     ensure_vault_open(vault_path, state)?;
     wait_for_catalog_ready(active_session(state)?)?;
-    let catalog = query_note_catalog(state, limit)?;
+    let catalog = query_note_catalog(state, limit, None)?;
+    Ok(catalog
+        .notes
+        .into_iter()
+        .map(|record| note_info_from_record(vault_path, record))
+        .collect())
+}
+
+pub fn query_note_infos_filtered(
+    vault_path: &str,
+    state: &SealedKernelState,
+    limit: u64,
+    ignored_roots: &str,
+) -> AppResult<Vec<NoteInfo>> {
+    ensure_vault_open(vault_path, state)?;
+    wait_for_catalog_ready(active_session(state)?)?;
+    let catalog = query_note_catalog(state, limit, Some(ignored_roots))?;
     Ok(catalog
         .notes
         .into_iter()
@@ -1010,7 +1052,7 @@ pub fn sealed_kernel_query_notes(
     state: State<'_, SealedKernelState>,
 ) -> AppResult<Value> {
     let limit = limit.unwrap_or(512);
-    serde_json::to_value(query_note_catalog(state.inner(), limit)?)
+    serde_json::to_value(query_note_catalog(state.inner(), limit, None)?)
         .map_err(|err| AppError::Custom(format!("sealed kernel note catalog encode failed: {err}")))
 }
 

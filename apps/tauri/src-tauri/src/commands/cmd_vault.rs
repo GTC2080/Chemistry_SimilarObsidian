@@ -43,11 +43,6 @@ struct PendingUpsert {
     ext: String,
 }
 
-fn is_ignored_note(note_id: &str, ignored: &HashSet<String>) -> bool {
-    let first = note_id.split('/').next().unwrap_or("");
-    ignored.contains(first)
-}
-
 fn should_refresh_note(
     note: &NoteInfo,
     existing_timestamps: Option<&HashMap<String, i64>>,
@@ -91,16 +86,20 @@ fn kernel_note_info_map_for_rel_paths(
 
 fn collect_kernel_note_upserts(
     vault_path: &str,
-    ignored: &HashSet<String>,
+    ignored_roots: &str,
     existing_timestamps: Option<&HashMap<String, i64>>,
     kernel_state: &SealedKernelState,
 ) -> Result<Vec<PendingUpsert>, AppError> {
-    let notes =
-        sealed_kernel::query_note_infos(vault_path, kernel_state, KERNEL_NOTE_CATALOG_LIMIT)?;
+    let notes = sealed_kernel::query_note_infos_filtered(
+        vault_path,
+        kernel_state,
+        KERNEL_NOTE_CATALOG_LIMIT,
+        ignored_roots,
+    )?;
     let mut pending_upserts = Vec::new();
 
     for note in notes {
-        if is_ignored_note(&note.id, ignored) || !should_refresh_note(&note, existing_timestamps) {
+        if !should_refresh_note(&note, existing_timestamps) {
             continue;
         }
         let content = match sealed_kernel::read_note_by_rel_path(&note.id, kernel_state) {
@@ -245,14 +244,12 @@ pub fn scan_vault(
             vault_path
         )));
     }
-    let ignored = parse_ignored_folders(ignored_folders);
-
-    let mut notes = sealed_kernel::query_note_infos(&vault_path, sealed_kernel.inner(), 4096)?;
-    notes.retain(|note| {
-        let first = note.id.split('/').next().unwrap_or("");
-        !ignored.contains(first)
-    });
-    Ok(notes)
+    sealed_kernel::query_note_infos_filtered(
+        &vault_path,
+        sealed_kernel.inner(),
+        4096,
+        ignored_folders.as_deref().unwrap_or(""),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -272,7 +269,6 @@ pub fn index_vault_content(
     vector_cache: State<ai::VectorCacheState>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<u32, AppError> {
-    let ignored = parse_ignored_folders(ignored_folders);
     let ai_config = read_ai_config(&app)
         .ok()
         .filter(|config| !config.api_key.trim().is_empty());
@@ -283,7 +279,7 @@ pub fn index_vault_content(
 
     let pending_upserts = collect_kernel_note_upserts(
         &vault_path,
-        &ignored,
+        ignored_folders.as_deref().unwrap_or(""),
         Some(&existing_timestamps),
         sealed_kernel.inner(),
     )?;
@@ -319,9 +315,8 @@ pub async fn rebuild_vector_index(
     }
 
     let vault_path = sealed_kernel::active_vault_path(sealed_kernel.inner())?;
-    let ignored = HashSet::new();
     let pending_upserts =
-        collect_kernel_note_upserts(&vault_path, &ignored, None, sealed_kernel.inner())?;
+        collect_kernel_note_upserts(&vault_path, "", None, sealed_kernel.inner())?;
     let all_notes: Vec<_> = pending_upserts
         .iter()
         .map(|note| (note.id.clone(), note.abs_path.clone(), note.content.clone()))
