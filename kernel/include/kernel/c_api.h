@@ -145,6 +145,10 @@ kernel_status kernel_compute_truth_diff(
     size_t curr_size,
     const char* file_extension,
     kernel_truth_diff_result* out_result);
+kernel_status kernel_build_semantic_context(
+    const char* content,
+    size_t content_size,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_generate_mock_retrosynthesis(
     const char* target_smiles,
     uint8_t depth,

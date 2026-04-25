@@ -13,6 +13,7 @@ Current surface:
 
 - `kernel_compute_truth_diff(prev_content, prev_size, curr_content, curr_size, file_extension, out_result)`
 - `kernel_free_truth_diff_result(out_result)`
+- `kernel_build_semantic_context(content, content_size, out_buffer)`
 
 Current exclusions:
 
@@ -29,8 +30,12 @@ Frozen rules:
 - Tauri Rust owns serde command marshalling and localized reason text
 - the kernel owns award attribute routing, award amounts, code-fence language
   detection, and molecular line-growth detection
+- the kernel owns semantic context trimming, heading extraction, recent-block
+  selection, and context length limits
 - returned awards and strings are kernel-owned until released with
   `kernel_free_truth_diff_result(...)`
+- returned semantic context bytes are kernel-owned until released with
+  `kernel_free_buffer(...)`
 - `reason` is a typed enum; hosts map it to localized text
 - `detail` is only populated for code-language awards and contains the detected
   language
@@ -69,6 +74,26 @@ Frozen rules:
 Frozen rules:
 
 - hosts must preserve the existing Tauri command shape for `compute_truth_diff`
+- hosts must preserve the existing Tauri command shape for
+  `build_semantic_context`
 - hosts must not reimplement truth diff award routing or scoring rules
+- hosts must not reimplement semantic context extraction rules
 - hosts may map `KERNEL_TRUTH_AWARD_REASON_*` to localized reason strings
 - frontends continue to consume host commands rather than kernel ABI directly
+
+## Semantic Context Rules
+
+Frozen rules:
+
+- leading and trailing whitespace is trimmed before extraction
+- content at or below `2200` bytes returns the trimmed content
+- long content extracts up to the last four Markdown headings shaped as
+  `# `, `## `, `### `, or `#### ` after leading whitespace is ignored
+- long content extracts up to the last three non-empty blocks split by blank
+  lines
+- heading and recent-block sections are joined with the existing labels:
+  `Headings:` and `Recent focus:`
+- if the joined context is at least `24` bytes, the last `2200` bytes of that
+  joined context are returned
+- otherwise, the last `2200` bytes of the trimmed content are returned
+- null non-empty content buffers and null output buffers are invalid

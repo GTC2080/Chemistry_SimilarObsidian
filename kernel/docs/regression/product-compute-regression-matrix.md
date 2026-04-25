@@ -29,3 +29,25 @@ The repository must retain regression coverage for:
   result empty
 - Tauri Rust bridge tests continue to cover the existing command-facing
   localized reason strings for code-language and molecular awards
+
+## Semantic Context
+
+The repository must retain regression coverage for:
+
+- `kernel_build_semantic_context(...)` trims short content
+- long semantic context extraction keeps the last four eligible Markdown
+  headings in original order
+- long semantic context extraction keeps the last three non-empty blocks in
+  original order
+- semantic context output preserves the existing `Headings:` and
+  `Recent focus:` section shape
+- semantic context output respects the `24` byte minimum joined-context
+  threshold
+- semantic context output respects the `2200` byte maximum return size
+- `kernel_build_semantic_context(...)` rejects null output pointers
+- `kernel_build_semantic_context(...)` rejects null non-empty content buffers
+- `kernel_build_semantic_context(...)` accepts empty null content buffers
+- `kernel_free_buffer(...)` releases semantic context output and leaves the
+  buffer empty
+- Tauri Rust bridge tests continue to cover the existing command-facing string
+  shape for short and focused long content

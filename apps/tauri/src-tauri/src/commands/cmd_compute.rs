@@ -45,6 +45,13 @@ struct KernelTruthDiffResult {
     count: usize,
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+struct KernelOwnedBuffer {
+    data: *mut c_char,
+    size: usize,
+}
+
 fn kernel_string(ptr: *mut c_char) -> String {
     if ptr.is_null() {
         return String::new();
@@ -97,6 +104,14 @@ extern "C" {
     ) -> KernelStatus;
 
     fn kernel_free_truth_diff_result(result: *mut KernelTruthDiffResult);
+
+    fn kernel_build_semantic_context(
+        content: *const c_char,
+        content_size: usize,
+        out_buffer: *mut KernelOwnedBuffer,
+    ) -> KernelStatus;
+
+    fn kernel_free_buffer(buffer: *mut KernelOwnedBuffer);
 }
 
 #[tauri::command]
@@ -137,71 +152,37 @@ pub fn compute_truth_diff(
 // 语义上下文提取（从前端 JS 迁移到 Rust）
 // ──────────────────────────────────────────
 
-const MIN_CONTEXT_CHARS: usize = 24;
-const MAX_CONTEXT_CHARS: usize = 2200;
-
-fn trim_to_max(text: &str) -> &str {
-    if text.len() <= MAX_CONTEXT_CHARS {
-        text
-    } else {
-        &text[text.len() - MAX_CONTEXT_CHARS..]
-    }
-}
-
 #[tauri::command]
 pub fn build_semantic_context(content: String) -> String {
-    let trimmed = content.trim();
-    if trimmed.len() <= MAX_CONTEXT_CHARS {
-        return trimmed.to_string();
+    let mut buffer = KernelOwnedBuffer::default();
+    let status = unsafe {
+        kernel_build_semantic_context(
+            content.as_ptr() as *const c_char,
+            content.len(),
+            &mut buffer,
+        )
+    };
+    if status.code != KERNEL_OK {
+        unsafe {
+            kernel_free_buffer(&mut buffer);
+        }
+        return String::new();
     }
 
-    let lines: Vec<&str> = trimmed.lines().collect();
-    let headings: Vec<&str> = lines
-        .iter()
-        .filter(|l| {
-            let t = l.trim_start();
-            t.starts_with("# ")
-                || t.starts_with("## ")
-                || t.starts_with("### ")
-                || t.starts_with("#### ")
-        })
-        .copied()
-        .rev()
-        .take(4)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-
-    let blocks: Vec<&str> = trimmed
-        .split("\n\n")
-        .map(|b| b.trim())
-        .filter(|b| !b.is_empty())
-        .collect();
-    let recent_blocks: Vec<&str> = blocks
-        .iter()
-        .rev()
-        .take(3)
-        .copied()
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-
-    let mut sections = Vec::new();
-    if !headings.is_empty() {
-        sections.push(format!("Headings:\n{}", headings.join("\n")));
-    }
-    if !recent_blocks.is_empty() {
-        sections.push(format!("Recent focus:\n{}", recent_blocks.join("\n\n")));
-    }
-    let joined = sections.join("\n\n");
-
-    if joined.len() >= MIN_CONTEXT_CHARS {
-        trim_to_max(&joined).to_string()
+    let result = if buffer.size == 0 {
+        String::new()
+    } else if buffer.data.is_null() {
+        String::new()
     } else {
-        trim_to_max(trimmed).to_string()
+        let bytes = unsafe { std::slice::from_raw_parts(buffer.data as *const u8, buffer.size) };
+        String::from_utf8_lossy(bytes).into_owned()
+    };
+
+    unsafe {
+        kernel_free_buffer(&mut buffer);
     }
+
+    result
 }
 
 // ──────────────────────────────────────────
@@ -453,6 +434,27 @@ pub fn normalize_database(input: serde_json::Value) -> DatabasePayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn build_semantic_context_uses_kernel_short_trim() {
+        let result = build_semantic_context("  short note  \n".to_string());
+
+        assert_eq!(result, "short note");
+    }
+
+    #[test]
+    fn build_semantic_context_uses_kernel_focus_shape() {
+        let content = format!(
+            "# Intro\n{}\n\n## Keep 1\nalpha\n\n### Keep 2\nbeta\n\n#### Keep 3\ngamma\n\n# Keep 4\ndelta\n\nfinal block",
+            "x".repeat(2300)
+        );
+        let result = build_semantic_context(content);
+
+        assert_eq!(
+            result,
+            "Headings:\n## Keep 1\n### Keep 2\n#### Keep 3\n# Keep 4\n\nRecent focus:\n#### Keep 3\ngamma\n\n# Keep 4\ndelta\n\nfinal block"
+        );
+    }
 
     #[test]
     fn compute_truth_diff_uses_kernel_code_language_award() {

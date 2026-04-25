@@ -21,6 +21,8 @@ namespace {
 constexpr int kExpPer100Chars = 2;
 constexpr int kExpPerMolEdit = 5;
 constexpr int kExpPerCodeBlock = 8;
+constexpr std::size_t kMinContextChars = 24;
+constexpr std::size_t kMaxContextChars = 2200;
 
 struct TruthAwardDraft {
   std::string attr;
@@ -169,6 +171,151 @@ bool fill_truth_diff_result(
   return true;
 }
 
+bool is_ascii_space(const char ch) {
+  const auto byte = static_cast<unsigned char>(ch);
+  return std::isspace(byte) != 0;
+}
+
+std::string_view trim_start_ascii(std::string_view value) {
+  std::size_t start = 0;
+  while (start < value.size() && is_ascii_space(value[start])) {
+    ++start;
+  }
+  return value.substr(start);
+}
+
+std::string_view trim_ascii(std::string_view value) {
+  std::size_t start = 0;
+  while (start < value.size() && is_ascii_space(value[start])) {
+    ++start;
+  }
+
+  std::size_t end = value.size();
+  while (end > start && is_ascii_space(value[end - 1])) {
+    --end;
+  }
+  return value.substr(start, end - start);
+}
+
+std::string_view trim_to_max(std::string_view value) {
+  if (value.size() <= kMaxContextChars) {
+    return value;
+  }
+  return value.substr(value.size() - kMaxContextChars);
+}
+
+std::vector<std::string_view> split_lines(std::string_view value) {
+  std::vector<std::string_view> lines;
+  std::size_t start = 0;
+  while (start <= value.size()) {
+    const std::size_t next = value.find('\n', start);
+    if (next == std::string_view::npos) {
+      lines.push_back(value.substr(start));
+      break;
+    }
+    lines.push_back(value.substr(start, next - start));
+    start = next + 1;
+    if (start == value.size()) {
+      break;
+    }
+  }
+  return lines;
+}
+
+std::vector<std::string_view> split_blocks(std::string_view value) {
+  std::vector<std::string_view> blocks;
+  std::size_t start = 0;
+  while (start <= value.size()) {
+    const std::size_t next = value.find("\n\n", start);
+    const std::string_view raw =
+        next == std::string_view::npos ? value.substr(start) : value.substr(start, next - start);
+    const std::string_view trimmed = trim_ascii(raw);
+    if (!trimmed.empty()) {
+      blocks.push_back(trimmed);
+    }
+    if (next == std::string_view::npos) {
+      break;
+    }
+    start = next + 2;
+  }
+  return blocks;
+}
+
+std::string join_views(const std::vector<std::string_view>& values, std::string_view separator) {
+  std::string joined;
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    if (index > 0) {
+      joined.append(separator);
+    }
+    joined.append(values[index]);
+  }
+  return joined;
+}
+
+std::string build_semantic_context_impl(std::string_view content) {
+  const std::string_view trimmed = trim_ascii(content);
+  if (trimmed.size() <= kMaxContextChars) {
+    return std::string(trimmed);
+  }
+
+  const std::vector<std::string_view> lines = split_lines(trimmed);
+  std::vector<std::string_view> headings;
+  for (const auto line : lines) {
+    const std::string_view candidate = trim_start_ascii(line);
+    if (
+        candidate.starts_with("# ") || candidate.starts_with("## ") ||
+        candidate.starts_with("### ") || candidate.starts_with("#### ")) {
+      headings.push_back(line);
+    }
+  }
+  if (headings.size() > 4) {
+    headings.erase(headings.begin(), headings.end() - 4);
+  }
+
+  std::vector<std::string_view> recent_blocks = split_blocks(trimmed);
+  if (recent_blocks.size() > 3) {
+    recent_blocks.erase(recent_blocks.begin(), recent_blocks.end() - 3);
+  }
+
+  std::vector<std::string> sections;
+  if (!headings.empty()) {
+    sections.push_back("Headings:\n" + join_views(headings, "\n"));
+  }
+  if (!recent_blocks.empty()) {
+    sections.push_back("Recent focus:\n" + join_views(recent_blocks, "\n\n"));
+  }
+
+  std::string joined;
+  for (std::size_t index = 0; index < sections.size(); ++index) {
+    if (index > 0) {
+      joined.append("\n\n");
+    }
+    joined.append(sections[index]);
+  }
+
+  if (joined.size() >= kMinContextChars) {
+    return std::string(trim_to_max(joined));
+  }
+  return std::string(trim_to_max(trimmed));
+}
+
+bool fill_owned_buffer(std::string_view value, kernel_owned_buffer* out_buffer) {
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+  if (value.empty()) {
+    return true;
+  }
+
+  auto* owned = new (std::nothrow) char[value.size()];
+  if (owned == nullptr) {
+    return false;
+  }
+  std::memcpy(owned, value.data(), value.size());
+  out_buffer->data = owned;
+  out_buffer->size = value.size();
+  return true;
+}
+
 }  // namespace
 
 extern "C" kernel_status kernel_compute_truth_diff(
@@ -250,4 +397,22 @@ extern "C" kernel_status kernel_compute_truth_diff(
 
 extern "C" void kernel_free_truth_diff_result(kernel_truth_diff_result* result) {
   reset_truth_diff_result_impl(result);
+}
+
+extern "C" kernel_status kernel_build_semantic_context(
+    const char* content,
+    const std::size_t content_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (content_size > 0 && content == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view raw(content == nullptr ? "" : content, content_size);
+  const std::string context = build_semantic_context_impl(raw);
+  if (!fill_owned_buffer(context, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
 }

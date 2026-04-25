@@ -21,6 +21,13 @@ std::string nullable_string(const char* value) {
   return value == nullptr ? std::string() : std::string(value);
 }
 
+std::string buffer_to_string(const kernel_owned_buffer& buffer) {
+  if (buffer.data == nullptr || buffer.size == 0) {
+    return {};
+  }
+  return std::string(buffer.data, buffer.size);
+}
+
 void test_truth_diff_text_delta_routes_by_extension() {
   const std::string prev = "a";
   const std::string curr(260, 'x');
@@ -130,6 +137,67 @@ void test_truth_diff_empty_and_invalid_args() {
       "truth diff should reject null extension");
 }
 
+void test_semantic_context_trims_short_content() {
+  const std::string content = "  short note  \n";
+  kernel_owned_buffer buffer{};
+
+  require_ok_status(
+      kernel_build_semantic_context(content.data(), content.size(), &buffer),
+      "semantic context short content");
+
+  require_true(buffer_to_string(buffer) == "short note", "semantic context should trim short content");
+  kernel_free_buffer(&buffer);
+  require_true(buffer.data == nullptr && buffer.size == 0, "semantic context free should reset buffer");
+}
+
+void test_semantic_context_extracts_headings_and_recent_blocks() {
+  const std::string content =
+      "# Intro\n" + std::string(2300, 'x') +
+      "\n\n## Keep 1\nalpha"
+      "\n\n### Keep 2\nbeta"
+      "\n\n#### Keep 3\ngamma"
+      "\n\n# Keep 4\ndelta"
+      "\n\nfinal block";
+  const std::string expected =
+      "Headings:\n"
+      "## Keep 1\n"
+      "### Keep 2\n"
+      "#### Keep 3\n"
+      "# Keep 4\n"
+      "\n"
+      "Recent focus:\n"
+      "#### Keep 3\ngamma\n"
+      "\n"
+      "# Keep 4\ndelta\n"
+      "\n"
+      "final block";
+  kernel_owned_buffer buffer{};
+
+  require_ok_status(
+      kernel_build_semantic_context(content.data(), content.size(), &buffer),
+      "semantic context long content");
+
+  require_true(buffer_to_string(buffer) == expected, "semantic context should preserve legacy focus shape");
+  kernel_free_buffer(&buffer);
+}
+
+void test_semantic_context_validates_arguments() {
+  const std::string content = "content";
+  kernel_owned_buffer buffer{};
+
+  require_true(
+      kernel_build_semantic_context(content.data(), content.size(), nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "semantic context should reject null output");
+  require_true(
+      kernel_build_semantic_context(nullptr, 1, &buffer).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "semantic context should reject null non-empty content");
+  require_ok_status(
+      kernel_build_semantic_context(nullptr, 0, &buffer),
+      "semantic context should accept empty null content");
+  require_true(buffer.size == 0 && buffer.data == nullptr, "empty semantic context should return empty buffer");
+}
+
 }  // namespace
 
 void run_product_compute_tests() {
@@ -137,4 +205,7 @@ void run_product_compute_tests() {
   test_truth_diff_code_language_award();
   test_truth_diff_molecular_line_award();
   test_truth_diff_empty_and_invalid_args();
+  test_semantic_context_trims_short_content();
+  test_semantic_context_extracts_headings_and_recent_blocks();
+  test_semantic_context_validates_arguments();
 }
