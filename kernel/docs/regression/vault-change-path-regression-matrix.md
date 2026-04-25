@@ -20,3 +20,5 @@ Tauri bridge coverage:
   kernel note catalog
 - `index_changed_entries` uses kernel-filtered relative paths before reading
   note content from the kernel
+- `read_note_indexed_content` uses kernel-filtered relative paths before
+  reading note content from the kernel

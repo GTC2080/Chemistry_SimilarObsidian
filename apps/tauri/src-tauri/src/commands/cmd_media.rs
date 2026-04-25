@@ -176,6 +176,11 @@ pub fn read_note(
     sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())
 }
 
+fn indexed_markdown_rel_path(note_id: &str) -> Result<Option<String>, AppError> {
+    let rel_paths = sealed_kernel::filter_changed_markdown_paths(&[note_id.to_string()])?;
+    Ok(rel_paths.into_iter().next())
+}
+
 #[tauri::command]
 pub async fn read_binary_file(file_path: String) -> Result<Vec<u8>, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -200,12 +205,11 @@ pub async fn read_note_indexed_content(
     note_id: String,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<String, AppError> {
-    let normalized = note_id.trim().replace('\\', "/");
-    if !normalized.to_ascii_lowercase().ends_with(".md") {
+    let Some(rel_path) = indexed_markdown_rel_path(&note_id)? else {
         return Ok(String::new());
-    }
+    };
 
-    sealed_kernel::read_note_by_rel_path(&normalized, sealed_kernel.inner())
+    sealed_kernel::read_note_by_rel_path(&rel_path, sealed_kernel.inner())
 }
 
 #[cfg(test)]
@@ -235,5 +239,17 @@ mod tests {
         assert!(preview.truncated);
         assert!(preview.preview_data.starts_with("2\ncomment\n"));
         assert!(!preview.preview_data.contains("H 0 -1 0"));
+    }
+
+    #[test]
+    fn indexed_markdown_rel_path_uses_kernel_path_filter() {
+        assert_eq!(
+            indexed_markdown_rel_path(" Folder\\Note.md ").expect("kernel markdown path filter"),
+            Some("Folder/Note.md".to_string())
+        );
+        assert_eq!(
+            indexed_markdown_rel_path("Folder/Note.txt").expect("kernel markdown path filter"),
+            None
+        );
     }
 }

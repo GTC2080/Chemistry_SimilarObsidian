@@ -37,6 +37,8 @@ Tauri Rust may still:
 - receive file-change vectors from the watcher/front-end command payload
 - pass the vectors through the sealed kernel bridge
 - use returned relative paths to request kernel note catalog/read surfaces
+- use the same kernel path filter to validate one-off indexed Markdown note
+  reads
 
 Tauri Rust must not reimplement changed-entry Markdown filtering,
 normalization, or deduplication.
