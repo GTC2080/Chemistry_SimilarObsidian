@@ -74,6 +74,7 @@
 - changed-entry path normalization -> `kernel_filter_changed_markdown_paths(...)`
 - `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
+- `remove_deleted_entries` -> `kernel_filter_changed_markdown_paths(...)` + legacy embedding cache delete
 - `parse_spectroscopy` / `read_molecular_preview` -> `kernel_read_note(...)` + chemistry kernel compute ABI
 - `write_note` -> `kernel_write_note(...)`
 

@@ -39,6 +39,8 @@ Tauri Rust may still:
 - use returned relative paths to request kernel note catalog/read surfaces
 - use the same kernel path filter to validate one-off indexed Markdown note
   reads
+- use the same kernel path filter before deleting legacy embedding cache rows
+  for removed Markdown notes
 
 Tauri Rust must not reimplement changed-entry Markdown filtering,
 normalization, or deduplication.

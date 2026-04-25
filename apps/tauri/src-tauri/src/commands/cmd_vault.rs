@@ -64,6 +64,10 @@ fn pending_upsert_from_note(note: NoteInfo, content: String) -> PendingUpsert {
     }
 }
 
+fn deleted_markdown_rel_paths(paths: &[String]) -> Result<Vec<String>, AppError> {
+    sealed_kernel::filter_changed_markdown_paths(paths)
+}
+
 fn kernel_note_info_map_for_rel_paths(
     vault_path: &str,
     rel_paths: &[String],
@@ -473,9 +477,10 @@ pub fn remove_deleted_entries(
     db: State<DbState>,
     vector_cache: State<ai::VectorCacheState>,
 ) -> Result<u32, AppError> {
+    let rel_paths = deleted_markdown_rel_paths(&paths)?;
     let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
     let mut removed = 0u32;
-    for rel in &paths {
+    for rel in &rel_paths {
         if db::delete_note_by_id(&conn, rel).is_ok() {
             vector_cache.remove(rel);
             removed += 1;
@@ -507,4 +512,23 @@ pub fn start_watcher(
 pub fn stop_watcher(watcher: State<WatcherState>) -> Result<(), AppError> {
     watcher.stop();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deleted_markdown_rel_paths_use_kernel_path_filter() {
+        let paths = vec![
+            " Folder\\Note.md ".to_string(),
+            "Folder/Note.md".to_string(),
+            "Folder/Note.txt".to_string(),
+        ];
+
+        assert_eq!(
+            deleted_markdown_rel_paths(&paths).expect("kernel deleted path filter"),
+            vec!["Folder/Note.md".to_string()]
+        );
+    }
 }
