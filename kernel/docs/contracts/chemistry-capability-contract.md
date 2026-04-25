@@ -64,7 +64,8 @@ Frozen rules:
   kernel compute surfaces, not by host command preflight checks
 - Tauri Rust may own serde command marshalling, but not the simulation model
 - Tauri Rust may own PubChem HTTP lookup and serde command marshalling, but
-  not retrosynthesis pathway expansion rules
+  not retrosynthesis target normalization, empty-target validation, or pathway
+  expansion rules
 - Tauri Rust may own file IO and serde command marshalling, but not
   spectroscopy extension support or CSV/JDX parsing rules
 - Tauri Rust may own file IO and serde command marshalling, but not molecular

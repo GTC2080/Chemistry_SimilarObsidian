@@ -35,6 +35,7 @@ pub struct RetroTreeData {
 }
 
 const KERNEL_OK: i32 = 0;
+const KERNEL_ERROR_INVALID_ARGUMENT: i32 = 1;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -189,10 +190,6 @@ pub async fn fetch_compound_info(query: String) -> Result<CompoundInfo, String> 
     })
 }
 
-fn normalized_smiles(smiles: &str) -> String {
-    smiles.split_whitespace().collect::<String>()
-}
-
 unsafe fn kernel_string(ptr: *const c_char, label: &str) -> Result<String, String> {
     if ptr.is_null() {
         return Err(format!("kernel retrosynthesis returned null {}", label));
@@ -259,18 +256,16 @@ fn retrosynthesize_target_from_kernel(
     target_smiles: String,
     depth: u8,
 ) -> Result<RetroTreeData, String> {
-    let root_smiles = normalized_smiles(&target_smiles);
-    if root_smiles.is_empty() {
-        return Err("请输入目标分子 SMILES".to_string());
-    }
-
     let c_smiles =
-        CString::new(root_smiles).map_err(|_| "目标分子 SMILES 包含无效字符".to_string())?;
+        CString::new(target_smiles).map_err(|_| "目标分子 SMILES 包含无效字符".to_string())?;
     let mut raw_tree = KernelRetroTree::default();
     let status =
         unsafe { kernel_generate_mock_retrosynthesis(c_smiles.as_ptr(), depth, &mut raw_tree) };
     if status.code != KERNEL_OK {
         unsafe { kernel_free_retro_tree(&mut raw_tree) };
+        if status.code == KERNEL_ERROR_INVALID_ARGUMENT {
+            return Err("请输入目标分子 SMILES".to_string());
+        }
         return Err("未生成可用逆合成路径".to_string());
     }
 
@@ -302,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn retrosynthesis_rejects_empty_smiles_before_kernel_call() {
+    fn retrosynthesis_delegates_empty_smiles_to_kernel() {
         let err = retrosynthesize_target_from_kernel("   ".to_string(), 2).unwrap_err();
 
         assert_eq!(err, "请输入目标分子 SMILES");

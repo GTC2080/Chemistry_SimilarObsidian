@@ -51,6 +51,8 @@ The repository must retain regression coverage for:
 - retrosynthesis preserves precursor roles
 - retrosynthesis clamps depth to the frozen `1..4` range
 - retrosynthesis rejects null or empty targets
+- Tauri `retrosynthesize_target` delegates SMILES whitespace normalization and
+  empty-target validation to `kernel_generate_mock_retrosynthesis(...)`
 - `kernel_free_retro_tree(...)` leaves the tree empty and is safe on filled
   output
 - `kernel_parse_spectroscopy_text(...)` parses CSV x values and multiple y
