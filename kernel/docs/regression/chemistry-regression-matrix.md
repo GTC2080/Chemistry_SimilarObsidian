@@ -45,6 +45,8 @@ The repository must retain regression coverage for:
   from previous positive `mass / volume`
 - stoichiometry rejects null input or output buffers when `count > 0`
 - stoichiometry accepts zero-count null buffers without allocation
+- Tauri `recalculate_stoichiometry` delegates empty row lists to
+  `kernel_recalculate_stoichiometry(...)`
 - `kernel_generate_mock_retrosynthesis(...)` emits an amide pathway for
   `C(=O)N` targets
 - retrosynthesis target ids use the `retro_` prefix

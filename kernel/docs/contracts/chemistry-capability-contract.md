@@ -63,6 +63,9 @@ Frozen rules:
 - spectroscopy and molecular file extension support decisions are owned by the
   kernel compute surfaces, not by host command preflight checks
 - Tauri Rust may own serde command marshalling, but not the simulation model
+- Tauri Rust may own stoichiometry row DTO identity and command marshalling,
+  but not zero-count behavior, reference-row selection, numeric normalization,
+  or dependent-row propagation
 - Tauri Rust may own PubChem HTTP lookup and serde command marshalling, but
   not retrosynthesis target normalization, empty-target validation, or pathway
   expansion rules

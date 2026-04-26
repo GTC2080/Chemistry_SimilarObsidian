@@ -254,10 +254,6 @@ fn kernel_stoichiometry_input_from(row: &StoichiometryRow) -> KernelStoichiometr
 
 #[tauri::command]
 pub fn recalculate_stoichiometry(rows: Vec<StoichiometryRow>) -> Vec<StoichiometryRow> {
-    if rows.is_empty() {
-        return rows;
-    }
-
     let input: Vec<KernelStoichiometryRowInput> =
         rows.iter().map(kernel_stoichiometry_input_from).collect();
     let mut output = vec![KernelStoichiometryRowOutput::default(); input.len()];
@@ -548,5 +544,12 @@ mod tests {
         assert!(!result[1].is_reference);
         assert_eq!(result[1].moles, 1.0);
         assert_eq!(result[1].mass, 30.0);
+    }
+
+    #[test]
+    fn recalculate_stoichiometry_delegates_empty_rows_to_kernel() {
+        let result = recalculate_stoichiometry(Vec::new());
+
+        assert!(result.is_empty());
     }
 }
