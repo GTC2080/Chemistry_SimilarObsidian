@@ -122,6 +122,10 @@ The repository must retain regression coverage for:
 
 - `kernel_query_note_chem_spectrum_refs(...)` succeeds for live notes
 - `kernel_query_chem_spectrum_referrers(...)` succeeds for live spectrum objects
+- Tauri sealed bridge `sealed_kernel_query_note_chem_spectrum_refs` and
+  `sealed_kernel_query_chem_spectrum_referrers` expose kernel source refs /
+  referrers without rebuilding chemistry references from note text,
+  attachment refs, backlinks, or search results in Rust
 - whole-spectrum refs serialize canonically
 - x-range refs serialize canonically with the frozen decimal/unit grammar
 - `normalized_decimal` rejects scientific notation and non-canonical forms

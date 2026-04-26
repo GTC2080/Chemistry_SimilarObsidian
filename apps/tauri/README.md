@@ -111,6 +111,8 @@ Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不�
 
 `sealed_kernel_query_chem_spectra` 与 `sealed_kernel_get_chem_spectrum` 直接暴露 kernel chemistry spectrum catalog / lookup；Tauri Rust 不再推断 spectrum carrier、source format、domain object key 或 subtype state。
 
+`sealed_kernel_query_note_chem_spectrum_refs` 与 `sealed_kernel_query_chem_spectrum_referrers` 直接暴露 kernel note <-> spectrum source-reference 面；Tauri Rust 不再从 note text、attachment refs、backlinks 或 search 结果重建 chemistry spectrum 引用关系。
+
 已收口到 kernel 的产品无状态计算面：
 
 - `compute_truth_diff` -> `kernel_compute_truth_diff(...)`

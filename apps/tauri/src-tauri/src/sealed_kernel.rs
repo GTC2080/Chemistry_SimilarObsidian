@@ -129,6 +129,20 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_query_note_chem_spectrum_refs_json(
+        session: *mut SealedKernelBridgeSession,
+        note_rel_path_utf8: *const c_char,
+        limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_chem_spectrum_referrers_json(
+        session: *mut SealedKernelBridgeSession,
+        attachment_rel_path_utf8: *const c_char,
+        limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_create_folder(
         session: *mut SealedKernelBridgeSession,
         folder_rel_path_utf8: *const c_char,
@@ -900,6 +914,88 @@ fn get_chem_spectrum_value(
     })
 }
 
+fn query_note_chem_spectrum_refs_value(
+    state: &SealedKernelState,
+    note_rel_path: &str,
+    limit: u64,
+) -> AppResult<Value> {
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "limit must be greater than zero.".to_string(),
+        ));
+    }
+
+    let note_rel_path = validate_rel_path(note_rel_path, "笔记")?;
+    let note_rel_path_c = cstring_arg(note_rel_path, "note_rel_path")?;
+    let session = active_session(state)?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_query_note_chem_spectrum_refs_json(
+            session,
+            note_rel_path_c.as_ptr(),
+            limit,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_query_note_chem_spectrum_refs",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel chemistry spectrum refs JSON is invalid: {err}"
+        ))
+    })
+}
+
+fn query_chem_spectrum_referrers_value(
+    state: &SealedKernelState,
+    attachment_rel_path: &str,
+    limit: u64,
+) -> AppResult<Value> {
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "limit must be greater than zero.".to_string(),
+        ));
+    }
+
+    let attachment_rel_path = validate_rel_path(attachment_rel_path, "附件")?;
+    let attachment_rel_path_c = cstring_arg(attachment_rel_path, "attachment_rel_path")?;
+    let session = active_session(state)?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_query_chem_spectrum_referrers_json(
+            session,
+            attachment_rel_path_c.as_ptr(),
+            limit,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_query_chem_spectrum_referrers",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel chemistry spectrum referrers JSON is invalid: {err}"
+        ))
+    })
+}
+
 fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<String> {
     let vault = PathBuf::from(vault_path);
     let target = PathBuf::from(file_path);
@@ -1180,6 +1276,24 @@ pub fn sealed_kernel_get_chem_spectrum(
     state: State<'_, SealedKernelState>,
 ) -> AppResult<Value> {
     get_chem_spectrum_value(state.inner(), &attachment_rel_path)
+}
+
+#[tauri::command]
+pub fn sealed_kernel_query_note_chem_spectrum_refs(
+    note_rel_path: String,
+    limit: Option<u64>,
+    state: State<'_, SealedKernelState>,
+) -> AppResult<Value> {
+    query_note_chem_spectrum_refs_value(state.inner(), &note_rel_path, limit.unwrap_or(512))
+}
+
+#[tauri::command]
+pub fn sealed_kernel_query_chem_spectrum_referrers(
+    attachment_rel_path: String,
+    limit: Option<u64>,
+    state: State<'_, SealedKernelState>,
+) -> AppResult<Value> {
+    query_chem_spectrum_referrers_value(state.inner(), &attachment_rel_path, limit.unwrap_or(512))
 }
 
 #[cfg(test)]

@@ -290,6 +290,32 @@ const char* DomainObjectStateToken(const kernel_domain_object_state value) {
   return "unresolved";
 }
 
+const char* ChemSpectrumSelectorKindToken(const kernel_chem_spectrum_selector_kind value) {
+  switch (value) {
+    case KERNEL_CHEM_SPECTRUM_SELECTOR_WHOLE_SPECTRUM:
+      return "whole_spectrum";
+    case KERNEL_CHEM_SPECTRUM_SELECTOR_X_RANGE:
+      return "x_range";
+  }
+  return "whole_spectrum";
+}
+
+const char* DomainRefStateToken(const kernel_domain_ref_state value) {
+  switch (value) {
+    case KERNEL_DOMAIN_REF_RESOLVED:
+      return "resolved";
+    case KERNEL_DOMAIN_REF_MISSING:
+      return "missing";
+    case KERNEL_DOMAIN_REF_STALE:
+      return "stale";
+    case KERNEL_DOMAIN_REF_UNRESOLVED:
+      return "unresolved";
+    case KERNEL_DOMAIN_REF_UNSUPPORTED:
+      return "unsupported";
+  }
+  return "unresolved";
+}
+
 void AppendChemSpectrumJson(std::string& json, const kernel_chem_spectrum_record& spectrum) {
   const std::string attachment_rel_path_utf8 =
       ActiveCodePageToUtf8(spectrum.attachment_rel_path);
@@ -301,6 +327,39 @@ void AppendChemSpectrumJson(std::string& json, const kernel_chem_spectrum_record
   json += "\"presence\":\"" + std::string(AttachmentPresenceToken(spectrum.presence)) + "\",";
   json += "\"state\":\"" + std::string(DomainObjectStateToken(spectrum.state)) + "\",";
   json += "\"flags\":" + std::to_string(spectrum.flags) + "}";
+}
+
+void AppendChemSpectrumSourceRefJson(
+    std::string& json,
+    const kernel_chem_spectrum_source_ref& ref) {
+  const std::string attachment_rel_path_utf8 = ActiveCodePageToUtf8(ref.attachment_rel_path);
+  json += "{\"attachmentRelPath\":\"" + JsonEscape(attachment_rel_path_utf8.c_str()) + "\",";
+  json += "\"domainObjectKey\":\"" + JsonEscape(ref.domain_object_key) + "\",";
+  json += "\"selectorKind\":\"" +
+          std::string(ChemSpectrumSelectorKindToken(ref.selector_kind)) + "\",";
+  json += "\"selectorSerialized\":\"" + JsonEscape(ref.selector_serialized) + "\",";
+  json += "\"previewText\":\"" + JsonEscape(ref.preview_text) + "\",";
+  json += "\"targetBasisRevision\":\"" + JsonEscape(ref.target_basis_revision) + "\",";
+  json += "\"state\":\"" + std::string(DomainRefStateToken(ref.state)) + "\",";
+  json += "\"flags\":" + std::to_string(ref.flags) + "}";
+}
+
+void AppendChemSpectrumReferrerJson(
+    std::string& json,
+    const kernel_chem_spectrum_referrer& referrer) {
+  const std::string note_rel_path_utf8 = ActiveCodePageToUtf8(referrer.note_rel_path);
+  const std::string attachment_rel_path_utf8 = ActiveCodePageToUtf8(referrer.attachment_rel_path);
+  json += "{\"noteRelPath\":\"" + JsonEscape(note_rel_path_utf8.c_str()) + "\",";
+  json += "\"noteTitle\":\"" + JsonEscape(referrer.note_title) + "\",";
+  json += "\"attachmentRelPath\":\"" + JsonEscape(attachment_rel_path_utf8.c_str()) + "\",";
+  json += "\"domainObjectKey\":\"" + JsonEscape(referrer.domain_object_key) + "\",";
+  json += "\"selectorKind\":\"" +
+          std::string(ChemSpectrumSelectorKindToken(referrer.selector_kind)) + "\",";
+  json += "\"selectorSerialized\":\"" + JsonEscape(referrer.selector_serialized) + "\",";
+  json += "\"previewText\":\"" + JsonEscape(referrer.preview_text) + "\",";
+  json += "\"targetBasisRevision\":\"" + JsonEscape(referrer.target_basis_revision) + "\",";
+  json += "\"state\":\"" + std::string(DomainRefStateToken(referrer.state)) + "\",";
+  json += "\"flags\":" + std::to_string(referrer.flags) + "}";
 }
 
 }  // namespace
@@ -980,6 +1039,104 @@ int32_t sealed_kernel_bridge_get_chem_spectrum_json(
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "failed to allocate chemistry spectrum JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_note_chem_spectrum_refs_json(
+    sealed_kernel_bridge_session* session,
+    const char* note_rel_path_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0) {
+    SetError(out_error, "sealed kernel session is not open or chemistry spectrum ref arguments are invalid.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string note_rel_path = Utf8ToActiveCodePage(note_rel_path_utf8);
+  if (note_rel_path.empty()) {
+    SetError(out_error, "note_rel_path must be a non-empty UTF-8 string.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_chem_spectrum_source_refs refs{};
+  const kernel_status status = kernel_query_note_chem_spectrum_refs(
+      session->handle,
+      note_rel_path.c_str(),
+      static_cast<size_t>(limit),
+      &refs);
+  if (status.code != KERNEL_OK) {
+    kernel_free_chem_spectrum_source_refs(&refs);
+    return ReturnKernelError(status, "kernel_query_note_chem_spectrum_refs", out_error);
+  }
+
+  std::string json = "{\"refs\":[";
+  for (size_t index = 0; index < refs.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendChemSpectrumSourceRefJson(json, refs.refs[index]);
+  }
+  json += "],\"count\":" + std::to_string(refs.count) + "}";
+
+  kernel_free_chem_spectrum_source_refs(&refs);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "failed to allocate chemistry spectrum refs JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_chem_spectrum_referrers_json(
+    sealed_kernel_bridge_session* session,
+    const char* attachment_rel_path_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0) {
+    SetError(out_error, "sealed kernel session is not open or chemistry spectrum referrer arguments are invalid.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string attachment_rel_path = Utf8ToActiveCodePage(attachment_rel_path_utf8);
+  if (attachment_rel_path.empty()) {
+    SetError(out_error, "attachment_rel_path must be a non-empty UTF-8 string.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_chem_spectrum_referrers referrers{};
+  const kernel_status status = kernel_query_chem_spectrum_referrers(
+      session->handle,
+      attachment_rel_path.c_str(),
+      static_cast<size_t>(limit),
+      &referrers);
+  if (status.code != KERNEL_OK) {
+    kernel_free_chem_spectrum_referrers(&referrers);
+    return ReturnKernelError(status, "kernel_query_chem_spectrum_referrers", out_error);
+  }
+
+  std::string json = "{\"referrers\":[";
+  for (size_t index = 0; index < referrers.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendChemSpectrumReferrerJson(json, referrers.referrers[index]);
+  }
+  json += "],\"count\":" + std::to_string(referrers.count) + "}";
+
+  kernel_free_chem_spectrum_referrers(&referrers);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "failed to allocate chemistry spectrum referrers JSON.");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);

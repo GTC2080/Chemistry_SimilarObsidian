@@ -362,6 +362,8 @@ Batch 3 lands:
 - `kernel_query_note_chem_spectrum_refs(handle, note_rel_path, limit, out_refs)`
 - `kernel_query_chem_spectrum_referrers(handle, attachment_rel_path, limit, out_referrers)`
 - corresponding free functions for chemistry spectrum refs / referrers
+- host bridges may expose these refs as JSON, but must not reconstruct them
+  from note text, attachment refs, backlinks, or search results
 
 ### Source-Reference Boundary
 

@@ -119,6 +119,20 @@ int32_t sealed_kernel_bridge_get_chem_spectrum_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_query_note_chem_spectrum_refs_json(
+    sealed_kernel_bridge_session* session,
+    const char* note_rel_path_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_query_chem_spectrum_referrers_json(
+    sealed_kernel_bridge_session* session,
+    const char* attachment_rel_path_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_create_folder(
     sealed_kernel_bridge_session* session,
     const char* folder_rel_path_utf8,
