@@ -429,6 +429,69 @@ std::string SymmetryCalculationErrorToken(
   return "unknown";
 }
 
+const char* CrystalParseErrorToken(const kernel_crystal_parse_error value) {
+  switch (value) {
+    case KERNEL_CRYSTAL_PARSE_ERROR_NONE:
+      return "parse_none";
+    case KERNEL_CRYSTAL_PARSE_ERROR_MISSING_CELL:
+      return "parse_missing_cell";
+    case KERNEL_CRYSTAL_PARSE_ERROR_MISSING_ATOMS:
+      return "parse_missing_atoms";
+  }
+  return "parse_unknown";
+}
+
+std::string CrystalSupercellErrorToken(
+    const kernel_crystal_supercell_error value,
+    const uint64_t estimated_count) {
+  switch (value) {
+    case KERNEL_CRYSTAL_SUPERCELL_ERROR_NONE:
+      return "supercell_none";
+    case KERNEL_CRYSTAL_SUPERCELL_ERROR_GAMMA_TOO_SMALL:
+      return "supercell_gamma_too_small";
+    case KERNEL_CRYSTAL_SUPERCELL_ERROR_INVALID_BASIS:
+      return "supercell_invalid_basis";
+    case KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS:
+      return "supercell_too_many_atoms:" + std::to_string(estimated_count);
+  }
+  return "supercell_unknown";
+}
+
+const char* CrystalMillerErrorToken(const kernel_crystal_miller_error value) {
+  switch (value) {
+    case KERNEL_CRYSTAL_MILLER_ERROR_NONE:
+      return "miller_none";
+    case KERNEL_CRYSTAL_MILLER_ERROR_ZERO_INDEX:
+      return "miller_zero_index";
+    case KERNEL_CRYSTAL_MILLER_ERROR_GAMMA_TOO_SMALL:
+      return "miller_gamma_too_small";
+    case KERNEL_CRYSTAL_MILLER_ERROR_INVALID_BASIS:
+      return "miller_invalid_basis";
+    case KERNEL_CRYSTAL_MILLER_ERROR_ZERO_VOLUME:
+      return "miller_zero_volume";
+    case KERNEL_CRYSTAL_MILLER_ERROR_ZERO_NORMAL:
+      return "miller_zero_normal";
+  }
+  return "miller_unknown";
+}
+
+std::string CrystalLatticeErrorToken(const kernel_lattice_result& result) {
+  if (result.parse_error != KERNEL_CRYSTAL_PARSE_ERROR_NONE) {
+    return CrystalParseErrorToken(result.parse_error);
+  }
+  if (result.supercell_error != KERNEL_CRYSTAL_SUPERCELL_ERROR_NONE) {
+    return CrystalSupercellErrorToken(result.supercell_error, result.estimated_count);
+  }
+  return "lattice_unknown";
+}
+
+std::string CrystalCifMillerErrorToken(const kernel_cif_miller_plane_result& result) {
+  if (result.parse_error != KERNEL_CRYSTAL_PARSE_ERROR_NONE) {
+    return CrystalParseErrorToken(result.parse_error);
+  }
+  return CrystalMillerErrorToken(result.plane.error);
+}
+
 void AppendDoubleArrayJson(std::string& json, const double* values, const size_t count) {
   json += "[";
   for (size_t index = 0; index < count; ++index) {
@@ -522,6 +585,78 @@ void AppendSymmetryJson(std::string& json, const kernel_symmetry_calculation_res
   json += "],\"hasInversion\":";
   json += result.has_inversion != 0 ? "true" : "false";
   json += ",\"atomCount\":" + std::to_string(result.atom_count) + "}";
+}
+
+void AppendDoubleFixedArrayJson(std::string& json, const double* values, const size_t count) {
+  json += "[";
+  for (size_t index = 0; index < count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    json += std::to_string(values[index]);
+  }
+  json += "]";
+}
+
+void AppendCrystalMatrixJson(std::string& json, const double values[3][3]) {
+  json += "[";
+  for (size_t row = 0; row < 3; ++row) {
+    if (row != 0) {
+      json += ",";
+    }
+    AppendDoubleFixedArrayJson(json, values[row], 3);
+  }
+  json += "]";
+}
+
+void AppendCrystalUnitCellJson(std::string& json, const kernel_unit_cell_box& unit_cell) {
+  json += "{\"a\":" + std::to_string(unit_cell.a) + ",";
+  json += "\"b\":" + std::to_string(unit_cell.b) + ",";
+  json += "\"c\":" + std::to_string(unit_cell.c) + ",";
+  json += "\"alpha\":" + std::to_string(unit_cell.alpha_deg) + ",";
+  json += "\"beta\":" + std::to_string(unit_cell.beta_deg) + ",";
+  json += "\"gamma\":" + std::to_string(unit_cell.gamma_deg) + ",";
+  json += "\"origin\":";
+  AppendDoubleFixedArrayJson(json, unit_cell.origin, 3);
+  json += ",\"vectors\":";
+  AppendCrystalMatrixJson(json, unit_cell.vectors);
+  json += "}";
+}
+
+void AppendCrystalAtomJson(std::string& json, const kernel_atom_node& atom) {
+  json += "{\"element\":\"" + JsonEscape(atom.element) + "\",";
+  json += "\"cartesianCoords\":";
+  AppendDoubleFixedArrayJson(json, atom.cartesian_coords, 3);
+  json += "}";
+}
+
+void AppendCrystalLatticeJson(std::string& json, const kernel_lattice_result& result) {
+  json += "{\"unitCell\":";
+  AppendCrystalUnitCellJson(json, result.unit_cell);
+  json += ",\"atoms\":[";
+  for (size_t index = 0; index < result.atom_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendCrystalAtomJson(json, result.atoms[index]);
+  }
+  json += "]}";
+}
+
+void AppendCrystalMillerPlaneJson(std::string& json, const kernel_miller_plane_result& plane) {
+  json += "{\"normal\":";
+  AppendDoubleFixedArrayJson(json, plane.normal, 3);
+  json += ",\"center\":";
+  AppendDoubleFixedArrayJson(json, plane.center, 3);
+  json += ",\"d\":" + std::to_string(plane.d) + ",";
+  json += "\"vertices\":[";
+  for (size_t index = 0; index < 4; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendDoubleFixedArrayJson(json, plane.vertices[index], 3);
+  }
+  json += "]}";
 }
 
 }  // namespace
@@ -1411,6 +1546,91 @@ int32_t sealed_kernel_bridge_calculate_symmetry_json(
   std::string json;
   AppendSymmetryJson(json, result);
   kernel_free_symmetry_calculation_result(&result);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_build_lattice_from_cif_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    uint32_t nx,
+    uint32_t ny,
+    uint32_t nz,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr || raw_utf8 == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_lattice_result result{};
+  const kernel_status status = kernel_build_lattice_from_cif(
+      raw_utf8,
+      static_cast<size_t>(raw_size),
+      nx,
+      ny,
+      nz,
+      &result);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, CrystalLatticeErrorToken(result));
+    kernel_free_lattice_result(&result);
+    return static_cast<int32_t>(status.code);
+  }
+  if (result.atom_count > 0 && result.atoms == nullptr) {
+    SetError(out_error, "lattice_missing_atoms");
+    kernel_free_lattice_result(&result);
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  std::string json;
+  AppendCrystalLatticeJson(json, result);
+  kernel_free_lattice_result(&result);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_calculate_miller_plane_from_cif_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    int32_t h,
+    int32_t k,
+    int32_t l,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr || raw_utf8 == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_cif_miller_plane_result result{};
+  const kernel_status status = kernel_calculate_miller_plane_from_cif(
+      raw_utf8,
+      static_cast<size_t>(raw_size),
+      h,
+      k,
+      l,
+      &result);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, CrystalCifMillerErrorToken(result));
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string json;
+  AppendCrystalMillerPlaneJson(json, result.plane);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

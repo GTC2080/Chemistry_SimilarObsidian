@@ -29,7 +29,10 @@ Current exclusions:
 Frozen rules:
 
 - the surface is handle-free and must not read or write vault state
-- Tauri Rust owns serde command marshalling and localized error text
+- Tauri Rust owns command DTO construction and localized error text
+- the sealed C++ host bridge owns full-result ABI marshalling and JSON
+  serialization from `kernel_lattice_result` / `kernel_cif_miller_plane_result`
+  into the host command DTO shape
 - the kernel owns CIF cell, fractional atom, and symmetry operation parsing
 - the kernel owns Miller-plane numeric geometry
 - the kernel owns symmetry expansion, fractional-coordinate deduplication,
@@ -69,6 +72,8 @@ Frozen rules:
 Frozen rules:
 
 - hosts keep user-facing localized error text
+- Rust hosts must not retain duplicate lattice or Miller-plane C ABI mirrors
+  when the sealed C++ bridge exposes JSON command DTOs
 - hosts must not reimplement CIF cell, fractional atom, or symmetry operation parsing
 - hosts must not reimplement Miller-plane geometry
 - hosts must not reimplement supercell expansion or atom deduplication

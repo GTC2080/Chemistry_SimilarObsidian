@@ -46,7 +46,7 @@
 - **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文与 media 文本读取走 kernel note read surface；全量 note catalog 与 `build_file_tree` 的 ignored root 过滤分别由 `kernel_query_notes_filtered(...)`、`kernel_query_file_tree_filtered(...)` 提供，增量 changed-entry 的 Markdown 路径归一/过滤/去重由 `kernel_filter_changed_markdown_paths(...)` 提供。Tauri Rust 只保留命令编排、embedding 兼容缓存写入和后台任务调度。
 - **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
 - **v1.0.6-dev** — 化学无状态计算继续内核化：高分子动力学、化学计量、波谱解析、分子预览、逆合成 mock pathway 规则均通过 `kernel/` C ABI 提供；Tauri Rust 只保留 PubChem HTTP 查询、命令 DTO 映射和 kernel 内存释放桥接。
-- **v1.0.6-dev** — 晶体计算 full-result 化：`parse_and_build_lattice` 通过 `kernel_build_lattice_from_cif(...)` 一次性取得 CIF 解析、晶胞基矢、超晶胞原子；`calculate_miller_plane` 通过 `kernel_calculate_miller_plane_from_cif(...)` 完成 CIF 解析与密勒面计算。Rust `crystal/` 只保留最终 DTO 和错误文案。
+- **v1.0.6-dev** — 晶体计算 full-result 化：`parse_and_build_lattice` 通过 sealed C++ bridge 调用 `kernel_build_lattice_from_cif(...)` 一次性取得 CIF 解析、晶胞基矢、超晶胞原子；`calculate_miller_plane` 通过 sealed C++ bridge 调用 `kernel_calculate_miller_plane_from_cif(...)` 完成 CIF 解析与密勒面计算。Rust `crystal/` 只保留最终 DTO，不再保留晶格/密勒面 C ABI mirror 与 unsafe 拷贝循环。
 - **v1.0.6-dev** — 对称性计算管线继续内核化：`calculate_symmetry` 现在通过 sealed C++ bridge 单点调用 `kernel_calculate_symmetry(...)`，由 kernel 完成 `XYZ` / `PDB` / simple `CIF` 原子解析、形状分析、主轴计算、候选生成、操作匹配、点群分类和渲染几何；Rust 只保留命令 DTO 与 localized error 映射，不再保留对称性 C ABI mirror / unsafe 拷贝循环。
 - **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Rust Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
@@ -280,8 +280,8 @@ src-tauri/src/          # Rust 后端
 │   ├── cmd_symmetry.rs # 分子对称性分析命令（桥接 kernel 点群/轴/镜面）
 │   └── cmd_crystal.rs  # 晶格解析与密勒面计算命令（桥接 kernel 计算面）
 ├── commands.rs         # 命令注册入口
-├── crystal/            # 晶格 kernel bridge 模块
-│   ├── mod.rs          # full-result kernel ABI bridge（晶格 / 密勒面）
+├── crystal/            # 晶格与密勒面命令 DTO
+│   ├── mod.rs          # DTO re-export（full-result 计算经 sealed kernel bridge）
 │   └── types.rs        # 晶格数据协议（LatticeData / UnitCellBox / AtomNode / MillerPlaneData）
 ├── pdf/                # PDF 模块（渲染已迁移至前端 pdf.js）
 │   ├── mod.rs          # 模块入口

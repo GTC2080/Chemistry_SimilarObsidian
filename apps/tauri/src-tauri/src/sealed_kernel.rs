@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::State;
 
+use crate::crystal::{LatticeData, MillerPlaneData};
 use crate::models::{
     EnrichedGraphData, FileTreeNode, GraphData, MolecularPreview, NoteInfo, SpectroscopyData,
     TagInfo, TagTreeNode,
@@ -31,6 +32,7 @@ struct SealedKernelBridgeStateSnapshot {
 }
 
 const MAX_ATOMS_FOR_SYMMETRY: usize = 500;
+const MAX_CRYSTAL_ATOMS: usize = 50_000;
 
 extern "C" {
     fn sealed_kernel_bridge_info_json() -> *mut c_char;
@@ -169,6 +171,24 @@ extern "C" {
         raw_size: u64,
         format_utf8: *const c_char,
         max_atoms: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_build_lattice_from_cif_json(
+        raw_utf8: *const c_char,
+        raw_size: u64,
+        nx: u32,
+        ny: u32,
+        nz: u32,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_calculate_miller_plane_from_cif_json(
+        raw_utf8: *const c_char,
+        raw_size: u64,
+        h: i32,
+        k: i32,
+        l: i32,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -1081,6 +1101,54 @@ fn symmetry_bridge_error(
     AppError::Custom(message)
 }
 
+fn crystal_parse_error_message(token: &str) -> Option<String> {
+    match token {
+        "parse_missing_cell" => {
+            Some("CIF 文件缺少完整的晶胞参数 (_cell_length_*/_cell_angle_*)".to_string())
+        }
+        "parse_missing_atoms" => {
+            Some("CIF 文件中未找到分数坐标原子 (_atom_site_fract_*)".to_string())
+        }
+        _ => None,
+    }
+}
+
+fn crystal_lattice_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = crystal_parse_error_message(&token).unwrap_or_else(|| match token.as_str() {
+        "supercell_gamma_too_small" => "晶胞参数非法：gamma 角过小".to_string(),
+        "supercell_invalid_basis" => "晶胞参数非法：无法构造有效基矢".to_string(),
+        token if token.starts_with("supercell_too_many_atoms:") => {
+            let estimated_count = token
+                .split_once(':')
+                .and_then(|(_, value)| value.parse::<u64>().ok())
+                .unwrap_or(0);
+            format!(
+                "超晶胞原子数 ({estimated_count}) 超过上限 ({MAX_CRYSTAL_ATOMS})，请减小扩展维度"
+            )
+        }
+        _ => format!("sealed_kernel_build_lattice_from_cif failed with kernel status {code}."),
+    });
+    AppError::Custom(message)
+}
+
+fn crystal_miller_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = crystal_parse_error_message(&token).unwrap_or_else(|| match token.as_str() {
+        "miller_zero_index" => "密勒指数 (h, k, l) 不能全为零".to_string(),
+        "miller_gamma_too_small" => "晶胞参数非法：gamma 角过小".to_string(),
+        "miller_invalid_basis" => "晶胞参数非法：无法构造有效基矢".to_string(),
+        "miller_zero_volume" => "晶胞体积为零，无法计算密勒面".to_string(),
+        "miller_zero_normal" => "法向量长度为零".to_string(),
+        _ => {
+            format!(
+                "sealed_kernel_calculate_miller_plane_from_cif failed with kernel status {code}."
+            )
+        }
+    });
+    AppError::Custom(message)
+}
+
 pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
     let extension_c = cstring_arg(extension.to_string(), "extension")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -1160,6 +1228,58 @@ pub fn calculate_symmetry_from_text(raw_data: &str, format: &str) -> AppResult<S
     let value = take_bridge_string(raw_json);
     serde_json::from_str(&value)
         .map_err(|err| AppError::Custom(format!("sealed kernel symmetry JSON is invalid: {err}")))
+}
+
+pub fn build_lattice_from_cif(cif_text: &str, nx: u32, ny: u32, nz: u32) -> AppResult<LatticeData> {
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_lattice_from_cif_json(
+            cif_text.as_ptr() as *const c_char,
+            cif_text.len() as u64,
+            nx,
+            ny,
+            nz,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(crystal_lattice_bridge_error(code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value)
+        .map_err(|err| AppError::Custom(format!("sealed kernel lattice JSON is invalid: {err}")))
+}
+
+pub fn calculate_miller_plane_from_cif(
+    cif_text: &str,
+    h: i32,
+    k: i32,
+    l: i32,
+) -> AppResult<MillerPlaneData> {
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_calculate_miller_plane_from_cif_json(
+            cif_text.as_ptr() as *const c_char,
+            cif_text.len() as u64,
+            h,
+            k,
+            l,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(crystal_miller_bridge_error(code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!("sealed kernel Miller plane JSON is invalid: {err}"))
+    })
 }
 
 fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<String> {
@@ -1577,5 +1697,79 @@ mod tests {
 
         let err = calculate_symmetry_from_text("1,2\n", "mol2").expect_err("unsupported");
         assert_eq!(err.to_string(), "不支持的分子文件格式: mol2");
+    }
+
+    #[test]
+    fn build_lattice_from_cif_uses_sealed_bridge_full_result() {
+        let cif = r#"
+data_NaCl
+_cell_length_a 5.64
+_cell_length_b 5.64
+_cell_length_c 5.64
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+Cl 0.5 0.5 0.5
+"#;
+        let data = build_lattice_from_cif(cif, 2, 2, 2).expect("sealed bridge lattice");
+        assert_eq!(data.atoms.len(), 16);
+        assert!((data.unit_cell.a - 5.64).abs() < 1e-8);
+
+        let plane =
+            calculate_miller_plane_from_cif(cif, 1, 1, 0).expect("sealed bridge Miller plane");
+        assert!(plane.normal[2].abs() < 1e-6);
+    }
+
+    #[test]
+    fn build_lattice_from_cif_maps_sealed_bridge_parse_errors() {
+        let cif = r#"
+data_test
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+"#;
+
+        let err = build_lattice_from_cif(cif, 1, 1, 1).expect_err("missing cell");
+        assert!(err.to_string().contains("晶胞参数"));
+
+        let err = calculate_miller_plane_from_cif(cif, 1, 0, 0).expect_err("missing cell");
+        assert!(err.to_string().contains("晶胞参数"));
+    }
+
+    #[test]
+    fn calculate_miller_plane_from_cif_maps_sealed_bridge_miller_errors() {
+        let cif = r#"
+data_NaCl
+_cell_length_a 5.64
+_cell_length_b 5.64
+_cell_length_c 5.64
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Na 0.0 0.0 0.0
+"#;
+
+        let err = calculate_miller_plane_from_cif(cif, 0, 0, 0).expect_err("zero index");
+        assert_eq!(err.to_string(), "密勒指数 (h, k, l) 不能全为零");
     }
 }

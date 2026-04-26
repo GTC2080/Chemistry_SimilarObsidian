@@ -156,6 +156,24 @@ int32_t sealed_kernel_bridge_calculate_symmetry_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_build_lattice_from_cif_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    uint32_t nx,
+    uint32_t ny,
+    uint32_t nz,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_calculate_miller_plane_from_cif_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    int32_t h,
+    int32_t k,
+    int32_t l,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_create_folder(
     sealed_kernel_bridge_session* session,
     const char* folder_rel_path_utf8,

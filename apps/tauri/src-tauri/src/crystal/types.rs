@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// 晶胞包围盒：边长、夹角、基矢
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct UnitCellBox {
     pub a: f64,
@@ -15,7 +15,7 @@ pub struct UnitCellBox {
 }
 
 /// 单个原子节点（笛卡尔坐标由 kernel 预计算）
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AtomNode {
     pub element: String,
@@ -23,7 +23,7 @@ pub struct AtomNode {
 }
 
 /// 完整晶格数据（传给前端的最终 JSON）
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct LatticeData {
     pub unit_cell: UnitCellBox,
@@ -31,7 +31,7 @@ pub struct LatticeData {
 }
 
 /// 密勒指数切割面参数
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MillerPlaneData {
     pub normal: [f64; 3],

@@ -1,5 +1,5 @@
-use crate::crystal;
 use crate::AppError;
+use crate::{crystal, sealed_kernel};
 
 /// 解析 CIF 文件并生成超晶胞
 ///
@@ -16,7 +16,7 @@ pub async fn parse_and_build_lattice(
     nz: u32,
 ) -> Result<crystal::LatticeData, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
-        crystal::parse_and_build_lattice(&cif_text, nx, ny, nz).map_err(AppError::from)
+        sealed_kernel::build_lattice_from_cif(&cif_text, nx, ny, nz)
     })
     .await
     .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
@@ -33,7 +33,7 @@ pub async fn calculate_miller_plane(
     l: i32,
 ) -> Result<crystal::MillerPlaneData, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
-        crystal::calculate_miller_plane(&cif_text, h, k, l).map_err(AppError::from)
+        sealed_kernel::calculate_miller_plane_from_cif(&cif_text, h, k, l)
     })
     .await
     .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?

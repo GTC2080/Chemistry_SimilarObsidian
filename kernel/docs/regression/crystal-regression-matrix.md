@@ -50,3 +50,10 @@ The repository must retain regression coverage for:
   Miller-plane result inside the kernel
 - CIF-backed Miller-plane results preserve typed CIF parse errors and typed
   Miller errors
+- sealed C++ bridge `sealed_kernel_bridge_build_lattice_from_cif_json(...)`
+  serializes full lattice results into the existing command DTO shape
+- sealed C++ bridge
+  `sealed_kernel_bridge_calculate_miller_plane_from_cif_json(...)` serializes
+  Miller-plane results into the existing command DTO shape
+- Tauri Rust `crystal/` does not retain duplicate lattice or Miller-plane C ABI
+  structs or unsafe atom/plane copy loops
