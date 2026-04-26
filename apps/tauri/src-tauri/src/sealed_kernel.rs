@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::State;
 
-use crate::models::{EnrichedGraphData, FileTreeNode, GraphData, NoteInfo, TagInfo, TagTreeNode};
+use crate::models::{
+    EnrichedGraphData, FileTreeNode, GraphData, MolecularPreview, NoteInfo, SpectroscopyData,
+    TagInfo, TagTreeNode,
+};
 use crate::{AppError, AppResult};
 
 #[repr(C)]
@@ -140,6 +143,21 @@ extern "C" {
         session: *mut SealedKernelBridgeSession,
         attachment_rel_path_utf8: *const c_char,
         limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_parse_spectroscopy_text_json(
+        raw_utf8: *const c_char,
+        raw_size: u64,
+        extension_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_build_molecular_preview_json(
+        raw_utf8: *const c_char,
+        raw_size: u64,
+        extension_utf8: *const c_char,
+        max_atoms: u64,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -996,6 +1014,85 @@ fn query_chem_spectrum_referrers_value(
     })
 }
 
+fn spectroscopy_bridge_error(extension: &str, code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "unsupported_extension" => format!("不支持的波谱文件扩展名: {extension}"),
+        "csv_no_numeric_rows" => "CSV 中未找到有效的数值数据行".to_string(),
+        "csv_too_few_columns" => "CSV 列数不足，至少需要 2 列".to_string(),
+        "csv_no_valid_points" => "无法从 CSV 中提取有效数据点".to_string(),
+        "jdx_no_points" => "JDX 文件中未找到可解析的数据点".to_string(),
+        _ => format!("sealed_kernel_parse_spectroscopy_text failed with kernel status {code}."),
+    };
+    AppError::Custom(message)
+}
+
+fn molecular_preview_bridge_error(
+    extension: &str,
+    code: c_int,
+    raw_error: *mut c_char,
+) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "unsupported_extension" => format!("不支持的分子文件扩展名: {extension}"),
+        _ => format!("sealed_kernel_build_molecular_preview failed with kernel status {code}."),
+    };
+    AppError::Custom(message)
+}
+
+pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
+    let extension_c = cstring_arg(extension.to_string(), "extension")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_parse_spectroscopy_text_json(
+            raw.as_ptr() as *const c_char,
+            raw.len() as u64,
+            extension_c.as_ptr(),
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(spectroscopy_bridge_error(extension, code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!("sealed kernel spectroscopy JSON is invalid: {err}"))
+    })
+}
+
+pub fn build_molecular_preview_from_text(
+    raw: &str,
+    extension: &str,
+    max_atoms: usize,
+) -> AppResult<MolecularPreview> {
+    let extension_c = cstring_arg(extension.to_string(), "extension")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_molecular_preview_json(
+            raw.as_ptr() as *const c_char,
+            raw.len() as u64,
+            extension_c.as_ptr(),
+            max_atoms as u64,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(molecular_preview_bridge_error(extension, code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel molecular preview JSON is invalid: {err}"
+        ))
+    })
+}
+
 fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<String> {
     let vault = PathBuf::from(vault_path);
     let target = PathBuf::from(file_path);
@@ -1330,5 +1427,56 @@ mod tests {
             filter_supported_vault_paths(&paths).expect("kernel supported path filter"),
             vec!["Folder/Note.md".to_string(), "Molecule.PDB".to_string()]
         );
+    }
+
+    #[test]
+    fn parse_spectroscopy_from_text_uses_sealed_bridge_csv_parser() {
+        let parsed = parse_spectroscopy_from_text(
+            "ppm,intensity,fit\n1.0,5.0,4.5\n2.0,6.0,bad\n3.0,7.0\n",
+            "csv",
+        )
+        .expect("sealed bridge csv parse");
+
+        assert_eq!(parsed.x, vec![1.0, 2.0, 3.0]);
+        assert_eq!(parsed.x_label, "ppm");
+        assert!(parsed.is_nmr);
+        assert_eq!(parsed.series.len(), 2);
+        assert_eq!(parsed.series[0].label, "intensity");
+        assert_eq!(parsed.series[0].y, vec![5.0, 6.0, 7.0]);
+        assert_eq!(parsed.series[1].label, "fit");
+        assert_eq!(parsed.series[1].y, vec![4.5, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn parse_spectroscopy_from_text_uses_sealed_bridge_jdx_parser() {
+        let parsed = parse_spectroscopy_from_text(
+            "##TITLE=Sample NMR\n\
+             ##DATATYPE=NMR SPECTRUM\n\
+             ##XUNITS=PPM\n\
+             ##YUNITS=INTENSITY\n\
+             ##PEAK TABLE=(XY..XY)\n\
+             1.0, 10.0; 2.0, 11.0\n\
+             ##END=\n",
+            "jdx",
+        )
+        .expect("sealed bridge jdx parse");
+
+        assert_eq!(parsed.title, "Sample NMR");
+        assert_eq!(parsed.x_label, "PPM");
+        assert!(parsed.is_nmr);
+        assert_eq!(parsed.x, vec![1.0, 2.0]);
+        assert_eq!(parsed.series.len(), 1);
+        assert_eq!(parsed.series[0].label, "INTENSITY");
+        assert_eq!(parsed.series[0].y, vec![10.0, 11.0]);
+    }
+
+    #[test]
+    fn parse_spectroscopy_from_text_maps_sealed_bridge_parse_errors() {
+        let err = parse_spectroscopy_from_text("name,value\nnot-a-number,still-bad\n", "csv")
+            .expect_err("invalid csv");
+        assert_eq!(err.to_string(), "CSV 中未找到有效的数值数据行");
+
+        let err = parse_spectroscopy_from_text("1,2\n", "txt").expect_err("unsupported");
+        assert_eq!(err.to_string(), "不支持的波谱文件扩展名: txt");
     }
 }

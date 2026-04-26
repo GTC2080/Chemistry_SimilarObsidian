@@ -9,7 +9,6 @@ mod kinetics;
 mod models;
 mod pdf;
 mod sealed_kernel;
-mod services;
 mod shared;
 mod symmetry;
 mod watcher;

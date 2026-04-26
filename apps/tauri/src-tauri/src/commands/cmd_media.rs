@@ -1,67 +1,15 @@
-use std::ffi::{CStr, CString};
 use std::fs;
-use std::os::raw::c_char;
 use std::path::Path;
 
 use tauri::State;
 
-use crate::models::SpectroscopyData;
+use crate::models::{MolecularPreview, SpectroscopyData};
 use crate::sealed_kernel::{self, SealedKernelState};
-use crate::services::spectroscopy::parse_spectroscopy_from_text;
 use crate::AppError;
 
 const DEFAULT_PREVIEW_ATOM_LIMIT: usize = 2000;
 const MIN_PREVIEW_ATOM_LIMIT: usize = 200;
 const MAX_PREVIEW_ATOM_LIMIT: usize = 20000;
-const KERNEL_OK: i32 = 0;
-const KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION: i32 = 1;
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct MolecularPreview {
-    pub preview_data: String,
-    pub atom_count: usize,
-    pub preview_atom_count: usize,
-    pub truncated: bool,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelStatus {
-    code: i32,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-struct KernelMolecularPreview {
-    preview_data: *mut c_char,
-    atom_count: usize,
-    preview_atom_count: usize,
-    truncated: u8,
-    error: i32,
-}
-
-impl Default for KernelMolecularPreview {
-    fn default() -> Self {
-        Self {
-            preview_data: std::ptr::null_mut(),
-            atom_count: 0,
-            preview_atom_count: 0,
-            truncated: 0,
-            error: 0,
-        }
-    }
-}
-
-extern "C" {
-    fn kernel_build_molecular_preview(
-        raw: *const c_char,
-        raw_size: usize,
-        extension: *const c_char,
-        max_atoms: usize,
-        out_preview: *mut KernelMolecularPreview,
-    ) -> KernelStatus;
-    fn kernel_free_molecular_preview(preview: *mut KernelMolecularPreview);
-}
 
 #[tauri::command]
 pub async fn parse_spectroscopy(
@@ -76,7 +24,7 @@ pub async fn parse_spectroscopy(
 
     let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
     tauri::async_runtime::spawn_blocking(move || {
-        parse_spectroscopy_from_text(&raw, &ext).map_err(Into::into)
+        sealed_kernel::parse_spectroscopy_from_text(&raw, &ext)
     })
     .await
     .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
@@ -88,57 +36,12 @@ fn clamp_preview_limit(limit: Option<usize>) -> usize {
         .clamp(MIN_PREVIEW_ATOM_LIMIT, MAX_PREVIEW_ATOM_LIMIT)
 }
 
-fn molecular_preview_error_message(error: i32, extension: &str) -> String {
-    match error {
-        KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION => {
-            format!("不支持的分子文件扩展名: {}", extension)
-        }
-        _ => "分子预览内核构建失败".to_string(),
-    }
-}
-
-unsafe fn molecular_preview_from_kernel(
-    raw: &KernelMolecularPreview,
-) -> Result<MolecularPreview, String> {
-    if raw.preview_data.is_null() {
-        return Err("分子预览内核缺少 preview_data 输出".to_string());
-    }
-    Ok(MolecularPreview {
-        preview_data: CStr::from_ptr(raw.preview_data)
-            .to_string_lossy()
-            .into_owned(),
-        atom_count: raw.atom_count,
-        preview_atom_count: raw.preview_atom_count,
-        truncated: raw.truncated != 0,
-    })
-}
-
 fn build_molecular_preview(
     raw: &str,
     extension: &str,
     max_atoms: usize,
 ) -> Result<MolecularPreview, AppError> {
-    let extension_c = CString::new(extension)
-        .map_err(|_| AppError::Custom("分子文件扩展名包含非法空字符".to_string()))?;
-    let mut result = KernelMolecularPreview::default();
-    let status = unsafe {
-        kernel_build_molecular_preview(
-            raw.as_ptr() as *const c_char,
-            raw.len(),
-            extension_c.as_ptr(),
-            max_atoms,
-            &mut result,
-        )
-    };
-    if status.code != KERNEL_OK {
-        let message = molecular_preview_error_message(result.error, extension);
-        unsafe { kernel_free_molecular_preview(&mut result) };
-        return Err(AppError::Custom(message));
-    }
-
-    let preview = unsafe { molecular_preview_from_kernel(&result) }.map_err(AppError::Custom);
-    unsafe { kernel_free_molecular_preview(&mut result) };
-    preview
+    sealed_kernel::build_molecular_preview_from_text(raw, extension, max_atoms)
 }
 
 #[tauri::command]

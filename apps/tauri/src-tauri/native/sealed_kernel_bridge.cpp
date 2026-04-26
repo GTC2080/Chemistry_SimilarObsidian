@@ -362,6 +362,74 @@ void AppendChemSpectrumReferrerJson(
   json += "\"flags\":" + std::to_string(referrer.flags) + "}";
 }
 
+const char* SpectroscopyErrorToken(const kernel_spectroscopy_parse_error value) {
+  switch (value) {
+    case KERNEL_SPECTROSCOPY_PARSE_ERROR_NONE:
+      return "none";
+    case KERNEL_SPECTROSCOPY_PARSE_ERROR_UNSUPPORTED_EXTENSION:
+      return "unsupported_extension";
+    case KERNEL_SPECTROSCOPY_PARSE_ERROR_CSV_NO_NUMERIC_ROWS:
+      return "csv_no_numeric_rows";
+    case KERNEL_SPECTROSCOPY_PARSE_ERROR_CSV_TOO_FEW_COLUMNS:
+      return "csv_too_few_columns";
+    case KERNEL_SPECTROSCOPY_PARSE_ERROR_CSV_NO_VALID_POINTS:
+      return "csv_no_valid_points";
+    case KERNEL_SPECTROSCOPY_PARSE_ERROR_JDX_NO_POINTS:
+      return "jdx_no_points";
+  }
+  return "unknown";
+}
+
+const char* MolecularPreviewErrorToken(const kernel_molecular_preview_error value) {
+  switch (value) {
+    case KERNEL_MOLECULAR_PREVIEW_ERROR_NONE:
+      return "none";
+    case KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION:
+      return "unsupported_extension";
+  }
+  return "unknown";
+}
+
+void AppendDoubleArrayJson(std::string& json, const double* values, const size_t count) {
+  json += "[";
+  for (size_t index = 0; index < count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    json += std::to_string(values[index]);
+  }
+  json += "]";
+}
+
+void AppendSpectroscopyJson(std::string& json, const kernel_spectroscopy_data& data) {
+  json += "{\"x\":";
+  AppendDoubleArrayJson(json, data.x, data.x_count);
+  json += ",\"series\":[";
+  for (size_t index = 0; index < data.series_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const kernel_spectrum_series& series = data.series[index];
+    json += "{\"y\":";
+    AppendDoubleArrayJson(json, series.y, series.count);
+    json += ",\"label\":\"" + JsonEscape(series.label) + "\"}";
+  }
+  json += "],\"x_label\":\"" + JsonEscape(data.x_label) + "\",";
+  json += "\"title\":\"" + JsonEscape(data.title) + "\",";
+  json += "\"is_nmr\":";
+  json += data.is_nmr != 0 ? "true" : "false";
+  json += "}";
+}
+
+void AppendMolecularPreviewJson(std::string& json, const kernel_molecular_preview& preview) {
+  json += "{\"preview_data\":\"" + JsonEscape(preview.preview_data) + "\",";
+  json += "\"atom_count\":" + std::to_string(preview.atom_count) + ",";
+  json += "\"preview_atom_count\":" + std::to_string(preview.preview_atom_count) + ",";
+  json += "\"truncated\":";
+  json += preview.truncated != 0 ? "true" : "false";
+  json += "}";
+}
+
 }  // namespace
 
 char* sealed_kernel_bridge_info_json(void) {
@@ -1137,6 +1205,82 @@ int32_t sealed_kernel_bridge_query_chem_spectrum_referrers_json(
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "failed to allocate chemistry spectrum referrers JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_parse_spectroscopy_text_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    const char* extension_utf8,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr || raw_utf8 == nullptr || extension_utf8 == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_spectroscopy_data data{};
+  const kernel_status status = kernel_parse_spectroscopy_text(
+      raw_utf8,
+      static_cast<size_t>(raw_size),
+      extension_utf8,
+      &data);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, SpectroscopyErrorToken(data.error));
+    kernel_free_spectroscopy_data(&data);
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string json;
+  AppendSpectroscopyJson(json, data);
+  kernel_free_spectroscopy_data(&data);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_build_molecular_preview_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    const char* extension_utf8,
+    uint64_t max_atoms,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr || raw_utf8 == nullptr || extension_utf8 == nullptr || max_atoms == 0) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_molecular_preview preview{};
+  const kernel_status status = kernel_build_molecular_preview(
+      raw_utf8,
+      static_cast<size_t>(raw_size),
+      extension_utf8,
+      static_cast<size_t>(max_atoms),
+      &preview);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, MolecularPreviewErrorToken(preview.error));
+    kernel_free_molecular_preview(&preview);
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string json;
+  AppendMolecularPreviewJson(json, preview);
+  kernel_free_molecular_preview(&preview);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);

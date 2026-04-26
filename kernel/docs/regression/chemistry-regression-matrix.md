@@ -68,6 +68,8 @@ The repository must retain regression coverage for:
   stale result buffers
 - Tauri `parse_spectroscopy` delegates extension support decisions to
   `kernel_parse_spectroscopy_text(...)`
+- Tauri sealed bridge serializes spectroscopy kernel results to JSON without
+  retaining Rust-owned spectroscopy C ABI structs or result-copy loops
 - `kernel_free_spectroscopy_data(...)` leaves the result empty and is safe on
   partially filled data
 - `kernel_build_molecular_preview(...)` counts and truncates PDB `ATOM` /
@@ -78,6 +80,8 @@ The repository must retain regression coverage for:
   `KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION`
 - Tauri `read_molecular_preview` delegates extension support decisions to
   `kernel_build_molecular_preview(...)`
+- Tauri sealed bridge serializes molecular-preview kernel results to JSON
+  without retaining Rust-owned molecular-preview C ABI structs
 - `kernel_free_molecular_preview(...)` leaves the result empty and is safe on
   partially filled data
 

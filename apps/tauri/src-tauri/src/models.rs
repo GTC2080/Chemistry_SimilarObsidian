@@ -80,18 +80,27 @@ pub struct FileTreeNode {
 }
 
 /// 波谱序列（用于多通道导出）
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectrumSeries {
     pub y: Vec<f64>,
     pub label: String,
 }
 
 /// 波谱解析结果
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectroscopyData {
     pub x: Vec<f64>,
     pub series: Vec<SpectrumSeries>,
     pub x_label: String,
     pub title: String,
     pub is_nmr: bool,
+}
+
+/// 分子文件预览结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MolecularPreview {
+    pub preview_data: String,
+    pub atom_count: usize,
+    pub preview_atom_count: usize,
+    pub truncated: bool,
 }
