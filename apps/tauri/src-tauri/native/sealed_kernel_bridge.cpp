@@ -238,6 +238,71 @@ void AppendFileTreeNodeJson(std::string& json, const kernel_file_tree_node& node
   json += "],\"fileCount\":" + std::to_string(node.file_count) + "}";
 }
 
+const char* ChemSpectrumFormatToken(const kernel_chem_spectrum_format value) {
+  switch (value) {
+    case KERNEL_CHEM_SPECTRUM_FORMAT_JCAMP_DX:
+      return "jcamp_dx";
+    case KERNEL_CHEM_SPECTRUM_FORMAT_SPECTRUM_CSV_V1:
+      return "spectrum_csv_v1";
+    case KERNEL_CHEM_SPECTRUM_FORMAT_UNKNOWN:
+      return "unknown";
+  }
+  return "unknown";
+}
+
+const char* AttachmentKindToken(const kernel_attachment_kind value) {
+  switch (value) {
+    case KERNEL_ATTACHMENT_KIND_GENERIC_FILE:
+      return "generic_file";
+    case KERNEL_ATTACHMENT_KIND_IMAGE_LIKE:
+      return "image_like";
+    case KERNEL_ATTACHMENT_KIND_PDF_LIKE:
+      return "pdf_like";
+    case KERNEL_ATTACHMENT_KIND_CHEM_LIKE:
+      return "chem_like";
+    case KERNEL_ATTACHMENT_KIND_UNKNOWN:
+      return "unknown";
+  }
+  return "unknown";
+}
+
+const char* AttachmentPresenceToken(const kernel_attachment_presence value) {
+  switch (value) {
+    case KERNEL_ATTACHMENT_PRESENCE_PRESENT:
+      return "present";
+    case KERNEL_ATTACHMENT_PRESENCE_MISSING:
+      return "missing";
+  }
+  return "missing";
+}
+
+const char* DomainObjectStateToken(const kernel_domain_object_state value) {
+  switch (value) {
+    case KERNEL_DOMAIN_OBJECT_PRESENT:
+      return "present";
+    case KERNEL_DOMAIN_OBJECT_MISSING:
+      return "missing";
+    case KERNEL_DOMAIN_OBJECT_UNRESOLVED:
+      return "unresolved";
+    case KERNEL_DOMAIN_OBJECT_UNSUPPORTED:
+      return "unsupported";
+  }
+  return "unresolved";
+}
+
+void AppendChemSpectrumJson(std::string& json, const kernel_chem_spectrum_record& spectrum) {
+  const std::string attachment_rel_path_utf8 =
+      ActiveCodePageToUtf8(spectrum.attachment_rel_path);
+  json += "{\"attachmentRelPath\":\"" + JsonEscape(attachment_rel_path_utf8.c_str()) + "\",";
+  json += "\"domainObjectKey\":\"" + JsonEscape(spectrum.domain_object_key) + "\",";
+  json += "\"subtypeRevision\":" + std::to_string(spectrum.subtype_revision) + ",";
+  json += "\"sourceFormat\":\"" + std::string(ChemSpectrumFormatToken(spectrum.source_format)) + "\",";
+  json += "\"coarseKind\":\"" + std::string(AttachmentKindToken(spectrum.coarse_kind)) + "\",";
+  json += "\"presence\":\"" + std::string(AttachmentPresenceToken(spectrum.presence)) + "\",";
+  json += "\"state\":\"" + std::string(DomainObjectStateToken(spectrum.state)) + "\",";
+  json += "\"flags\":" + std::to_string(spectrum.flags) + "}";
+}
+
 }  // namespace
 
 char* sealed_kernel_bridge_info_json(void) {
@@ -836,6 +901,85 @@ int32_t sealed_kernel_bridge_query_backlinks_json(
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "failed to allocate backlink JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_chem_spectra_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0) {
+    SetError(out_error, "sealed kernel session is not open or chemistry spectra arguments are invalid.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_chem_spectrum_list spectra{};
+  const kernel_status status =
+      kernel_query_chem_spectra(session->handle, static_cast<size_t>(limit), &spectra);
+  if (status.code != KERNEL_OK) {
+    kernel_free_chem_spectrum_list(&spectra);
+    return ReturnKernelError(status, "kernel_query_chem_spectra", out_error);
+  }
+
+  std::string json = "{\"spectra\":[";
+  for (size_t index = 0; index < spectra.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendChemSpectrumJson(json, spectra.spectra[index]);
+  }
+  json += "],\"count\":" + std::to_string(spectra.count) + "}";
+
+  kernel_free_chem_spectrum_list(&spectra);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "failed to allocate chemistry spectra JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_get_chem_spectrum_json(
+    sealed_kernel_bridge_session* session,
+    const char* attachment_rel_path_utf8,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr) {
+    SetError(out_error, "sealed kernel session is not open.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string attachment_rel_path = Utf8ToActiveCodePage(attachment_rel_path_utf8);
+  if (attachment_rel_path.empty()) {
+    SetError(out_error, "attachment_rel_path must be a non-empty UTF-8 string.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_chem_spectrum_record spectrum{};
+  const kernel_status status =
+      kernel_get_chem_spectrum(session->handle, attachment_rel_path.c_str(), &spectrum);
+  if (status.code != KERNEL_OK) {
+    kernel_free_chem_spectrum_record(&spectrum);
+    return ReturnKernelError(status, "kernel_get_chem_spectrum", out_error);
+  }
+
+  std::string json = "{\"spectrum\":";
+  AppendChemSpectrumJson(json, spectrum);
+  json += "}";
+
+  kernel_free_chem_spectrum_record(&spectrum);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "failed to allocate chemistry spectrum JSON.");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);

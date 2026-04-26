@@ -102,6 +102,9 @@ The repository must retain regression coverage for:
 
 - `kernel_query_chem_spectra(...)` succeeds for live chemistry spectrum carriers
 - `kernel_get_chem_spectrum(...)` succeeds for supported live spectrum carriers
+- Tauri sealed bridge `sealed_kernel_query_chem_spectra` and
+  `sealed_kernel_get_chem_spectrum` expose the kernel catalog / lookup without
+  rebuilding chemistry spectrum candidate rules in Rust
 - `jcamp_dx` can enter `present`
 - strict `spectrum_csv_v1` can enter `present`
 - non-conforming CSV degrades to `unresolved`

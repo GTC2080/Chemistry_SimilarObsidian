@@ -117,6 +117,18 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_query_chem_spectra_json(
+        session: *mut SealedKernelBridgeSession,
+        limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_chem_spectrum_json(
+        session: *mut SealedKernelBridgeSession,
+        attachment_rel_path_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_create_folder(
         session: *mut SealedKernelBridgeSession,
         folder_rel_path_utf8: *const c_char,
@@ -824,6 +836,70 @@ pub fn query_enriched_graph_data(
     })
 }
 
+fn query_chem_spectra_value(state: &SealedKernelState, limit: u64) -> AppResult<Value> {
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "limit must be greater than zero.".to_string(),
+        ));
+    }
+
+    let session = active_session(state)?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_query_chem_spectra_json(session, limit, &mut raw_json, &mut error)
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_query_chem_spectra",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel chemistry spectra JSON is invalid: {err}"
+        ))
+    })
+}
+
+fn get_chem_spectrum_value(
+    state: &SealedKernelState,
+    attachment_rel_path: &str,
+) -> AppResult<Value> {
+    let trimmed = attachment_rel_path.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Custom(
+            "attachment_rel_path must be non-empty.".to_string(),
+        ));
+    }
+
+    let session = active_session(state)?;
+    let attachment_rel_path_c = cstring_arg(trimmed.to_string(), "attachment_rel_path")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_get_chem_spectrum_json(
+            session,
+            attachment_rel_path_c.as_ptr(),
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error("sealed_kernel_get_chem_spectrum", code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel chemistry spectrum JSON is invalid: {err}"
+        ))
+    })
+}
+
 fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<String> {
     let vault = PathBuf::from(vault_path);
     let target = PathBuf::from(file_path);
@@ -1088,6 +1164,22 @@ pub fn sealed_kernel_query_notes(
     let limit = limit.unwrap_or(512);
     serde_json::to_value(query_note_catalog(state.inner(), limit, None)?)
         .map_err(|err| AppError::Custom(format!("sealed kernel note catalog encode failed: {err}")))
+}
+
+#[tauri::command]
+pub fn sealed_kernel_query_chem_spectra(
+    limit: Option<u64>,
+    state: State<'_, SealedKernelState>,
+) -> AppResult<Value> {
+    query_chem_spectra_value(state.inner(), limit.unwrap_or(512))
+}
+
+#[tauri::command]
+pub fn sealed_kernel_get_chem_spectrum(
+    attachment_rel_path: String,
+    state: State<'_, SealedKernelState>,
+) -> AppResult<Value> {
+    get_chem_spectrum_value(state.inner(), &attachment_rel_path)
 }
 
 #[cfg(test)]

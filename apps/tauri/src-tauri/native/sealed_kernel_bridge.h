@@ -107,6 +107,18 @@ int32_t sealed_kernel_bridge_query_backlinks_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_query_chem_spectra_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_chem_spectrum_json(
+    sealed_kernel_bridge_session* session,
+    const char* attachment_rel_path_utf8,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_create_folder(
     sealed_kernel_bridge_session* session,
     const char* folder_rel_path_utf8,

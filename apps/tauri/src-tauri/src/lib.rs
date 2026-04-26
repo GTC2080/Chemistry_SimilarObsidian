@@ -91,6 +91,8 @@ pub fn run() {
             sealed_kernel::sealed_kernel_get_state,
             sealed_kernel::sealed_kernel_close_vault,
             sealed_kernel::sealed_kernel_query_notes,
+            sealed_kernel::sealed_kernel_query_chem_spectra,
+            sealed_kernel::sealed_kernel_get_chem_spectrum,
             commands::cmd_pdf::read_pdf_file,
             commands::cmd_pdf::smooth_ink_strokes,
             commands::cmd_pdf::load_pdf_annotations,
