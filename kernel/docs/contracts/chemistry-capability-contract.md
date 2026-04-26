@@ -73,9 +73,9 @@ Frozen rules:
   spectroscopy extension support or CSV/JDX parsing rules
 - Tauri Rust may own file IO and serde command marshalling, but not molecular
   extension support or PDB/XYZ/CIF preview construction rules
-- host bridges may serialize spectroscopy and molecular-preview kernel results
-  to JSON, but Rust hosts must not retain duplicate C ABI structs or copy loops
-  for these compute surfaces
+- host bridges may serialize retrosynthesis, spectroscopy, and molecular-preview
+  kernel results to JSON, but Rust hosts must not retain duplicate C ABI structs
+  or copy loops for these compute surfaces
 - Tauri Rust and other hosts keep row identity, names, formulas, and UI labels;
   the kernel owns stoichiometry numeric propagation rules
 - all returned kinetics arrays are kernel-owned until released with

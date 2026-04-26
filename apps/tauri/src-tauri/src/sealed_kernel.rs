@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::State;
 
+use crate::chem_api::RetroTreeData;
 use crate::crystal::{LatticeData, MillerPlaneData};
 use crate::models::{
     EnrichedGraphData, FileTreeNode, GraphData, MolecularPreview, NoteInfo, SpectroscopyData,
@@ -155,6 +156,12 @@ extern "C" {
         raw_utf8: *const c_char,
         raw_size: u64,
         extension_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_generate_mock_retrosynthesis_json(
+        target_smiles_utf8: *const c_char,
+        depth: u8,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -1071,6 +1078,18 @@ fn molecular_preview_bridge_error(
     AppError::Custom(message)
 }
 
+fn retrosynthesis_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "invalid_argument" => "请输入目标分子 SMILES".to_string(),
+        "empty_tree" | "invalid_payload" | "retro_failed" => "未生成可用逆合成路径".to_string(),
+        _ => {
+            format!("sealed_kernel_generate_mock_retrosynthesis failed with kernel status {code}.")
+        }
+    };
+    AppError::Custom(message)
+}
+
 fn symmetry_bridge_error(
     format: &str,
     max_atoms: usize,
@@ -1169,6 +1188,31 @@ pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<Spe
     let value = take_bridge_string(raw_json);
     serde_json::from_str(&value).map_err(|err| {
         AppError::Custom(format!("sealed kernel spectroscopy JSON is invalid: {err}"))
+    })
+}
+
+pub fn generate_mock_retrosynthesis(target_smiles: &str, depth: u8) -> AppResult<RetroTreeData> {
+    let target_smiles_c = CString::new(target_smiles)
+        .map_err(|_| AppError::Custom("目标分子 SMILES 包含无效字符".to_string()))?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_generate_mock_retrosynthesis_json(
+            target_smiles_c.as_ptr(),
+            depth,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(retrosynthesis_bridge_error(code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel retrosynthesis JSON is invalid: {err}"
+        ))
     })
 }
 
@@ -1667,6 +1711,24 @@ mod tests {
 
         let err = parse_spectroscopy_from_text("1,2\n", "txt").expect_err("unsupported");
         assert_eq!(err.to_string(), "不支持的波谱文件扩展名: txt");
+    }
+
+    #[test]
+    fn generate_mock_retrosynthesis_uses_sealed_bridge_amide_rules() {
+        let result = generate_mock_retrosynthesis(" CC(=O)NCC1=CC=CC=C1 ", 2)
+            .expect("sealed bridge retrosynthesis");
+
+        assert!(!result.pathways.is_empty());
+        assert_eq!(result.pathways[0].reaction_name, "Amide Coupling");
+        assert!(result.pathways[0].target_id.starts_with("retro_"));
+        assert_eq!(result.pathways[0].precursors[2].role, "reagent");
+    }
+
+    #[test]
+    fn generate_mock_retrosynthesis_maps_sealed_bridge_invalid_argument() {
+        let err = generate_mock_retrosynthesis("   ", 2).expect_err("empty target");
+
+        assert_eq!(err.to_string(), "请输入目标分子 SMILES");
     }
 
     #[test]

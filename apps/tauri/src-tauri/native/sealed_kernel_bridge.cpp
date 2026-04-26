@@ -492,6 +492,41 @@ std::string CrystalCifMillerErrorToken(const kernel_cif_miller_plane_result& res
   return CrystalMillerErrorToken(result.plane.error);
 }
 
+bool ValidateRetroTreeJsonInput(const kernel_retro_tree& tree, std::string& error) {
+  if (tree.pathway_count == 0) {
+    error = "empty_tree";
+    return false;
+  }
+  if (tree.pathways == nullptr) {
+    error = "invalid_payload";
+    return false;
+  }
+
+  for (size_t pathway_index = 0; pathway_index < tree.pathway_count; ++pathway_index) {
+    const kernel_retro_pathway& pathway = tree.pathways[pathway_index];
+    if (pathway.target_id == nullptr ||
+        pathway.reaction_name == nullptr ||
+        pathway.conditions == nullptr) {
+      error = "invalid_payload";
+      return false;
+    }
+    if (pathway.precursor_count > 0 && pathway.precursors == nullptr) {
+      error = "invalid_payload";
+      return false;
+    }
+    for (size_t precursor_index = 0; precursor_index < pathway.precursor_count; ++precursor_index) {
+      const kernel_retro_precursor& precursor = pathway.precursors[precursor_index];
+      if (precursor.id == nullptr ||
+          precursor.smiles == nullptr ||
+          precursor.role == nullptr) {
+        error = "invalid_payload";
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void AppendDoubleArrayJson(std::string& json, const double* values, const size_t count) {
   json += "[";
   for (size_t index = 0; index < count; ++index) {
@@ -530,6 +565,36 @@ void AppendMolecularPreviewJson(std::string& json, const kernel_molecular_previe
   json += "\"truncated\":";
   json += preview.truncated != 0 ? "true" : "false";
   json += "}";
+}
+
+void AppendRetroPrecursorJson(std::string& json, const kernel_retro_precursor& precursor) {
+  json += "{\"id\":\"" + JsonEscape(precursor.id) + "\",";
+  json += "\"smiles\":\"" + JsonEscape(precursor.smiles) + "\",";
+  json += "\"role\":\"" + JsonEscape(precursor.role) + "\"}";
+}
+
+void AppendRetroPathwayJson(std::string& json, const kernel_retro_pathway& pathway) {
+  json += "{\"target_id\":\"" + JsonEscape(pathway.target_id) + "\",";
+  json += "\"precursors\":[";
+  for (size_t index = 0; index < pathway.precursor_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendRetroPrecursorJson(json, pathway.precursors[index]);
+  }
+  json += "],\"reaction_name\":\"" + JsonEscape(pathway.reaction_name) + "\",";
+  json += "\"conditions\":\"" + JsonEscape(pathway.conditions) + "\"}";
+}
+
+void AppendRetroTreeJson(std::string& json, const kernel_retro_tree& tree) {
+  json += "{\"pathways\":[";
+  for (size_t index = 0; index < tree.pathway_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendRetroPathwayJson(json, tree.pathways[index]);
+  }
+  json += "]}";
 }
 
 void AppendVec3Json(std::string& json, const double values[3]) {
@@ -1468,6 +1533,48 @@ int32_t sealed_kernel_bridge_parse_spectroscopy_text_json(
   std::string json;
   AppendSpectroscopyJson(json, data);
   kernel_free_spectroscopy_data(&data);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
+    const char* target_smiles_utf8,
+    uint8_t depth,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr || target_smiles_utf8 == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_retro_tree tree{};
+  const kernel_status status =
+      kernel_generate_mock_retrosynthesis(target_smiles_utf8, depth, &tree);
+  if (status.code != KERNEL_OK) {
+    SetError(
+        out_error,
+        status.code == KERNEL_ERROR_INVALID_ARGUMENT ? "invalid_argument" : "retro_failed");
+    kernel_free_retro_tree(&tree);
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string validation_error;
+  if (!ValidateRetroTreeJsonInput(tree, validation_error)) {
+    SetError(out_error, validation_error);
+    kernel_free_retro_tree(&tree);
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  std::string json;
+  AppendRetroTreeJson(json, tree);
+  kernel_free_retro_tree(&tree);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

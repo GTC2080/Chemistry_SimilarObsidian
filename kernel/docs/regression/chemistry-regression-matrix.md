@@ -55,6 +55,8 @@ The repository must retain regression coverage for:
 - retrosynthesis rejects null or empty targets
 - Tauri `retrosynthesize_target` delegates SMILES whitespace normalization and
   empty-target validation to `kernel_generate_mock_retrosynthesis(...)`
+- Tauri sealed bridge serializes retrosynthesis kernel results to JSON without
+  retaining Rust-owned retrosynthesis C ABI structs or result-copy loops
 - `kernel_free_retro_tree(...)` leaves the tree empty and is safe on filled
   output
 - `kernel_parse_spectroscopy_text(...)` parses CSV x values and multiple y

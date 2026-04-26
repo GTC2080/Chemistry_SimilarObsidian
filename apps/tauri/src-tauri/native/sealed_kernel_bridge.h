@@ -140,6 +140,12 @@ int32_t sealed_kernel_bridge_parse_spectroscopy_text_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
+    const char* target_smiles_utf8,
+    uint8_t depth,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_build_molecular_preview_json(
     const char* raw_utf8,
     uint64_t raw_size,
