@@ -13,6 +13,7 @@ use crate::models::{
     EnrichedGraphData, FileTreeNode, GraphData, MolecularPreview, NoteInfo, SpectroscopyData,
     TagInfo, TagTreeNode,
 };
+use crate::symmetry::SymmetryData;
 use crate::{AppError, AppResult};
 
 #[repr(C)]
@@ -28,6 +29,8 @@ struct SealedKernelBridgeStateSnapshot {
     indexed_note_count: u64,
     pending_recovery_ops: u64,
 }
+
+const MAX_ATOMS_FOR_SYMMETRY: usize = 500;
 
 extern "C" {
     fn sealed_kernel_bridge_info_json() -> *mut c_char;
@@ -157,6 +160,14 @@ extern "C" {
         raw_utf8: *const c_char,
         raw_size: u64,
         extension_utf8: *const c_char,
+        max_atoms: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_calculate_symmetry_json(
+        raw_utf8: *const c_char,
+        raw_size: u64,
+        format_utf8: *const c_char,
         max_atoms: u64,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
@@ -1040,6 +1051,36 @@ fn molecular_preview_bridge_error(
     AppError::Custom(message)
 }
 
+fn symmetry_bridge_error(
+    format: &str,
+    max_atoms: usize,
+    code: c_int,
+    raw_error: *mut c_char,
+) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "parse_unsupported_format" => format!("不支持的分子文件格式: {format}"),
+        "parse_xyz_empty" => "XYZ 文件为空".to_string(),
+        "parse_xyz_incomplete" => "XYZ 文件格式不完整".to_string(),
+        "parse_xyz_coordinate" => "XYZ 坐标解析失败".to_string(),
+        "parse_pdb_coordinate" => "PDB 坐标解析失败".to_string(),
+        "parse_cif_missing_cell" => {
+            "CIF 使用分数坐标，但缺少完整晶胞参数 (_cell_length_*/_cell_angle_*)".to_string()
+        }
+        "parse_cif_invalid_cell" => "CIF 晶胞参数非法：无法构造有效的晶胞基矢".to_string(),
+        "no_atoms" => "未找到任何原子坐标".to_string(),
+        token if token.starts_with("too_many_atoms:") => {
+            let atom_count = token
+                .split_once(':')
+                .and_then(|(_, value)| value.parse::<usize>().ok())
+                .unwrap_or(0);
+            format!("原子数 ({atom_count}) 超过对称性分析上限 ({max_atoms})，请使用较小的分子")
+        }
+        _ => format!("sealed_kernel_calculate_symmetry failed with kernel status {code}."),
+    };
+    AppError::Custom(message)
+}
+
 pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
     let extension_c = cstring_arg(extension.to_string(), "extension")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -1091,6 +1132,34 @@ pub fn build_molecular_preview_from_text(
             "sealed kernel molecular preview JSON is invalid: {err}"
         ))
     })
+}
+
+pub fn calculate_symmetry_from_text(raw_data: &str, format: &str) -> AppResult<SymmetryData> {
+    let format_c = cstring_arg(format.to_string(), "format")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_calculate_symmetry_json(
+            raw_data.as_ptr() as *const c_char,
+            raw_data.len() as u64,
+            format_c.as_ptr(),
+            MAX_ATOMS_FOR_SYMMETRY as u64,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(symmetry_bridge_error(
+            format,
+            MAX_ATOMS_FOR_SYMMETRY,
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value)
+        .map_err(|err| AppError::Custom(format!("sealed kernel symmetry JSON is invalid: {err}")))
 }
 
 fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<String> {
@@ -1478,5 +1547,35 @@ mod tests {
 
         let err = parse_spectroscopy_from_text("1,2\n", "txt").expect_err("unsupported");
         assert_eq!(err.to_string(), "不支持的波谱文件扩展名: txt");
+    }
+
+    #[test]
+    fn calculate_symmetry_from_text_uses_sealed_bridge_water_pipeline() {
+        let xyz =
+            "3\nwater\nO  0.000  0.000  0.117\nH  0.000  0.757 -0.469\nH  0.000 -0.757 -0.469\n";
+        let result = calculate_symmetry_from_text(xyz, "xyz").expect("sealed bridge symmetry");
+
+        assert_eq!(result.point_group, "C_2v");
+        assert!(!result.axes.is_empty());
+        assert!(!result.planes.is_empty());
+    }
+
+    #[test]
+    fn calculate_symmetry_from_text_uses_sealed_bridge_linear_pipeline() {
+        let xyz =
+            "3\nCO2\nC  0.000  0.000  0.000\nO  0.000  0.000  1.160\nO  0.000  0.000 -1.160\n";
+        let result = calculate_symmetry_from_text(xyz, "xyz").expect("sealed bridge symmetry");
+
+        assert_eq!(result.point_group, "D∞h");
+        assert!(result.has_inversion);
+    }
+
+    #[test]
+    fn calculate_symmetry_from_text_maps_sealed_bridge_parse_errors() {
+        let err = calculate_symmetry_from_text("1\n", "xyz").expect_err("invalid xyz");
+        assert_eq!(err.to_string(), "XYZ 文件格式不完整");
+
+        let err = calculate_symmetry_from_text("1,2\n", "mol2").expect_err("unsupported");
+        assert_eq!(err.to_string(), "不支持的分子文件格式: mol2");
     }
 }

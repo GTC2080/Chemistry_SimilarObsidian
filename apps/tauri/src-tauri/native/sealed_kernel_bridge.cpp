@@ -390,6 +390,45 @@ const char* MolecularPreviewErrorToken(const kernel_molecular_preview_error valu
   return "unknown";
 }
 
+const char* SymmetryParseErrorToken(const kernel_symmetry_parse_error value) {
+  switch (value) {
+    case KERNEL_SYMMETRY_PARSE_ERROR_NONE:
+      return "parse_none";
+    case KERNEL_SYMMETRY_PARSE_ERROR_UNSUPPORTED_FORMAT:
+      return "parse_unsupported_format";
+    case KERNEL_SYMMETRY_PARSE_ERROR_XYZ_EMPTY:
+      return "parse_xyz_empty";
+    case KERNEL_SYMMETRY_PARSE_ERROR_XYZ_INCOMPLETE:
+      return "parse_xyz_incomplete";
+    case KERNEL_SYMMETRY_PARSE_ERROR_XYZ_COORDINATE:
+      return "parse_xyz_coordinate";
+    case KERNEL_SYMMETRY_PARSE_ERROR_PDB_COORDINATE:
+      return "parse_pdb_coordinate";
+    case KERNEL_SYMMETRY_PARSE_ERROR_CIF_MISSING_CELL:
+      return "parse_cif_missing_cell";
+    case KERNEL_SYMMETRY_PARSE_ERROR_CIF_INVALID_CELL:
+      return "parse_cif_invalid_cell";
+  }
+  return "parse_unknown";
+}
+
+std::string SymmetryCalculationErrorToken(
+    const kernel_symmetry_calculation_result& result) {
+  switch (result.error) {
+    case KERNEL_SYMMETRY_CALC_ERROR_NONE:
+      return "none";
+    case KERNEL_SYMMETRY_CALC_ERROR_PARSE:
+      return SymmetryParseErrorToken(result.parse_error);
+    case KERNEL_SYMMETRY_CALC_ERROR_NO_ATOMS:
+      return "no_atoms";
+    case KERNEL_SYMMETRY_CALC_ERROR_TOO_MANY_ATOMS:
+      return "too_many_atoms:" + std::to_string(result.atom_count);
+    case KERNEL_SYMMETRY_CALC_ERROR_INTERNAL:
+      return "internal";
+  }
+  return "unknown";
+}
+
 void AppendDoubleArrayJson(std::string& json, const double* values, const size_t count) {
   json += "[";
   for (size_t index = 0; index < count; ++index) {
@@ -428,6 +467,61 @@ void AppendMolecularPreviewJson(std::string& json, const kernel_molecular_previe
   json += "\"truncated\":";
   json += preview.truncated != 0 ? "true" : "false";
   json += "}";
+}
+
+void AppendVec3Json(std::string& json, const double values[3]) {
+  json += "{\"x\":" + std::to_string(values[0]) + ",";
+  json += "\"y\":" + std::to_string(values[1]) + ",";
+  json += "\"z\":" + std::to_string(values[2]) + "}";
+}
+
+void AppendSymmetryAxisJson(std::string& json, const kernel_symmetry_render_axis& axis) {
+  json += "{\"vector\":";
+  AppendVec3Json(json, axis.vector);
+  json += ",\"center\":";
+  AppendVec3Json(json, axis.center);
+  json += ",\"order\":" + std::to_string(axis.order) + ",";
+  json += "\"start\":";
+  AppendVec3Json(json, axis.start);
+  json += ",\"end\":";
+  AppendVec3Json(json, axis.end);
+  json += "}";
+}
+
+void AppendSymmetryPlaneJson(std::string& json, const kernel_symmetry_render_plane& plane) {
+  json += "{\"normal\":";
+  AppendVec3Json(json, plane.normal);
+  json += ",\"center\":";
+  AppendVec3Json(json, plane.center);
+  json += ",\"vertices\":[";
+  for (size_t index = 0; index < 4; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendVec3Json(json, plane.vertices[index]);
+  }
+  json += "]}";
+}
+
+void AppendSymmetryJson(std::string& json, const kernel_symmetry_calculation_result& result) {
+  json += "{\"pointGroup\":\"" + JsonEscape(result.point_group) + "\",";
+  json += "\"planes\":[";
+  for (size_t index = 0; index < result.plane_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendSymmetryPlaneJson(json, result.planes[index]);
+  }
+  json += "],\"axes\":[";
+  for (size_t index = 0; index < result.axis_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendSymmetryAxisJson(json, result.axes[index]);
+  }
+  json += "],\"hasInversion\":";
+  json += result.has_inversion != 0 ? "true" : "false";
+  json += ",\"atomCount\":" + std::to_string(result.atom_count) + "}";
 }
 
 }  // namespace
@@ -1278,6 +1372,45 @@ int32_t sealed_kernel_bridge_build_molecular_preview_json(
   std::string json;
   AppendMolecularPreviewJson(json, preview);
   kernel_free_molecular_preview(&preview);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_calculate_symmetry_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    const char* format_utf8,
+    uint64_t max_atoms,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr || raw_utf8 == nullptr || format_utf8 == nullptr || max_atoms == 0) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_symmetry_calculation_result result{};
+  const kernel_status status = kernel_calculate_symmetry(
+      raw_utf8,
+      static_cast<size_t>(raw_size),
+      format_utf8,
+      static_cast<size_t>(max_atoms),
+      &result);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, SymmetryCalculationErrorToken(result));
+    kernel_free_symmetry_calculation_result(&result);
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string json;
+  AppendSymmetryJson(json, result);
+  kernel_free_symmetry_calculation_result(&result);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

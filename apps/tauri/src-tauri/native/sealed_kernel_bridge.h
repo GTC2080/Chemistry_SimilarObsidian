@@ -148,6 +148,14 @@ int32_t sealed_kernel_bridge_build_molecular_preview_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_calculate_symmetry_json(
+    const char* raw_utf8,
+    uint64_t raw_size,
+    const char* format_utf8,
+    uint64_t max_atoms,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_create_folder(
     sealed_kernel_bridge_session* session,
     const char* folder_rel_path_utf8,

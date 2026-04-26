@@ -1,5 +1,5 @@
-use crate::symmetry;
 use crate::AppError;
+use crate::{sealed_kernel, symmetry};
 
 /// 计算分子对称性（点群、镜面、旋转轴）
 ///
@@ -13,5 +13,5 @@ pub fn calculate_symmetry(
     data: String,
     format: String,
 ) -> Result<symmetry::SymmetryData, AppError> {
-    symmetry::calculate(&data, &format).map_err(Into::into)
+    sealed_kernel::calculate_symmetry_from_text(&data, &format)
 }

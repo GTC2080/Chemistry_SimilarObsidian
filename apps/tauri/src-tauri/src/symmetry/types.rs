@@ -1,20 +1,20 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Vec3D {
     pub x: f64,
     pub y: f64,
     pub z: f64,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct SymmetryPlane {
     pub normal: Vec3D,
     pub center: Vec3D,
     pub vertices: [Vec3D; 4],
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct RotationAxis {
     pub vector: Vec3D,
     pub center: Vec3D,
@@ -23,7 +23,7 @@ pub struct RotationAxis {
     pub end: Vec3D,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SymmetryData {
     pub point_group: String,

@@ -53,8 +53,13 @@ Current surface:
 The Tauri host keeps:
 
 - command DTO construction
-- full-result ABI marshalling
 - localized UI error wording
+
+The sealed C++ host bridge may keep:
+
+- full-result ABI marshalling
+- JSON serialization from `kernel_symmetry_calculation_result` into the host
+  command DTO shape
 
 The kernel owns:
 
