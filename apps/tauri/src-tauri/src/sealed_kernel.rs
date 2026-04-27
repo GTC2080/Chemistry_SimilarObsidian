@@ -52,6 +52,10 @@ extern "C" {
         out_limit: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_note_query_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_get_vault_scan_default_limit(
         out_limit: *mut u64,
         out_error: *mut *mut c_char,
@@ -659,6 +663,13 @@ pub fn note_catalog_default_limit() -> AppResult<u64> {
     kernel_default_limit(
         "sealed_kernel_get_note_catalog_default_limit",
         sealed_kernel_bridge_get_note_catalog_default_limit,
+    )
+}
+
+pub fn note_query_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_note_query_default_limit",
+        sealed_kernel_bridge_get_note_query_default_limit,
     )
 }
 
@@ -2263,7 +2274,10 @@ pub fn sealed_kernel_query_notes(
     limit: Option<u64>,
     state: State<'_, SealedKernelState>,
 ) -> AppResult<Value> {
-    let limit = limit.unwrap_or(512);
+    let limit = match limit {
+        Some(value) => value,
+        None => note_query_default_limit()?,
+    };
     serde_json::to_value(query_note_catalog(state.inner(), limit, None)?)
         .map_err(|err| AppError::Custom(format!("sealed kernel note catalog encode failed: {err}")))
 }
@@ -2435,6 +2449,11 @@ mod tests {
     #[test]
     fn note_catalog_default_limit_comes_from_kernel() {
         assert_eq!(note_catalog_default_limit().unwrap(), 100000);
+    }
+
+    #[test]
+    fn note_query_default_limit_comes_from_kernel() {
+        assert_eq!(note_query_default_limit().unwrap(), 512);
     }
 
     #[test]

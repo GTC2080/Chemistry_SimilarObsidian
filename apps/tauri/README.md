@@ -45,6 +45,7 @@
 - **v1.0.6-dev** — 产品计算面继续内核化：`compute_truth_diff` 改为通过 sealed C++ bridge 调用 `kernel_compute_truth_diff(...)`，`build_semantic_context` 改为通过 sealed C++ bridge 调用 `kernel_build_semantic_context(...)`；TRUTH_SYSTEM 经验归因、代码块语言增量、分子编辑行数规则和 AI 语义上下文裁剪由 C++ sealed kernel 统一提供。Tauri Rust 只保留 DTO 映射和中文 reason 文案，不再保留 product compute C ABI mirror / unsafe 拷贝循环。
 - **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文与 media 文本读取走 kernel note read surface；全量 note catalog 与 `build_file_tree` 的 ignored root 过滤分别由 `kernel_query_notes_filtered(...)`、`kernel_query_file_tree_filtered(...)` 提供，增量 changed-entry 的 Markdown 路径归一/过滤/去重由 `kernel_filter_changed_markdown_paths(...)` 提供。Tauri Rust 只保留命令编排、embedding 兼容缓存写入和后台任务调度。
 - **v1.0.6-dev** — note catalog 扫描默认上限改由 `kernel_get_note_catalog_default_limit(...)` 提供，`scan_vault` 快速元数据预览上限改由 `kernel_get_vault_scan_default_limit(...)` 提供；`scan_vault` / `index_vault_content` 不再在 Rust command 中保留重复的 catalog limit 常量。
+- **v1.0.6-dev** — 直接 note catalog 查询的宿主默认页大小改由 `kernel_get_note_query_default_limit(...)` 提供；`sealed_kernel_query_notes` 不再用 Rust `unwrap_or(512)` 持有查询默认值。
 - **v1.0.6-dev** — file tree 默认 source catalog 上限改由 `kernel_get_file_tree_default_limit(...)` 提供；`build_file_tree` 不再在 Rust command 中保留重复的 file-tree limit 常量。
 - **v1.0.6-dev** — 关系读面收口到 C++ sealed kernel：`search_notes`、`get_backlinks`、`get_all_tags`、`get_notes_by_tag`、`get_tag_tree`、`get_graph_data`、`get_enriched_graph_data` 通过 `src-tauri/native/sealed_kernel_bridge.*` 调用 `kernel_query_*` / `kernel_search_*` 出口。前端继续只消费 Tauri command，不直接构造 tags / backlinks / graph 的真相结构。
 - **v1.0.6-dev** — 关系读面默认上限继续内核化：search/backlinks/tags/tag tree/graph 的默认 limit 通过 `kernel_get_*_default_limit(...)` 查询；Rust `cmd_search.rs` 不再保留 `10` / `64` / `128` / `512` / `2048` 关系查询边界常量。
@@ -88,6 +89,7 @@
 
 Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 兼容缓存和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
 `scan_vault` 的快速元数据预览上限与 `index_vault_content` 的默认 note catalog 拉取上限从 kernel 查询，不再由 Rust command 持有业务边界常量。
+`sealed_kernel_query_notes` 的直接查询默认页大小从 kernel 查询，不影响 scan/index 使用的全量 catalog 默认上限。
 `build_file_tree` 的默认 source catalog 上限从 kernel 查询，不再由 Rust command 持有 file-tree limit 常量。
 Rust watcher 只保留 notify 事件分类、平台目录事件判断、原始 ignored-root CSV 透传和 IPC 发送；隐藏路径、ignored root 解析/归一、支持扩展名、路径归一化与去重规则由 kernel path filter 统一判定。
 Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单。

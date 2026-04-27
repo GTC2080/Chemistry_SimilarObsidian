@@ -80,6 +80,15 @@ void test_note_catalog_default_limit_is_kernel_owned() {
       "note catalog default limit should reject null output");
 }
 
+void test_note_query_default_limit_is_kernel_owned() {
+  size_t limit = 0;
+  expect_ok(kernel_get_note_query_default_limit(&limit));
+  require_true(limit == 512, "host note query default limit should come from kernel");
+  require_true(
+      kernel_get_note_query_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "host note query default limit should reject null output");
+}
+
 void test_vault_scan_default_limit_is_kernel_owned() {
   size_t limit = 0;
   expect_ok(kernel_get_vault_scan_default_limit(&limit));
@@ -139,6 +148,7 @@ void run_kernel_api_core_note_catalog_contract_tests() {
   test_query_notes_returns_sorted_live_catalog();
   test_query_notes_limit_is_applied();
   test_note_catalog_default_limit_is_kernel_owned();
+  test_note_query_default_limit_is_kernel_owned();
   test_vault_scan_default_limit_is_kernel_owned();
   test_query_notes_filtered_ignores_only_matching_roots();
   test_query_notes_requires_valid_arguments();

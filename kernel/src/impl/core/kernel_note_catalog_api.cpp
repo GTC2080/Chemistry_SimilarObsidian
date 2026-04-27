@@ -18,6 +18,7 @@
 namespace {
 
 constexpr std::size_t kDefaultNoteCatalogLimit = 100000;
+constexpr std::size_t kDefaultNoteQueryLimit = 512;
 constexpr std::size_t kDefaultVaultScanLimit = 4096;
 
 void free_note_record_impl(kernel_note_record* note) {
@@ -175,6 +176,14 @@ extern "C" kernel_status kernel_get_note_catalog_default_limit(std::size_t* out_
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
   *out_limit = kDefaultNoteCatalogLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_note_query_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultNoteQueryLimit;
   return kernel::core::make_status(KERNEL_OK);
 }
 

@@ -10,6 +10,7 @@ This document freezes the Phase 1 host-facing behavior for:
 
 - `kernel_search_notes(...)`
 - `kernel_search_notes_limited(...)`
+- `kernel_get_note_query_default_limit(...)`
 - `kernel_get_search_note_default_limit(...)`
 - `kernel_get_backlink_default_limit(...)`
 - `kernel_get_tag_catalog_default_limit(...)`
@@ -53,6 +54,7 @@ Tauri commands must call these getters instead of hard-coding relationship defau
 
 Frozen defaults:
 
+- `kernel_get_note_query_default_limit(...) = 512`
 - `kernel_get_search_note_default_limit(...) = 10`
 - `kernel_get_backlink_default_limit(...) = 64`
 - `kernel_get_tag_catalog_default_limit(...) = 512`
