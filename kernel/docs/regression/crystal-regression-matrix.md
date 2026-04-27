@@ -2,7 +2,7 @@
 
 # Crystal Regression Matrix
 
-Last updated: `2026-04-25`
+Last updated: `2026-04-27`
 
 ## Stateless Crystal Compute
 
@@ -36,6 +36,8 @@ The repository must retain regression coverage for:
 - supercell generation deduplicates identical symmetry operations
 - supercell generation reports `KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS`
   and the estimated atom count when expansion exceeds `50000`
+- `kernel_get_crystal_supercell_atom_limit(...)` returns the same supercell
+  atom cap and rejects null output
 - supercell generation reports `KERNEL_CRYSTAL_SUPERCELL_ERROR_GAMMA_TOO_SMALL`
   for degenerate cell geometry
 - `kernel_free_supercell_result(...)` leaves the result empty and is safe on
@@ -57,3 +59,5 @@ The repository must retain regression coverage for:
   Miller-plane results into the existing command DTO shape
 - Tauri Rust `crystal/` does not retain duplicate lattice or Miller-plane C ABI
   structs or unsafe atom/plane copy loops
+- Tauri Rust reads the displayed supercell atom-count cap through the sealed
+  kernel bridge rather than retaining a duplicate constant

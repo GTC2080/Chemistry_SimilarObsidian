@@ -690,6 +690,15 @@ void test_symmetry_calculates_full_water_pipeline() {
   require_true(result.axes == nullptr && result.planes == nullptr, "symmetry result free resets arrays");
 }
 
+void test_symmetry_atom_limit_is_kernel_owned() {
+  size_t limit = 0;
+  require_ok_status(kernel_get_symmetry_atom_limit(&limit), "query symmetry atom limit");
+  require_true(limit == 500, "symmetry atom limit should come from kernel");
+  require_true(
+      kernel_get_symmetry_atom_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "symmetry atom limit should reject null output");
+}
+
 void test_symmetry_calculates_full_linear_pipeline() {
   const std::string xyz =
       "3\n"
@@ -776,6 +785,7 @@ void run_symmetry_compute_tests() {
   test_symmetry_parses_pdb_atoms();
   test_symmetry_parses_cif_fractional_atoms();
   test_symmetry_parser_rejects_invalid_inputs();
+  test_symmetry_atom_limit_is_kernel_owned();
   test_symmetry_calculates_full_water_pipeline();
   test_symmetry_calculates_full_linear_pipeline();
   test_symmetry_calculation_rejects_invalid_inputs();

@@ -8,6 +8,7 @@ This document covers stateless molecular symmetry computation surfaces.
 
 Current surface:
 
+- `kernel_get_symmetry_atom_limit(out_atoms)`
 - `kernel_calculate_symmetry(raw, raw_size, format, max_atoms, out_result)`
 - `kernel_free_symmetry_calculation_result(out_result)`
 - `kernel_parse_symmetry_atoms_text(raw, raw_size, format, out_atoms)`
@@ -25,6 +26,8 @@ Current surface:
 
 - the host owns raw molecule text and format strings
 - the kernel owns the end-to-end `calculate_symmetry` orchestration pipeline
+- the kernel owns the default host-facing symmetry atom-count limit exposed by
+  `kernel_get_symmetry_atom_limit(...)`
 - returned full symmetry calculation axes and planes are kernel-owned until
   released with `kernel_free_symmetry_calculation_result(...)`
 - the kernel owns `XYZ`, `PDB`, and simple `CIF` atom parsing rules
@@ -64,6 +67,7 @@ The sealed C++ host bridge may keep:
 The kernel owns:
 
 - `calculate_symmetry` pipeline ordering from parse through render geometry
+- symmetry atom-count limit policy used by the Tauri host
 - molecule text parsing for `XYZ`, `PDB`, and simple `CIF`
 - element normalization and atomic mass lookup for parsed symmetry atoms
 - fractional-to-cartesian conversion for simple CIF atom loops
@@ -87,7 +91,9 @@ The kernel owns:
 
 - full calculation accepts the same raw molecule text and format strings as
   the parser surface
-- full calculation enforces the host-provided atom-count limit and returns
+- hosts that need the default command limit must read it from
+  `kernel_get_symmetry_atom_limit(...)`, not from a Rust constant
+- full calculation enforces the supplied atom-count limit and returns
   `KERNEL_SYMMETRY_CALC_ERROR_TOO_MANY_ATOMS` with the parsed atom count when
   exceeded
 - full calculation maps parser failures through

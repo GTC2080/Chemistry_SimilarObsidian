@@ -207,6 +207,7 @@ kernel_status kernel_build_supercell(
     uint32_t ny,
     uint32_t nz,
     kernel_supercell_result* out_result);
+kernel_status kernel_get_crystal_supercell_atom_limit(size_t* out_atoms);
 kernel_status kernel_build_lattice_from_cif(
     const char* raw,
     size_t raw_size,
@@ -283,6 +284,7 @@ kernel_status kernel_parse_symmetry_atoms_text(
     size_t raw_size,
     const char* format,
     kernel_symmetry_atom_list* out_atoms);
+kernel_status kernel_get_symmetry_atom_limit(size_t* out_atoms);
 kernel_status kernel_calculate_symmetry(
     const char* raw,
     size_t raw_size,

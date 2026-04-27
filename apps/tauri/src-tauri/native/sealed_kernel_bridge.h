@@ -212,6 +212,14 @@ int32_t sealed_kernel_bridge_normalize_molecular_preview_atom_limit(
     uint64_t* out_atoms,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_symmetry_atom_limit(
+    uint64_t* out_atoms,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_crystal_supercell_atom_limit(
+    uint64_t* out_atoms,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_calculate_symmetry_json(
     const char* raw_utf8,
     uint64_t raw_size,

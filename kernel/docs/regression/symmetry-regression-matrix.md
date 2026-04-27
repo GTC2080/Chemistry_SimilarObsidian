@@ -95,6 +95,8 @@ Required coverage:
 
 Required coverage:
 
+- `kernel_get_symmetry_atom_limit(...)` returns the kernel-owned command limit
+  and rejects null output
 - `kernel_calculate_symmetry(...)` runs the full water pipeline and returns `C_2v`
 - full calculation emits render axes and planes for water
 - full calculation runs the linear molecule path and returns `D∞h`
@@ -109,6 +111,8 @@ Required coverage:
 
 - sealed C++ bridge `sealed_kernel_bridge_calculate_symmetry_json(...)` is the single host C ABI bridge to `kernel_calculate_symmetry(...)`
 - Tauri Rust keeps localized error mapping for parser, empty molecule, and atom-count-limit failures
+- Tauri Rust reads the symmetry atom-count limit through the sealed kernel
+  bridge rather than retaining a duplicate constant
 - sealed C++ bridge maps kernel-owned render axes and planes into JSON matching the existing `SymmetryData` DTO
 - Tauri Rust `symmetry/` does not retain duplicate `kernel_symmetry_calculation_result` structs or unsafe render-axis/render-plane copy loops
 - full `calculate_symmetry` smoke tests still exercise the kernel full calculation surface through the Rust command path

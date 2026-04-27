@@ -2,7 +2,7 @@
 
 # Crystal Compute Contract
 
-Last updated: `2026-04-25`
+Last updated: `2026-04-27`
 
 ## Scope
 
@@ -14,6 +14,7 @@ Current surface:
 - `kernel_free_crystal_parse_result(out_result)`
 - `kernel_calculate_miller_plane(cell, h, k, l, out_result)`
 - `kernel_build_supercell(cell, atoms, atom_count, symops, symop_count, nx, ny, nz, out_result)`
+- `kernel_get_crystal_supercell_atom_limit(out_atoms)`
 - `kernel_free_supercell_result(out_result)`
 - `kernel_build_lattice_from_cif(raw, raw_size, nx, ny, nz, out_result)`
 - `kernel_calculate_miller_plane_from_cif(raw, raw_size, h, k, l, out_result)`
@@ -37,6 +38,8 @@ Frozen rules:
 - the kernel owns Miller-plane numeric geometry
 - the kernel owns symmetry expansion, fractional-coordinate deduplication,
   supercell expansion, and Cartesian coordinate generation
+- the kernel owns the supercell atom-count limit exposed by
+  `kernel_get_crystal_supercell_atom_limit(...)`
 - parsed CIF atom arrays, element strings, and symmetry operation arrays are
   kernel-owned until released with `kernel_free_crystal_parse_result(...)`
 - Miller-plane output buffers are host-owned and require no kernel free call
@@ -77,6 +80,8 @@ Frozen rules:
 - hosts must not reimplement CIF cell, fractional atom, or symmetry operation parsing
 - hosts must not reimplement Miller-plane geometry
 - hosts must not reimplement supercell expansion or atom deduplication
+- hosts that need to display the supercell atom-count limit must read it from
+  `kernel_get_crystal_supercell_atom_limit(...)`
 - hosts must not reimplement crystal unit-cell vector construction when using
   `kernel_build_lattice_from_cif(...)`
 - hosts must preserve the existing Tauri command shape for
@@ -97,4 +102,6 @@ Frozen rules:
 - expanded atoms are emitted in `ix`, `iy`, `iz`, unit-atom order
 - Cartesian coordinates are calculated from the crystal cell basis
 - total emitted atoms must not exceed `50000`
+- the public limit query returns the same `50000` cap enforced by supercell
+  expansion
 - too-large expansions report the estimated atom count

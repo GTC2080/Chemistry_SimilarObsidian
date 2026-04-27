@@ -15,7 +15,6 @@ namespace {
 
 constexpr double kPi = 3.141592653589793238462643383279502884;
 constexpr double kGridScale = 50.0;
-constexpr std::size_t kMaxAtoms = 50000;
 
 struct LatticeVectors {
   double vectors[3][3]{};
@@ -174,7 +173,7 @@ SupercellComputation build_supercell(
       unit_atoms.size() * static_cast<std::size_t>(nx) * static_cast<std::size_t>(ny) *
       static_cast<std::size_t>(nz);
   computation.estimated_count = static_cast<std::uint64_t>(total_estimate);
-  if (total_estimate > kMaxAtoms) {
+  if (total_estimate > kMaxSupercellAtoms) {
     computation.error = KERNEL_CRYSTAL_SUPERCELL_ERROR_TOO_MANY_ATOMS;
     return computation;
   }

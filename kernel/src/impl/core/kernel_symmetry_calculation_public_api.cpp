@@ -12,6 +12,8 @@
 
 namespace {
 
+constexpr std::size_t kDefaultSymmetryAtomLimit = 500;
+
 void reset_symmetry_calculation_result(kernel_symmetry_calculation_result* result) {
   if (result == nullptr) {
     return;
@@ -62,6 +64,14 @@ bool fill_symmetry_calculation_result(
 }
 
 }  // namespace
+
+extern "C" kernel_status kernel_get_symmetry_atom_limit(std::size_t* out_atoms) {
+  if (out_atoms == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_atoms = kDefaultSymmetryAtomLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
 
 extern "C" kernel_status kernel_calculate_symmetry(
     const char* raw,

@@ -333,6 +333,14 @@ extern "C" kernel_status kernel_build_supercell(
   return kernel::core::make_status(KERNEL_OK);
 }
 
+extern "C" kernel_status kernel_get_crystal_supercell_atom_limit(std::size_t* out_atoms) {
+  if (out_atoms == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_atoms = kernel::crystal::kMaxSupercellAtoms;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
 extern "C" kernel_status kernel_build_lattice_from_cif(
     const char* raw,
     const size_t raw_size,

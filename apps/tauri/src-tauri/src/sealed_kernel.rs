@@ -34,9 +34,6 @@ struct SealedKernelBridgeStateSnapshot {
     pending_recovery_ops: u64,
 }
 
-const MAX_ATOMS_FOR_SYMMETRY: usize = 500;
-const MAX_CRYSTAL_ATOMS: usize = 50_000;
-
 extern "C" {
     fn sealed_kernel_bridge_info_json() -> *mut c_char;
     fn sealed_kernel_bridge_free_string(value: *mut c_char);
@@ -230,6 +227,14 @@ extern "C" {
     ) -> c_int;
     fn sealed_kernel_bridge_normalize_molecular_preview_atom_limit(
         requested_atoms: u64,
+        out_atoms: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_symmetry_atom_limit(
+        out_atoms: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_crystal_supercell_atom_limit(
         out_atoms: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -1285,6 +1290,18 @@ fn symmetry_bridge_error(
     AppError::Custom(message)
 }
 
+fn atom_limit_bridge_error(surface: &str, code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let detail = if token.is_empty() {
+        "unknown".to_string()
+    } else {
+        token
+    };
+    AppError::Custom(format!(
+        "sealed kernel {surface} atom limit query failed with {detail} ({code})."
+    ))
+}
+
 fn crystal_parse_error_message(token: &str) -> Option<String> {
     match token {
         "parse_missing_cell" => {
@@ -1307,9 +1324,14 @@ fn crystal_lattice_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError
                 .split_once(':')
                 .and_then(|(_, value)| value.parse::<u64>().ok())
                 .unwrap_or(0);
-            format!(
-                "超晶胞原子数 ({estimated_count}) 超过上限 ({MAX_CRYSTAL_ATOMS})，请减小扩展维度"
-            )
+            match crystal_supercell_atom_limit() {
+                Ok(limit) => {
+                    format!("超晶胞原子数 ({estimated_count}) 超过上限 ({limit})，请减小扩展维度")
+                }
+                Err(_) => {
+                    format!("超晶胞原子数 ({estimated_count}) 超过 kernel 上限，请减小扩展维度")
+                }
+            }
         }
         _ => format!("sealed_kernel_build_lattice_from_cif failed with kernel status {code}."),
     });
@@ -1636,7 +1658,32 @@ pub fn normalize_molecular_preview_atom_limit(requested_atoms: usize) -> AppResu
     Ok(normalized as usize)
 }
 
+fn symmetry_atom_limit() -> AppResult<usize> {
+    let mut limit = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe { sealed_kernel_bridge_get_symmetry_atom_limit(&mut limit, &mut error) };
+    if code != 0 {
+        return Err(atom_limit_bridge_error("symmetry", code, error));
+    }
+    usize::try_from(limit)
+        .map_err(|_| AppError::Custom("kernel symmetry atom limit exceeds host usize".to_string()))
+}
+
+fn crystal_supercell_atom_limit() -> AppResult<usize> {
+    let mut limit = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code =
+        unsafe { sealed_kernel_bridge_get_crystal_supercell_atom_limit(&mut limit, &mut error) };
+    if code != 0 {
+        return Err(atom_limit_bridge_error("crystal supercell", code, error));
+    }
+    usize::try_from(limit).map_err(|_| {
+        AppError::Custom("kernel crystal supercell atom limit exceeds host usize".to_string())
+    })
+}
+
 pub fn calculate_symmetry_from_text(raw_data: &str, format: &str) -> AppResult<SymmetryData> {
+    let max_atoms = symmetry_atom_limit()?;
     let format_c = cstring_arg(format.to_string(), "format")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -1645,18 +1692,13 @@ pub fn calculate_symmetry_from_text(raw_data: &str, format: &str) -> AppResult<S
             raw_data.as_ptr() as *const c_char,
             raw_data.len() as u64,
             format_c.as_ptr(),
-            MAX_ATOMS_FOR_SYMMETRY as u64,
+            max_atoms as u64,
             &mut raw_json,
             &mut error,
         )
     };
     if code != 0 {
-        return Err(symmetry_bridge_error(
-            format,
-            MAX_ATOMS_FOR_SYMMETRY,
-            code,
-            error,
-        ));
+        return Err(symmetry_bridge_error(format, max_atoms, code, error));
     }
 
     let value = take_bridge_string(raw_json);
@@ -2126,6 +2168,12 @@ mod tests {
             normalize_molecular_preview_atom_limit(50000).unwrap(),
             20000
         );
+    }
+
+    #[test]
+    fn compute_atom_limits_come_from_kernel() {
+        assert_eq!(symmetry_atom_limit().unwrap(), 500);
+        assert_eq!(crystal_supercell_atom_limit().unwrap(), 50000);
     }
 
     #[test]

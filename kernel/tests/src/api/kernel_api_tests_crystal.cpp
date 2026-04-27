@@ -291,6 +291,15 @@ void test_supercell_deduplicates_identical_symmetry_ops() {
   kernel_free_supercell_result(&result);
 }
 
+void test_supercell_atom_limit_is_kernel_owned() {
+  size_t limit = 0;
+  require_ok_status(kernel_get_crystal_supercell_atom_limit(&limit), "query supercell atom limit");
+  require_true(limit == 50000, "supercell atom limit should come from kernel");
+  require_true(
+      kernel_get_crystal_supercell_atom_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "supercell atom limit should reject null output");
+}
+
 void test_supercell_rejects_invalid_inputs_with_typed_errors() {
   auto cell = cubic_cell(3.0);
   kernel_fractional_atom_input atom{};
@@ -473,6 +482,7 @@ void run_crystal_compute_tests() {
   test_miller_plane_rejects_invalid_inputs_with_typed_errors();
   test_supercell_expands_simple_cubic_cell();
   test_supercell_deduplicates_identical_symmetry_ops();
+  test_supercell_atom_limit_is_kernel_owned();
   test_supercell_rejects_invalid_inputs_with_typed_errors();
   test_lattice_from_cif_builds_full_viewer_payload();
   test_lattice_from_cif_reports_typed_parse_and_supercell_errors();

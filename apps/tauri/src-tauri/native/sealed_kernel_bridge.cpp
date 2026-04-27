@@ -2093,6 +2093,44 @@ int32_t sealed_kernel_bridge_normalize_molecular_preview_atom_limit(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_get_symmetry_atom_limit(
+    uint64_t* out_atoms,
+    char** out_error) {
+  if (out_atoms == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  size_t limit = 0;
+  const kernel_status status = kernel_get_symmetry_atom_limit(&limit);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(status.code);
+  }
+
+  *out_atoms = static_cast<uint64_t>(limit);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_get_crystal_supercell_atom_limit(
+    uint64_t* out_atoms,
+    char** out_error) {
+  if (out_atoms == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  size_t limit = 0;
+  const kernel_status status = kernel_get_crystal_supercell_atom_limit(&limit);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(status.code);
+  }
+
+  *out_atoms = static_cast<uint64_t>(limit);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_calculate_symmetry_json(
     const char* raw_utf8,
     uint64_t raw_size,

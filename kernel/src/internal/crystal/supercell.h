@@ -5,11 +5,14 @@
 
 #include "kernel/types.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace kernel::crystal {
+
+inline constexpr std::size_t kMaxSupercellAtoms = 50000;
 
 struct AtomNodeView {
   std::string element;
