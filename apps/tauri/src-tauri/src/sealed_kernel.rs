@@ -48,6 +48,10 @@ extern "C" {
         out_state: *mut SealedKernelBridgeStateSnapshot,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_note_catalog_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_query_notes_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
@@ -569,6 +573,26 @@ pub fn active_vault_path(state: &SealedKernelState) -> AppResult<String> {
         .map_err(|_| AppError::Lock)?
         .clone()
         .ok_or_else(|| AppError::Custom("sealed kernel vault is not open.".to_string()))
+}
+
+pub fn note_catalog_default_limit() -> AppResult<u64> {
+    let mut limit = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code =
+        unsafe { sealed_kernel_bridge_get_note_catalog_default_limit(&mut limit, &mut error) };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_get_note_catalog_default_limit",
+            code,
+            error,
+        ));
+    }
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "kernel note catalog default limit must be greater than zero.".to_string(),
+        ));
+    }
+    Ok(limit)
 }
 
 fn query_note_catalog(
@@ -2174,6 +2198,11 @@ mod tests {
     fn compute_atom_limits_come_from_kernel() {
         assert_eq!(symmetry_atom_limit().unwrap(), 500);
         assert_eq!(crystal_supercell_atom_limit().unwrap(), 50000);
+    }
+
+    #[test]
+    fn note_catalog_default_limit_comes_from_kernel() {
+        assert_eq!(note_catalog_default_limit().unwrap(), 100000);
     }
 
     #[test]

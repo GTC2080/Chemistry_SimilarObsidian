@@ -71,6 +71,15 @@ void test_query_notes_limit_is_applied() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_note_catalog_default_limit_is_kernel_owned() {
+  size_t limit = 0;
+  expect_ok(kernel_get_note_catalog_default_limit(&limit));
+  require_true(limit == 100000, "note catalog default limit should come from kernel");
+  require_true(
+      kernel_get_note_catalog_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "note catalog default limit should reject null output");
+}
+
 void test_query_notes_filtered_ignores_only_matching_roots() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -120,6 +129,7 @@ void test_query_notes_requires_valid_arguments() {
 void run_kernel_api_core_note_catalog_contract_tests() {
   test_query_notes_returns_sorted_live_catalog();
   test_query_notes_limit_is_applied();
+  test_note_catalog_default_limit_is_kernel_owned();
   test_query_notes_filtered_ignores_only_matching_roots();
   test_query_notes_requires_valid_arguments();
 }

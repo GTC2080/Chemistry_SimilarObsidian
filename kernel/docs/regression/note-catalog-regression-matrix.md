@@ -4,6 +4,8 @@
 
 Required coverage:
 
+- `kernel_get_note_catalog_default_limit(...)` returns the kernel-owned default
+  scan/index catalog limit and rejects null output
 - `kernel_query_notes(...)` returns sorted live note metadata
 - note rows include rel path, parser title, file size, mtime, and content revision
 - limit caps source catalog rows
@@ -23,5 +25,7 @@ Tauri bridge coverage:
 - `scan_vault` consumes `kernel_query_notes_filtered(...)`
 - `index_vault_content` consumes `kernel_query_notes_filtered(...)` before note
   content reads
+- scan/index catalog queries read their default limit through the sealed kernel
+  bridge instead of a duplicate Rust constant
 - AI embedding refresh treats kernel note catalog rows as the Markdown
   embeddable note surface instead of applying a duplicate Rust extension gate

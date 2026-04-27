@@ -13,8 +13,6 @@ use crate::shared::command_utils::{parse_ignored_folders, read_ai_config};
 use crate::watcher::WatcherState;
 use crate::AppError;
 
-const KERNEL_NOTE_CATALOG_LIMIT: u64 = 100_000;
-
 #[tauri::command]
 pub fn init_vault(
     vault_path: String,
@@ -76,8 +74,8 @@ fn kernel_note_info_map_for_rel_paths(
     }
 
     let wanted: HashSet<&str> = rel_paths.iter().map(String::as_str).collect();
-    let notes =
-        sealed_kernel::query_note_infos(vault_path, kernel_state, KERNEL_NOTE_CATALOG_LIMIT)?;
+    let limit = sealed_kernel::note_catalog_default_limit()?;
+    let notes = sealed_kernel::query_note_infos(vault_path, kernel_state, limit)?;
 
     Ok(notes
         .into_iter()
@@ -95,7 +93,7 @@ fn collect_kernel_note_upserts(
     let notes = sealed_kernel::query_note_infos_filtered(
         vault_path,
         kernel_state,
-        KERNEL_NOTE_CATALOG_LIMIT,
+        sealed_kernel::note_catalog_default_limit()?,
         ignored_roots,
     )?;
     let mut pending_upserts = Vec::new();
