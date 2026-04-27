@@ -159,6 +159,17 @@ int32_t sealed_kernel_bridge_simulate_polymerization_kinetics_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_smooth_ink_strokes_json(
+    const float* xs,
+    const float* ys,
+    const float* pressures,
+    const uint64_t* point_counts,
+    const float* stroke_widths,
+    uint64_t stroke_count,
+    float tolerance,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_build_molecular_preview_json(
     const char* raw_utf8,
     uint64_t raw_size,

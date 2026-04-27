@@ -91,3 +91,5 @@ The repository must retain regression coverage for:
 - nonzero stroke count with null strokes returning invalid argument
 - nonzero point count with null points returning invalid argument
 - `kernel_free_ink_smoothing_result(...)` resetting output pointers and being repeat-safe
+- Tauri sealed bridge serializes ink smoothing kernel results to JSON without
+  retaining Rust-owned ink C ABI structs or result-copy loops

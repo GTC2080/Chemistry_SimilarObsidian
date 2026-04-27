@@ -134,6 +134,8 @@ Frozen semantics:
 - simplified strokes with at least three points are smoothed with Catmull-Rom interpolation
 - one-point and two-point strokes are returned without interpolation
 - stroke width and point pressure are preserved through the output shape
+- host bridges may serialize output strokes and points to JSON, but Rust hosts
+  must not retain duplicate ink C ABI structs or result-copy loops
 
 The kernel does not store ink annotations through this surface. Annotation persistence remains a host/platform glue concern until a separate durable annotation contract is frozen.
 

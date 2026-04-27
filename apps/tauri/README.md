@@ -25,7 +25,7 @@
 
 - **本地优先知识库** — Markdown + SQLite + 本地文件系统，支持 `[[双向链接]]`、`#标签`、LaTeX 数学公式与图片/PDF 预览
 - **AI 知识工作流** — 语义搜索、语义共鸣、RAG 问答一体化，支持 OpenAI 兼容接口
-- **PDF 阅读与批注** — pdf.js 前端渲染（秒开）、文本高亮（5 色）、手绘涂写（压感 + Rust 笔迹平滑）、目录导航、全文搜索、阅读位置记忆、批注持久化与删除
+- **PDF 阅读与批注** — pdf.js 前端渲染（秒开）、文本高亮（5 色）、手绘涂写（压感 + C++ kernel 笔迹平滑）、目录导航、全文搜索、阅读位置记忆、批注持久化与删除
 - **化学工作台** — Ketcher 2D 分子编辑、3D 结构查看、点群对称性、晶格解析、波谱可视化、高分子动力学沙盘
 - **论文与发刊** — `.paper` 工作台支持拖拽组装内容，并通过 Pandoc + XeLaTeX 生成 PDF
 - **关系化浏览** — 文件树、标签树、知识图谱、学习时间轴共同构成”写作 + 复习 + 回溯”闭环
@@ -48,7 +48,8 @@
 - **v1.0.6-dev** — 化学无状态计算继续内核化：高分子动力学、化学计量、波谱解析、分子预览、逆合成 mock pathway 规则均通过 `kernel/` C ABI 提供；kinetics / retrosynthesis / spectroscopy / molecular preview 的 kernel-owned 结果由 sealed C++ bridge 序列化为 JSON。Tauri Rust 只保留 PubChem HTTP 查询、命令 DTO 映射和 localized error 映射，不再保留这些计算面的 C ABI mirror / unsafe 拷贝循环。
 - **v1.0.6-dev** — 晶体计算 full-result 化：`parse_and_build_lattice` 通过 sealed C++ bridge 调用 `kernel_build_lattice_from_cif(...)` 一次性取得 CIF 解析、晶胞基矢、超晶胞原子；`calculate_miller_plane` 通过 sealed C++ bridge 调用 `kernel_calculate_miller_plane_from_cif(...)` 完成 CIF 解析与密勒面计算。Rust `crystal/` 只保留最终 DTO，不再保留晶格/密勒面 C ABI mirror 与 unsafe 拷贝循环。
 - **v1.0.6-dev** — 对称性计算管线继续内核化：`calculate_symmetry` 现在通过 sealed C++ bridge 单点调用 `kernel_calculate_symmetry(...)`，由 kernel 完成 `XYZ` / `PDB` / simple `CIF` 原子解析、形状分析、主轴计算、候选生成、操作匹配、点群分类和渲染几何；Rust 只保留命令 DTO 与 localized error 映射，不再保留对称性 C ABI mirror / unsafe 拷贝循环。
-- **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Rust Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
+- **v1.0.6-dev** — PDF ink smoothing 继续瘦身：`smooth_ink_strokes` 通过 sealed C++ bridge 调用 `kernel_smooth_ink_strokes(...)`，由 bridge 序列化 kernel-owned strokes/points 为 JSON。Rust `pdf/ink.rs` 只保留前端 DTO 与薄 wrapper，不再保留 ink C ABI mirror / unsafe 拷贝循环。
+- **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
 ## 技术栈
@@ -58,7 +59,7 @@
 | 框架 | Tauri 2 |
 | 前端 | React 19 + TypeScript + Tailwind CSS 4 |
 | 编辑器 | TipTap 3 + KaTeX + 3Dmol.js + Ketcher |
-| PDF | pdf.js 4 (前端渲染) + Rust 笔迹平滑 |
+| PDF | pdf.js 4 (前端渲染) + C++ kernel 笔迹平滑 |
 | 后端 | Tauri Rust 壳层 + C++ sealed kernel + SQLite |
 | AI | OpenAI 兼容 API (Chat + Embedding) |
 | 构建 | Vite 6 |
@@ -289,7 +290,7 @@ src-tauri/src/          # Rust 后端
 ├── pdf/                # PDF 模块（渲染已迁移至前端 pdf.js）
 │   ├── mod.rs          # 模块入口
 │   ├── annotations.rs  # 批注数据结构与 JSON 持久化
-│   └── ink.rs          # 笔迹平滑算法（Douglas-Peucker + Catmull-Rom）
+│   └── ink.rs          # 笔迹平滑 DTO / sealed kernel bridge
 ├── kinetics.rs         # 高分子动力学 kernel bridge
 ├── db.rs               # SQLite 数据库管理
 ├── db/                 # 数据库子模块
@@ -322,7 +323,7 @@ src-tauri/src/          # Rust 后端
 
 ## 架构演进（近期）
 
-- **PDF 渲染引擎迁移（v1.0.5）**：PDFium → pdf.js，渲染完全在前端 Canvas 完成（零 IPC），秒开体验；移除 pdfium-render / webp / base64 三个 crate，二进制更小编译更快；新增手绘涂写批注（Pointer Events + 压感），笔迹平滑算法（Douglas-Peucker 简化 + Catmull-Rom 插值）在 Rust `spawn_blocking` 中执行；PDF Viewer 模块化拆分为纯渲染壳层 + 4 个子 hook + 7 个 CSS 子文件
+- **PDF 渲染引擎迁移（v1.0.5）**：PDFium → pdf.js，渲染完全在前端 Canvas 完成（零 IPC），秒开体验；移除 pdfium-render / webp / base64 三个 crate，二进制更小编译更快；新增手绘涂写批注（Pointer Events + 压感），笔迹平滑算法（Douglas-Peucker 简化 + Catmull-Rom 插值）由 Tauri `spawn_blocking` 调用 sealed C++ bridge 并在 C++ kernel 执行；PDF Viewer 模块化拆分为纯渲染壳层 + 4 个子 hook + 7 个 CSS 子文件
 - **全量性能优化（v1.0.5）**：15 项优化，补齐 `VectorCacheState` top-k 堆顺序与缓存生命周期同步，纳入晶格引擎。包括保存队列 Map 化、增量监听链路替代全库扫描、向量检索内存缓存 + top-k BinaryHeap、面板拖拽 CSS var 零渲染、图谱/文件树 FNV-1a 指纹修正；晶格计算后续已收口为 C++ kernel full-result ABI
 - **计算层 Rust 迁移（v1.0.4）**：6 项前端重计算（语义提取、标签树、图谱索引、热力图、化学计量、数据库归一化）下沉到 Rust 后端，新增 7 个 Tauri 命令
 - **架构级优化（v1.0.4）**：修复双重 scan_vault、事件驱动替代轮询、全局笔记缓存、乐观 UI、批量 SQL、复合索引、FTS 延迟填充

@@ -16,6 +16,7 @@ use crate::models::{
     EnrichedGraphData, FileTreeNode, GraphData, MolecularPreview, NoteInfo, SpectroscopyData,
     TagInfo, TagTreeNode,
 };
+use crate::pdf::ink::{RawStroke, SmoothedStroke};
 use crate::symmetry::SymmetryData;
 use crate::{AppError, AppResult};
 
@@ -176,6 +177,17 @@ extern "C" {
         ktr: f64,
         time_max: f64,
         steps: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_smooth_ink_strokes_json(
+        xs: *const f32,
+        ys: *const f32,
+        pressures: *const f32,
+        point_counts: *const u64,
+        stroke_widths: *const f32,
+        stroke_count: u64,
+        tolerance: f32,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -1116,6 +1128,16 @@ fn kinetics_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
     AppError::Custom(message)
 }
 
+fn ink_smoothing_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "invalid_argument" => "笔迹平滑参数无效".to_string(),
+        "invalid_payload" | "ink_smoothing_failed" => "笔迹平滑内核计算失败".to_string(),
+        _ => format!("sealed bridge ink smoothing failed with kernel status {code}."),
+    };
+    AppError::Custom(message)
+}
+
 fn symmetry_bridge_error(
     format: &str,
     max_atoms: usize,
@@ -1267,6 +1289,76 @@ pub fn simulate_polymerization_kinetics(params: KineticsParams) -> AppResult<Kin
     let value = take_bridge_string(raw_json);
     serde_json::from_str(&value)
         .map_err(|err| AppError::Custom(format!("sealed kernel kinetics JSON is invalid: {err}")))
+}
+
+pub fn smooth_ink_strokes(
+    strokes: Vec<RawStroke>,
+    tolerance: f32,
+) -> AppResult<Vec<SmoothedStroke>> {
+    let point_counts: Vec<u64> = strokes
+        .iter()
+        .map(|stroke| stroke.points.len() as u64)
+        .collect();
+    let stroke_widths: Vec<f32> = strokes.iter().map(|stroke| stroke.stroke_width).collect();
+    let total_points = strokes
+        .iter()
+        .map(|stroke| stroke.points.len())
+        .sum::<usize>();
+
+    let mut xs = Vec::with_capacity(total_points);
+    let mut ys = Vec::with_capacity(total_points);
+    let mut pressures = Vec::with_capacity(total_points);
+    for stroke in &strokes {
+        for point in &stroke.points {
+            xs.push(point.x);
+            ys.push(point.y);
+            pressures.push(point.pressure);
+        }
+    }
+
+    let points_ptr = |values: &Vec<f32>| {
+        if values.is_empty() {
+            std::ptr::null()
+        } else {
+            values.as_ptr()
+        }
+    };
+    let counts_ptr = if point_counts.is_empty() {
+        std::ptr::null()
+    } else {
+        point_counts.as_ptr()
+    };
+    let widths_ptr = if stroke_widths.is_empty() {
+        std::ptr::null()
+    } else {
+        stroke_widths.as_ptr()
+    };
+
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_smooth_ink_strokes_json(
+            points_ptr(&xs),
+            points_ptr(&ys),
+            points_ptr(&pressures),
+            counts_ptr,
+            widths_ptr,
+            strokes.len() as u64,
+            tolerance,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(ink_smoothing_bridge_error(code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel ink smoothing JSON is invalid: {err}"
+        ))
+    })
 }
 
 pub fn build_molecular_preview_from_text(
@@ -1824,6 +1916,62 @@ mod tests {
         let err = simulate_polymerization_kinetics(params).expect_err("invalid kinetics params");
 
         assert_eq!(err.to_string(), "聚合动力学参数无效");
+    }
+
+    #[test]
+    fn smooth_ink_strokes_uses_sealed_bridge_series() {
+        let strokes = vec![RawStroke {
+            points: vec![
+                crate::pdf::annotations::InkPoint {
+                    x: 0.0,
+                    y: 0.0,
+                    pressure: 0.5,
+                },
+                crate::pdf::annotations::InkPoint {
+                    x: 0.5,
+                    y: 0.2,
+                    pressure: 0.7,
+                },
+                crate::pdf::annotations::InkPoint {
+                    x: 1.0,
+                    y: 0.0,
+                    pressure: 0.9,
+                },
+            ],
+            stroke_width: 0.01,
+        }];
+
+        let smoothed = smooth_ink_strokes(strokes, 0.001).expect("sealed bridge ink smoothing");
+
+        assert_eq!(smoothed.len(), 1);
+        assert!(smoothed[0].points.len() > 3);
+        assert_eq!(smoothed[0].stroke_width, 0.01);
+        assert!((smoothed[0].points[0].x - 0.0).abs() < 1.0e-6);
+        assert!((smoothed[0].points.last().unwrap().x - 1.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn smooth_ink_strokes_preserves_two_point_strokes_through_sealed_bridge() {
+        let strokes = vec![RawStroke {
+            points: vec![
+                crate::pdf::annotations::InkPoint {
+                    x: 0.0,
+                    y: 0.0,
+                    pressure: 0.5,
+                },
+                crate::pdf::annotations::InkPoint {
+                    x: 1.0,
+                    y: 1.0,
+                    pressure: 0.8,
+                },
+            ],
+            stroke_width: 0.02,
+        }];
+
+        let smoothed = smooth_ink_strokes(strokes, 0.1).expect("sealed bridge ink smoothing");
+
+        assert_eq!(smoothed[0].points.len(), 2);
+        assert_eq!(smoothed[0].points[1].pressure, 0.8);
     }
 
     #[test]

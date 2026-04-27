@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 
 struct sealed_kernel_bridge_session {
   kernel_handle* handle = nullptr;
@@ -544,6 +545,23 @@ bool ValidateKineticsJsonInput(
   return true;
 }
 
+bool ValidateInkSmoothingJsonInput(
+    const kernel_ink_smoothing_result& result,
+    std::string& error) {
+  if (result.count > 0 && result.strokes == nullptr) {
+    error = "invalid_payload";
+    return false;
+  }
+  for (size_t stroke_index = 0; stroke_index < result.count; ++stroke_index) {
+    const kernel_ink_stroke& stroke = result.strokes[stroke_index];
+    if (stroke.point_count > 0 && stroke.points == nullptr) {
+      error = "invalid_payload";
+      return false;
+    }
+  }
+  return true;
+}
+
 void AppendDoubleArrayJson(std::string& json, const double* values, const size_t count) {
   json += "[";
   for (size_t index = 0; index < count; ++index) {
@@ -626,6 +644,41 @@ void AppendKineticsJson(
   json += ",\"pdi\":";
   AppendDoubleArrayJson(json, result.pdi, result.count);
   json += "}";
+}
+
+void AppendFloatJson(std::string& json, const float value) {
+  json += std::to_string(value);
+}
+
+void AppendInkPointJson(std::string& json, const kernel_ink_point& point) {
+  json += "{\"x\":";
+  AppendFloatJson(json, point.x);
+  json += ",\"y\":";
+  AppendFloatJson(json, point.y);
+  json += ",\"pressure\":";
+  AppendFloatJson(json, point.pressure);
+  json += "}";
+}
+
+void AppendInkSmoothingJson(std::string& json, const kernel_ink_smoothing_result& result) {
+  json += "[";
+  for (size_t stroke_index = 0; stroke_index < result.count; ++stroke_index) {
+    if (stroke_index != 0) {
+      json += ",";
+    }
+    const kernel_ink_stroke& stroke = result.strokes[stroke_index];
+    json += "{\"points\":[";
+    for (size_t point_index = 0; point_index < stroke.point_count; ++point_index) {
+      if (point_index != 0) {
+        json += ",";
+      }
+      AppendInkPointJson(json, stroke.points[point_index]);
+    }
+    json += "],\"strokeWidth\":";
+    AppendFloatJson(json, stroke.stroke_width);
+    json += "}";
+  }
+  json += "]";
 }
 
 void AppendVec3Json(std::string& json, const double values[3]) {
@@ -1664,6 +1717,92 @@ int32_t sealed_kernel_bridge_simulate_polymerization_kinetics_json(
   std::string json;
   AppendKineticsJson(json, result);
   kernel_free_polymerization_kinetics_result(&result);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_smooth_ink_strokes_json(
+    const float* xs,
+    const float* ys,
+    const float* pressures,
+    const uint64_t* point_counts,
+    const float* stroke_widths,
+    uint64_t stroke_count,
+    float tolerance,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  if (stroke_count > 0 && (point_counts == nullptr || stroke_widths == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  size_t total_point_count = 0;
+  std::vector<size_t> counts;
+  counts.reserve(static_cast<size_t>(stroke_count));
+  for (uint64_t stroke_index = 0; stroke_index < stroke_count; ++stroke_index) {
+    const size_t count = static_cast<size_t>(point_counts[stroke_index]);
+    counts.push_back(count);
+    total_point_count += count;
+  }
+  if (total_point_count > 0 && (xs == nullptr || ys == nullptr || pressures == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<kernel_ink_point> points;
+  points.reserve(total_point_count);
+  for (size_t point_index = 0; point_index < total_point_count; ++point_index) {
+    points.push_back(kernel_ink_point{xs[point_index], ys[point_index], pressures[point_index]});
+  }
+
+  std::vector<kernel_ink_stroke_input> strokes;
+  strokes.reserve(static_cast<size_t>(stroke_count));
+  size_t point_offset = 0;
+  for (uint64_t stroke_index = 0; stroke_index < stroke_count; ++stroke_index) {
+    const size_t count = counts[static_cast<size_t>(stroke_index)];
+    kernel_ink_stroke_input stroke{};
+    stroke.points = count == 0 ? nullptr : points.data() + point_offset;
+    stroke.point_count = count;
+    stroke.stroke_width = stroke_widths[stroke_index];
+    strokes.push_back(stroke);
+    point_offset += count;
+  }
+
+  kernel_ink_smoothing_result result{};
+  const kernel_status status = kernel_smooth_ink_strokes(
+      strokes.empty() ? nullptr : strokes.data(),
+      strokes.size(),
+      tolerance,
+      &result);
+  if (status.code != KERNEL_OK) {
+    SetError(
+        out_error,
+        status.code == KERNEL_ERROR_INVALID_ARGUMENT ? "invalid_argument" : "ink_smoothing_failed");
+    kernel_free_ink_smoothing_result(&result);
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string validation_error;
+  if (!ValidateInkSmoothingJsonInput(result, validation_error)) {
+    SetError(out_error, validation_error);
+    kernel_free_ink_smoothing_result(&result);
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  std::string json;
+  AppendInkSmoothingJson(json, result);
+  kernel_free_ink_smoothing_result(&result);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

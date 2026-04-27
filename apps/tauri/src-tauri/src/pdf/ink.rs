@@ -1,4 +1,4 @@
-//! PDF ink smoothing bridge.
+//! PDF ink smoothing DTOs.
 //!
 //! Tauri Rust keeps annotation DTOs and command marshalling; Douglas-Peucker
 //! simplification and Catmull-Rom interpolation live in the C++ kernel.
@@ -6,64 +6,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::pdf::annotations::InkPoint;
-
-const KERNEL_OK: i32 = 0;
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelStatus {
-    code: i32,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelInkPoint {
-    x: f32,
-    y: f32,
-    pressure: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelInkStrokeInput {
-    points: *const KernelInkPoint,
-    point_count: usize,
-    stroke_width: f32,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-struct KernelInkStroke {
-    points: *mut KernelInkPoint,
-    point_count: usize,
-    stroke_width: f32,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-struct KernelInkSmoothingResult {
-    strokes: *mut KernelInkStroke,
-    count: usize,
-}
-
-impl Default for KernelInkSmoothingResult {
-    fn default() -> Self {
-        Self {
-            strokes: std::ptr::null_mut(),
-            count: 0,
-        }
-    }
-}
-
-extern "C" {
-    fn kernel_smooth_ink_strokes(
-        strokes: *const KernelInkStrokeInput,
-        stroke_count: usize,
-        tolerance: f32,
-        out_result: *mut KernelInkSmoothingResult,
-    ) -> KernelStatus;
-    fn kernel_free_ink_smoothing_result(result: *mut KernelInkSmoothingResult);
-}
 
 /// 前端传入的原始笔画
 #[derive(Debug, Deserialize)]
@@ -74,65 +16,11 @@ pub struct RawStroke {
 }
 
 /// 后端返回的平滑笔画
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SmoothedStroke {
     pub points: Vec<InkPoint>,
     pub stroke_width: f32,
-}
-
-fn point_to_kernel(point: &InkPoint) -> KernelInkPoint {
-    KernelInkPoint {
-        x: point.x,
-        y: point.y,
-        pressure: point.pressure,
-    }
-}
-
-fn point_from_kernel(point: &KernelInkPoint) -> InkPoint {
-    InkPoint {
-        x: point.x,
-        y: point.y,
-        pressure: point.pressure,
-    }
-}
-
-unsafe fn copy_kernel_points(
-    points: *const KernelInkPoint,
-    count: usize,
-) -> Result<Vec<InkPoint>, String> {
-    if count == 0 {
-        return Ok(Vec::new());
-    }
-    if points.is_null() {
-        return Err("ink smoothing kernel returned a stroke without points".to_string());
-    }
-    Ok(std::slice::from_raw_parts(points, count)
-        .iter()
-        .map(point_from_kernel)
-        .collect())
-}
-
-unsafe fn strokes_from_kernel(
-    raw: &KernelInkSmoothingResult,
-) -> Result<Vec<SmoothedStroke>, String> {
-    if raw.count == 0 {
-        return Ok(Vec::new());
-    }
-    if raw.strokes.is_null() {
-        return Err("ink smoothing kernel returned missing strokes".to_string());
-    }
-
-    let raw_strokes = std::slice::from_raw_parts(raw.strokes, raw.count);
-    raw_strokes
-        .iter()
-        .map(|stroke| {
-            Ok(SmoothedStroke {
-                points: copy_kernel_points(stroke.points, stroke.point_count)?,
-                stroke_width: stroke.stroke_width,
-            })
-        })
-        .collect()
 }
 
 /// 对一组原始笔画执行：简化 + 平滑。
@@ -140,40 +28,7 @@ pub fn smooth_strokes(
     strokes: Vec<RawStroke>,
     tolerance: f32,
 ) -> Result<Vec<SmoothedStroke>, String> {
-    let kernel_points: Vec<Vec<KernelInkPoint>> = strokes
-        .iter()
-        .map(|stroke| stroke.points.iter().map(point_to_kernel).collect())
-        .collect();
-    let kernel_strokes: Vec<KernelInkStrokeInput> = strokes
-        .iter()
-        .zip(kernel_points.iter())
-        .map(|(stroke, points)| KernelInkStrokeInput {
-            points: points.as_ptr(),
-            point_count: points.len(),
-            stroke_width: stroke.stroke_width,
-        })
-        .collect();
-
-    let mut result = KernelInkSmoothingResult::default();
-    let status = unsafe {
-        kernel_smooth_ink_strokes(
-            kernel_strokes.as_ptr(),
-            kernel_strokes.len(),
-            tolerance,
-            &mut result,
-        )
-    };
-    if status.code != KERNEL_OK {
-        unsafe { kernel_free_ink_smoothing_result(&mut result) };
-        return Err(format!(
-            "ink smoothing kernel failed with status {}",
-            status.code
-        ));
-    }
-
-    let strokes = unsafe { strokes_from_kernel(&result) };
-    unsafe { kernel_free_ink_smoothing_result(&mut result) };
-    strokes
+    crate::sealed_kernel::smooth_ink_strokes(strokes, tolerance).map_err(|err| err.to_string())
 }
 
 #[cfg(test)]
