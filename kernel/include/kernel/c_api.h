@@ -131,6 +131,7 @@ kernel_status kernel_query_pdf_referrers(
     const char* attachment_rel_path,
     size_t limit,
     kernel_pdf_referrers* out_referrers);
+kernel_status kernel_get_pdf_ink_default_tolerance(float* out_tolerance);
 kernel_status kernel_smooth_ink_strokes(
     const kernel_ink_stroke_input* strokes,
     size_t stroke_count,

@@ -2003,6 +2003,22 @@ int32_t sealed_kernel_bridge_recalculate_stoichiometry_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_get_pdf_ink_default_tolerance(
+    float* out_tolerance,
+    char** out_error) {
+  if (out_tolerance == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_get_pdf_ink_default_tolerance(out_tolerance);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(status.code);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_smooth_ink_strokes_json(
     const float* xs,
     const float* ys,

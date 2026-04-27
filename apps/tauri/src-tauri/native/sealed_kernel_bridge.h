@@ -200,6 +200,10 @@ int32_t sealed_kernel_bridge_recalculate_stoichiometry_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_pdf_ink_default_tolerance(
+    float* out_tolerance,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_smooth_ink_strokes_json(
     const float* xs,
     const float* ys,

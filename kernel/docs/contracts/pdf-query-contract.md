@@ -27,6 +27,7 @@ Batch 3 lands:
 
 Stateless ink smoothing lands:
 
+- `kernel_get_pdf_ink_default_tolerance(out_tolerance)`
 - `kernel_smooth_ink_strokes(strokes, stroke_count, tolerance, out_result)`
 - `kernel_free_ink_smoothing_result(out_result)`
 
@@ -130,6 +131,8 @@ Frozen semantics:
 
 - input strokes and points are host-owned
 - output strokes and points are kernel-owned until `kernel_free_ink_smoothing_result(...)`
+- hosts that need the default smoothing tolerance must read it from
+  `kernel_get_pdf_ink_default_tolerance(...)`, not from a Rust constant
 - each stroke is simplified with Douglas-Peucker using the supplied tolerance
 - simplified strokes with at least three points are smoothed with Catmull-Rom interpolation
 - one-point and two-point strokes are returned without interpolation

@@ -218,6 +218,10 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_pdf_ink_default_tolerance(
+        out_tolerance: *mut f32,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_smooth_ink_strokes_json(
         xs: *const f32,
         ys: *const f32,
@@ -1612,6 +1616,26 @@ pub fn recalculate_stoichiometry(
     Ok(parsed.rows)
 }
 
+pub fn pdf_ink_default_tolerance() -> AppResult<f32> {
+    let mut tolerance = 0.0f32;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code =
+        unsafe { sealed_kernel_bridge_get_pdf_ink_default_tolerance(&mut tolerance, &mut error) };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_get_pdf_ink_default_tolerance",
+            code,
+            error,
+        ));
+    }
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return Err(AppError::Custom(
+            "kernel PDF ink default tolerance must be positive.".to_string(),
+        ));
+    }
+    Ok(tolerance)
+}
+
 pub fn smooth_ink_strokes(
     strokes: Vec<RawStroke>,
     tolerance: f32,
@@ -2440,6 +2464,11 @@ mod tests {
 
         assert_eq!(smoothed[0].points.len(), 2);
         assert_eq!(smoothed[0].points[1].pressure, 0.8);
+    }
+
+    #[test]
+    fn pdf_ink_default_tolerance_comes_from_kernel() {
+        assert!((pdf_ink_default_tolerance().unwrap() - 0.002).abs() < 1.0e-7);
     }
 
     #[test]

@@ -12,6 +12,8 @@
 
 namespace {
 
+constexpr float kDefaultInkSmoothingTolerance = 0.002F;
+
 void reset_ink_smoothing_result(kernel_ink_smoothing_result* result) {
   if (result == nullptr) {
     return;
@@ -60,6 +62,14 @@ bool fill_ink_smoothing_result(
 }
 
 }  // namespace
+
+extern "C" kernel_status kernel_get_pdf_ink_default_tolerance(float* out_tolerance) {
+  if (out_tolerance == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_tolerance = kDefaultInkSmoothingTolerance;
+  return kernel::core::make_status(KERNEL_OK);
+}
 
 extern "C" kernel_status kernel_smooth_ink_strokes(
     const kernel_ink_stroke_input* strokes,

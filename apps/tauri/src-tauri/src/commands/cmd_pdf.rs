@@ -10,6 +10,7 @@ use tauri::ipc::Response;
 use crate::error::{AppError, AppResult};
 use crate::pdf::annotations::PdfAnnotation;
 use crate::pdf::ink::{RawStroke, SmoothedStroke};
+use crate::sealed_kernel;
 
 /// 读取 PDF 文件的原始字节，通过 IPC Response 返回（零 JSON 序列化开销）。
 /// 前端直接得到 ArrayBuffer，可传给 pdf.js 的 `data` 参数。
@@ -43,7 +44,10 @@ pub async fn smooth_ink_strokes(
     strokes: Vec<RawStroke>,
     tolerance: Option<f32>,
 ) -> AppResult<Vec<SmoothedStroke>> {
-    let tol = tolerance.unwrap_or(0.002); // 归一化坐标下的默认容差
+    let tol = match tolerance {
+        Some(value) => value,
+        None => sealed_kernel::pdf_ink_default_tolerance()?,
+    };
     let result = tokio::task::spawn_blocking(move || crate::pdf::ink::smooth_strokes(strokes, tol))
         .await
         .map_err(|e| AppError::PdfAnnotation(format!("spawn_blocking 失败: {e}")))?;

@@ -49,6 +49,17 @@ void test_smooth_ink_strokes_interpolates_curved_stroke() {
   kernel_free_ink_smoothing_result(&result);
 }
 
+void test_pdf_ink_default_tolerance_is_kernel_owned() {
+  float tolerance = 0.0F;
+  expect_ok(kernel_get_pdf_ink_default_tolerance(&tolerance));
+  require_true(
+      std::abs(tolerance - 0.002F) < 1.0e-7F,
+      "PDF ink default smoothing tolerance should come from kernel");
+  require_true(
+      kernel_get_pdf_ink_default_tolerance(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "PDF ink default tolerance should reject null output");
+}
+
 void test_smooth_ink_strokes_preserves_two_point_strokes() {
   kernel_ink_point points[] = {
       point(0.0F, 0.0F, 0.5F),
@@ -90,6 +101,7 @@ void test_smooth_ink_strokes_rejects_invalid_inputs() {
 }  // namespace
 
 void run_pdf_surface_ink_tests() {
+  test_pdf_ink_default_tolerance_is_kernel_owned();
   test_smooth_ink_strokes_interpolates_curved_stroke();
   test_smooth_ink_strokes_preserves_two_point_strokes();
   test_smooth_ink_strokes_rejects_invalid_inputs();

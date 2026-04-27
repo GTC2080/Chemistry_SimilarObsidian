@@ -82,6 +82,8 @@ The repository must retain regression coverage for:
 
 The repository must retain regression coverage for:
 
+- `kernel_get_pdf_ink_default_tolerance(...)` returning the kernel-owned default
+  tolerance and rejecting null output
 - `kernel_smooth_ink_strokes(...)` interpolating a curved three-point stroke
 - first and last points remaining anchored
 - stroke width being preserved
@@ -93,3 +95,5 @@ The repository must retain regression coverage for:
 - `kernel_free_ink_smoothing_result(...)` resetting output pointers and being repeat-safe
 - Tauri sealed bridge serializes ink smoothing kernel results to JSON without
   retaining Rust-owned ink C ABI structs or result-copy loops
+- Tauri `smooth_ink_strokes` reads the default tolerance through the sealed
+  kernel bridge instead of a duplicate Rust constant

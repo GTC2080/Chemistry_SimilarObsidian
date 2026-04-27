@@ -51,7 +51,7 @@
 - **v1.0.6-dev** — 对称性与晶体计算上限继续收口：symmetry command atom limit 通过 `kernel_get_symmetry_atom_limit(...)` 查询，crystal supercell atom cap 通过 `kernel_get_crystal_supercell_atom_limit(...)` 查询；Tauri Rust 不再保留重复的 `500` / `50000` 业务边界常量。
 - **v1.0.6-dev** — 晶体计算 full-result 化：`parse_and_build_lattice` 通过 sealed C++ bridge 调用 `kernel_build_lattice_from_cif(...)` 一次性取得 CIF 解析、晶胞基矢、超晶胞原子；`calculate_miller_plane` 通过 sealed C++ bridge 调用 `kernel_calculate_miller_plane_from_cif(...)` 完成 CIF 解析与密勒面计算。Rust `crystal/` 只保留最终 DTO，不再保留晶格/密勒面 C ABI mirror 与 unsafe 拷贝循环。
 - **v1.0.6-dev** — 对称性计算管线继续内核化：`calculate_symmetry` 现在通过 sealed C++ bridge 单点调用 `kernel_calculate_symmetry(...)`，由 kernel 完成 `XYZ` / `PDB` / simple `CIF` 原子解析、形状分析、主轴计算、候选生成、操作匹配、点群分类和渲染几何；Rust 只保留命令 DTO 与 localized error 映射，不再保留对称性 C ABI mirror / unsafe 拷贝循环。
-- **v1.0.6-dev** — PDF ink smoothing 继续瘦身：`smooth_ink_strokes` 通过 sealed C++ bridge 调用 `kernel_smooth_ink_strokes(...)`，由 bridge 序列化 kernel-owned strokes/points 为 JSON。Rust `pdf/ink.rs` 只保留前端 DTO 与薄 wrapper，不再保留 ink C ABI mirror / unsafe 拷贝循环。
+- **v1.0.6-dev** — PDF ink smoothing 继续瘦身：`smooth_ink_strokes` 通过 sealed C++ bridge 调用 `kernel_smooth_ink_strokes(...)`，默认容差通过 `kernel_get_pdf_ink_default_tolerance(...)` 查询，由 bridge 序列化 kernel-owned strokes/points 为 JSON。Rust `pdf/ink.rs` 只保留前端 DTO 与薄 wrapper，不再保留 ink C ABI mirror / unsafe 拷贝循环。
 - **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
