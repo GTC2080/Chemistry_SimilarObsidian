@@ -2,7 +2,7 @@
 
 # Product Compute Regression Matrix
 
-Last updated: `2026-04-25`
+Last updated: `2026-04-27`
 
 ## Truth Diff Awards
 
@@ -27,6 +27,8 @@ The repository must retain regression coverage for:
 - molecular edit awards scale by `added_lines * 5`
 - `kernel_free_truth_diff_result(...)` releases all owned strings and leaves the
   result empty
+- Tauri sealed bridge serializes truth diff kernel results to JSON without
+  Rust-owned truth diff C ABI structs or unsafe result-copy loops
 - Tauri Rust bridge tests continue to cover the existing command-facing
   localized reason strings for code-language and molecular awards
 
@@ -49,5 +51,7 @@ The repository must retain regression coverage for:
 - `kernel_build_semantic_context(...)` accepts empty null content buffers
 - `kernel_free_buffer(...)` releases semantic context output and leaves the
   buffer empty
+- Tauri sealed bridge returns semantic context text without Rust-owned kernel
+  buffer mirror structs or unsafe buffer-copy loops
 - Tauri Rust bridge tests continue to cover the existing command-facing string
   shape for short and focused long content

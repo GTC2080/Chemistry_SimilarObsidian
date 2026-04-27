@@ -562,6 +562,23 @@ bool ValidateInkSmoothingJsonInput(
   return true;
 }
 
+bool ValidateTruthDiffJsonInput(
+    const kernel_truth_diff_result& result,
+    std::string& error) {
+  if (result.count > 0 && result.awards == nullptr) {
+    error = "invalid_payload";
+    return false;
+  }
+  for (size_t index = 0; index < result.count; ++index) {
+    const kernel_truth_award& award = result.awards[index];
+    if (award.attr == nullptr) {
+      error = "invalid_payload";
+      return false;
+    }
+  }
+  return true;
+}
+
 void AppendDoubleArrayJson(std::string& json, const double* values, const size_t count) {
   json += "[";
   for (size_t index = 0; index < count; ++index) {
@@ -600,6 +617,21 @@ void AppendMolecularPreviewJson(std::string& json, const kernel_molecular_previe
   json += "\"truncated\":";
   json += preview.truncated != 0 ? "true" : "false";
   json += "}";
+}
+
+void AppendTruthDiffJson(std::string& json, const kernel_truth_diff_result& result) {
+  json += "{\"awards\":[";
+  for (size_t index = 0; index < result.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const kernel_truth_award& award = result.awards[index];
+    json += "{\"attr\":\"" + JsonEscape(award.attr) + "\",";
+    json += "\"amount\":" + std::to_string(award.amount) + ",";
+    json += "\"reason\":" + std::to_string(static_cast<int32_t>(award.reason)) + ",";
+    json += "\"detail\":\"" + JsonEscape(award.detail) + "\"}";
+  }
+  json += "]}";
 }
 
 void AppendRetroPrecursorJson(std::string& json, const kernel_retro_precursor& precursor) {
@@ -1619,6 +1651,101 @@ int32_t sealed_kernel_bridge_parse_spectroscopy_text_json(
   kernel_free_spectroscopy_data(&data);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_compute_truth_diff_json(
+    const char* prev_content,
+    uint64_t prev_size,
+    const char* curr_content,
+    uint64_t curr_size,
+    const char* file_extension_utf8,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr ||
+      file_extension_utf8 == nullptr ||
+      (prev_size > 0 && prev_content == nullptr) ||
+      (curr_size > 0 && curr_content == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_truth_diff_result result{};
+  const kernel_status status = kernel_compute_truth_diff(
+      prev_content,
+      static_cast<size_t>(prev_size),
+      curr_content,
+      static_cast<size_t>(curr_size),
+      file_extension_utf8,
+      &result);
+  if (status.code != KERNEL_OK) {
+    SetError(
+        out_error,
+        status.code == KERNEL_ERROR_INVALID_ARGUMENT
+            ? "invalid_argument"
+            : "truth_diff_failed");
+    kernel_free_truth_diff_result(&result);
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string validation_error;
+  if (!ValidateTruthDiffJsonInput(result, validation_error)) {
+    SetError(out_error, validation_error);
+    kernel_free_truth_diff_result(&result);
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  std::string json;
+  AppendTruthDiffJson(json, result);
+  kernel_free_truth_diff_result(&result);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_build_semantic_context_text(
+    const char* content,
+    uint64_t content_size,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (out_text == nullptr || (content_size > 0 && content == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_build_semantic_context(
+      content,
+      static_cast<size_t>(content_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    SetError(
+        out_error,
+        status.code == KERNEL_ERROR_INVALID_ARGUMENT
+            ? "invalid_argument"
+            : "semantic_context_failed");
+    kernel_free_buffer(&buffer);
+    return static_cast<int32_t>(status.code);
+  }
+
+  const std::string text = buffer.data == nullptr || buffer.size == 0
+                               ? std::string()
+                               : std::string(buffer.data, buffer.size);
+  kernel_free_buffer(&buffer);
+  *out_text = CopyString(text);
+  if (*out_text == nullptr) {
     SetError(out_error, "allocation_failed");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }

@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
 
 use crate::AppError;
 
@@ -29,36 +27,6 @@ pub struct TruthDiffResultDto {
     pub awards: Vec<TruthExpAwardDto>,
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelTruthAward {
-    attr: *mut c_char,
-    amount: i32,
-    reason: i32,
-    detail: *mut c_char,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-struct KernelTruthDiffResult {
-    awards: *mut KernelTruthAward,
-    count: usize,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-struct KernelOwnedBuffer {
-    data: *mut c_char,
-    size: usize,
-}
-
-fn kernel_string(ptr: *mut c_char) -> String {
-    if ptr.is_null() {
-        return String::new();
-    }
-    unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() }
-}
-
 fn truth_reason_message(reason: i32, detail: &str) -> String {
     match reason {
         KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA => "文本净增量经验".to_string(),
@@ -68,50 +36,14 @@ fn truth_reason_message(reason: i32, detail: &str) -> String {
     }
 }
 
-fn truth_awards_from_kernel(
-    raw: &KernelTruthDiffResult,
-) -> Result<Vec<TruthExpAwardDto>, AppError> {
-    if raw.count == 0 {
-        return Ok(Vec::new());
+fn truth_award_from_kernel(
+    award: crate::sealed_kernel::SealedKernelTruthAward,
+) -> TruthExpAwardDto {
+    TruthExpAwardDto {
+        attr: award.attr,
+        amount: award.amount,
+        reason: truth_reason_message(award.reason, &award.detail),
     }
-    if raw.awards.is_null() {
-        return Err(AppError::Custom("Truth diff 内核返回结果无效".to_string()));
-    }
-
-    let awards = unsafe { std::slice::from_raw_parts(raw.awards, raw.count) };
-    awards
-        .iter()
-        .map(|award| {
-            let attr = kernel_string(award.attr);
-            let detail = kernel_string(award.detail);
-            Ok(TruthExpAwardDto {
-                attr,
-                amount: award.amount,
-                reason: truth_reason_message(award.reason, &detail),
-            })
-        })
-        .collect()
-}
-
-extern "C" {
-    fn kernel_compute_truth_diff(
-        prev_content: *const c_char,
-        prev_size: usize,
-        curr_content: *const c_char,
-        curr_size: usize,
-        file_extension: *const c_char,
-        out_result: *mut KernelTruthDiffResult,
-    ) -> KernelStatus;
-
-    fn kernel_free_truth_diff_result(result: *mut KernelTruthDiffResult);
-
-    fn kernel_build_semantic_context(
-        content: *const c_char,
-        content_size: usize,
-        out_buffer: *mut KernelOwnedBuffer,
-    ) -> KernelStatus;
-
-    fn kernel_free_buffer(buffer: *mut KernelOwnedBuffer);
 }
 
 #[tauri::command]
@@ -120,32 +52,13 @@ pub fn compute_truth_diff(
     curr_content: String,
     file_extension: String,
 ) -> Result<TruthDiffResultDto, AppError> {
-    let extension = CString::new(file_extension)
-        .map_err(|_| AppError::Custom("Truth diff 文件扩展名包含非法字符".to_string()))?;
-    let mut result = KernelTruthDiffResult::default();
-    let status = unsafe {
-        kernel_compute_truth_diff(
-            prev_content.as_ptr() as *const c_char,
-            prev_content.len(),
-            curr_content.as_ptr() as *const c_char,
-            curr_content.len(),
-            extension.as_ptr(),
-            &mut result,
-        )
-    };
-    if status.code != KERNEL_OK {
-        unsafe {
-            kernel_free_truth_diff_result(&mut result);
-        }
-        return Err(AppError::Custom("Truth diff 内核计算失败".to_string()));
-    }
+    let awards =
+        crate::sealed_kernel::compute_truth_diff(&prev_content, &curr_content, &file_extension)?
+            .into_iter()
+            .map(truth_award_from_kernel)
+            .collect();
 
-    let awards = truth_awards_from_kernel(&result);
-    unsafe {
-        kernel_free_truth_diff_result(&mut result);
-    }
-
-    Ok(TruthDiffResultDto { awards: awards? })
+    Ok(TruthDiffResultDto { awards })
 }
 
 // ──────────────────────────────────────────
@@ -154,35 +67,7 @@ pub fn compute_truth_diff(
 
 #[tauri::command]
 pub fn build_semantic_context(content: String) -> String {
-    let mut buffer = KernelOwnedBuffer::default();
-    let status = unsafe {
-        kernel_build_semantic_context(
-            content.as_ptr() as *const c_char,
-            content.len(),
-            &mut buffer,
-        )
-    };
-    if status.code != KERNEL_OK {
-        unsafe {
-            kernel_free_buffer(&mut buffer);
-        }
-        return String::new();
-    }
-
-    let result = if buffer.size == 0 {
-        String::new()
-    } else if buffer.data.is_null() {
-        String::new()
-    } else {
-        let bytes = unsafe { std::slice::from_raw_parts(buffer.data as *const u8, buffer.size) };
-        String::from_utf8_lossy(bytes).into_owned()
-    };
-
-    unsafe {
-        kernel_free_buffer(&mut buffer);
-    }
-
-    result
+    crate::sealed_kernel::build_semantic_context(&content).unwrap_or_default()
 }
 
 // ──────────────────────────────────────────

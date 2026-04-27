@@ -161,6 +161,21 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_compute_truth_diff_json(
+        prev_content: *const c_char,
+        prev_size: u64,
+        curr_content: *const c_char,
+        curr_size: u64,
+        file_extension_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_build_semantic_context_text(
+        content: *const c_char,
+        content_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_generate_mock_retrosynthesis_json(
         target_smiles_utf8: *const c_char,
         depth: u8,
@@ -309,6 +324,20 @@ struct SealedKernelPathCatalog {
     paths: Vec<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct SealedKernelTruthAward {
+    pub attr: String,
+    pub amount: i32,
+    pub reason: i32,
+    #[serde(default)]
+    pub detail: String,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelTruthDiffResult {
+    awards: Vec<SealedKernelTruthAward>,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SealedKernelFileTreeNode {
@@ -348,6 +377,29 @@ fn bridge_error(operation: &str, code: c_int, raw_error: *mut c_char) -> AppErro
         format!("{operation} failed with kernel status {code}: {message}")
     };
     AppError::Custom(detail)
+}
+
+fn truth_diff_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "invalid_argument" => "Truth diff 内核参数无效".to_string(),
+        "invalid_payload" => "Truth diff 内核返回结果无效".to_string(),
+        "allocation_failed" => "Truth diff 内核结果分配失败".to_string(),
+        "truth_diff_failed" | "" => "Truth diff 内核计算失败".to_string(),
+        other => format!("Truth diff 内核计算失败 ({other}, status {code})"),
+    };
+    AppError::Custom(message)
+}
+
+fn semantic_context_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "invalid_argument" => "语义上下文内核参数无效".to_string(),
+        "allocation_failed" => "语义上下文内核结果分配失败".to_string(),
+        "semantic_context_failed" | "" => "语义上下文内核计算失败".to_string(),
+        other => format!("语义上下文内核计算失败 ({other}, status {code})"),
+    };
+    AppError::Custom(message)
 }
 
 fn snapshot_from_raw(raw: SealedKernelBridgeStateSnapshot) -> SealedKernelStateSnapshot {
@@ -1216,6 +1268,55 @@ fn crystal_miller_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError 
     AppError::Custom(message)
 }
 
+pub fn compute_truth_diff(
+    prev_content: &str,
+    curr_content: &str,
+    file_extension: &str,
+) -> AppResult<Vec<SealedKernelTruthAward>> {
+    let extension_c = CString::new(file_extension)
+        .map_err(|_| AppError::Custom("Truth diff 文件扩展名包含非法字符".to_string()))?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_compute_truth_diff_json(
+            prev_content.as_ptr() as *const c_char,
+            prev_content.len() as u64,
+            curr_content.as_ptr() as *const c_char,
+            curr_content.len() as u64,
+            extension_c.as_ptr(),
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(truth_diff_bridge_error(code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    let parsed: SealedKernelTruthDiffResult = serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!("sealed kernel truth diff JSON is invalid: {err}"))
+    })?;
+    Ok(parsed.awards)
+}
+
+pub fn build_semantic_context(content: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_semantic_context_text(
+            content.as_ptr() as *const c_char,
+            content.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(semantic_context_bridge_error(code, error));
+    }
+
+    Ok(take_bridge_string(raw_text))
+}
+
 pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
     let extension_c = cstring_arg(extension.to_string(), "extension")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -1805,6 +1906,26 @@ mod tests {
             filter_supported_vault_paths(&paths).expect("kernel supported path filter"),
             vec!["Folder/Note.md".to_string(), "Molecule.PDB".to_string()]
         );
+    }
+
+    #[test]
+    fn compute_truth_diff_uses_sealed_bridge_code_language_award() {
+        let result = compute_truth_diff("note", "note\n```rust\nfn main() {}\n```", "md")
+            .expect("sealed bridge truth diff");
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].attr, "engineering");
+        assert_eq!(result[0].amount, 8);
+        assert_eq!(result[0].reason, 2);
+        assert_eq!(result[0].detail, "rust");
+    }
+
+    #[test]
+    fn build_semantic_context_uses_sealed_bridge_short_trim() {
+        let result =
+            build_semantic_context("  short note  \n").expect("sealed bridge semantic context");
+
+        assert_eq!(result, "short note");
     }
 
     #[test]

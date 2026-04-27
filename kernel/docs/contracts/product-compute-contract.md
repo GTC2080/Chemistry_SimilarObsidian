@@ -2,7 +2,7 @@
 
 # Product Compute Contract
 
-Last updated: `2026-04-25`
+Last updated: `2026-04-27`
 
 ## Scope
 
@@ -36,6 +36,8 @@ Frozen rules:
   `kernel_free_truth_diff_result(...)`
 - returned semantic context bytes are kernel-owned until released with
   `kernel_free_buffer(...)`
+- host sealed bridges may serialize truth awards and semantic context into
+  host-owned JSON/text before crossing into higher-level runtimes
 - `reason` is a typed enum; hosts map it to localized text
 - `detail` is only populated for code-language awards and contains the detected
   language
@@ -78,6 +80,8 @@ Frozen rules:
   `build_semantic_context`
 - hosts must not reimplement truth diff award routing or scoring rules
 - hosts must not reimplement semantic context extraction rules
+- Rust hosts must not retain product compute C ABI mirror structs or unsafe
+  result-copy loops for truth diff awards or semantic context buffers
 - hosts may map `KERNEL_TRUTH_AWARD_REASON_*` to localized reason strings
 - frontends continue to consume host commands rather than kernel ABI directly
 
