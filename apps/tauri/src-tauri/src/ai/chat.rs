@@ -5,6 +5,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+use crate::sealed_kernel;
+
 use super::AiConfig;
 
 #[derive(Serialize)]
@@ -59,17 +61,18 @@ struct ChatCompletionMessage {
 }
 
 const CHAT_TIMEOUT_SECS: u64 = 120;
-const CONTEXT_PER_NOTE_CHARS: usize = 1500;
 const PONDER_TIMEOUT_SECS: u64 = 60;
 
 const RAG_SYSTEM_PROMPT: &str =
     "你是一个私人知识库的极客助手。请严格基于以下提供的上下文回答用户问题。\
 如果上下文中没有答案，请诚实地说明。请在引用相关内容时，在句末使用 [[笔记名称]] 的格式标注出处。";
 
-pub fn build_rag_context(notes: &[(String, String)]) -> String {
+pub fn build_rag_context(notes: &[(String, String)]) -> Result<String, String> {
+    let per_note_chars =
+        sealed_kernel::rag_context_per_note_char_limit().map_err(|err| err.to_string())?;
     let mut context = String::new();
     for (i, (name, content)) in notes.iter().enumerate() {
-        let truncated: String = content.chars().take(CONTEXT_PER_NOTE_CHARS).collect();
+        let truncated: String = content.chars().take(per_note_chars).collect();
         context.push_str(&format!(
             "--- 笔记 {} 《{}》 ---\n{}\n\n",
             i + 1,
@@ -77,7 +80,7 @@ pub fn build_rag_context(notes: &[(String, String)]) -> String {
             truncated
         ));
     }
-    context
+    Ok(context)
 }
 
 pub async fn stream_chat_with_context<F>(

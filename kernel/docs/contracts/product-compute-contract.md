@@ -14,6 +14,9 @@ Current surface:
 - `kernel_compute_truth_diff(prev_content, prev_size, curr_content, curr_size, file_extension, out_result)`
 - `kernel_free_truth_diff_result(out_result)`
 - `kernel_build_semantic_context(content, content_size, out_buffer)`
+- `kernel_get_semantic_context_min_bytes(out_bytes)`
+- `kernel_get_rag_context_per_note_char_limit(out_chars)`
+- `kernel_get_embedding_text_char_limit(out_chars)`
 
 Current exclusions:
 
@@ -32,6 +35,8 @@ Frozen rules:
   detection, and molecular line-growth detection
 - the kernel owns semantic context trimming, heading extraction, recent-block
   selection, and context length limits
+- the kernel owns host-facing AI/product text limits used for semantic context
+  gating, RAG note snippets, and embedding request input trimming
 - returned awards and strings are kernel-owned until released with
   `kernel_free_truth_diff_result(...)`
 - returned semantic context bytes are kernel-owned until released with
@@ -80,6 +85,8 @@ Frozen rules:
   `build_semantic_context`
 - hosts must not reimplement truth diff award routing or scoring rules
 - hosts must not reimplement semantic context extraction rules
+- hosts must not hard-code semantic context gating, RAG note snippet, or
+  embedding input text limits
 - Rust hosts must not retain product compute C ABI mirror structs or unsafe
   result-copy loops for truth diff awards or semantic context buffers
 - hosts may map `KERNEL_TRUTH_AWARD_REASON_*` to localized reason strings
@@ -101,3 +108,12 @@ Frozen rules:
   joined context are returned
 - otherwise, the last `2200` bytes of the trimmed content are returned
 - null non-empty content buffers and null output buffers are invalid
+- `kernel_get_semantic_context_min_bytes(...) = 24`
+
+## AI Host Text Limits
+
+Frozen rules:
+
+- `kernel_get_rag_context_per_note_char_limit(...) = 1500`
+- `kernel_get_embedding_text_char_limit(...) = 2000`
+- null output pointers are invalid

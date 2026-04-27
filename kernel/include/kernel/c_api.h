@@ -191,6 +191,9 @@ kernel_status kernel_build_semantic_context(
     const char* content,
     size_t content_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_get_semantic_context_min_bytes(size_t* out_bytes);
+kernel_status kernel_get_rag_context_per_note_char_limit(size_t* out_chars);
+kernel_status kernel_get_embedding_text_char_limit(size_t* out_chars);
 kernel_status kernel_generate_mock_retrosynthesis(
     const char* target_smiles,
     uint8_t depth,

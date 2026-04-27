@@ -226,6 +226,18 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_semantic_context_min_bytes(
+        out_bytes: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_rag_context_per_note_char_limit(
+        out_chars: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_embedding_text_char_limit(
+        out_chars: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_generate_mock_retrosynthesis_json(
         target_smiles_utf8: *const c_char,
         depth: u8,
@@ -657,6 +669,14 @@ fn kernel_default_limit(
         )));
     }
     Ok(limit)
+}
+
+fn kernel_default_usize_limit(
+    operation: &str,
+    getter: unsafe extern "C" fn(*mut u64, *mut *mut c_char) -> c_int,
+) -> AppResult<usize> {
+    let value = kernel_default_limit(operation, getter)?;
+    usize::try_from(value).map_err(|_| AppError::Custom(format!("{operation} exceeds host usize.")))
 }
 
 pub fn note_catalog_default_limit() -> AppResult<u64> {
@@ -1583,6 +1603,27 @@ pub fn build_semantic_context(content: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
+pub fn semantic_context_min_bytes() -> AppResult<usize> {
+    kernel_default_usize_limit(
+        "sealed_kernel_get_semantic_context_min_bytes",
+        sealed_kernel_bridge_get_semantic_context_min_bytes,
+    )
+}
+
+pub fn rag_context_per_note_char_limit() -> AppResult<usize> {
+    kernel_default_usize_limit(
+        "sealed_kernel_get_rag_context_per_note_char_limit",
+        sealed_kernel_bridge_get_rag_context_per_note_char_limit,
+    )
+}
+
+pub fn embedding_text_char_limit() -> AppResult<usize> {
+    kernel_default_usize_limit(
+        "sealed_kernel_get_embedding_text_char_limit",
+        sealed_kernel_bridge_get_embedding_text_char_limit,
+    )
+}
+
 pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
     let extension_c = cstring_arg(extension.to_string(), "extension")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -2454,6 +2495,13 @@ mod tests {
     #[test]
     fn note_query_default_limit_comes_from_kernel() {
         assert_eq!(note_query_default_limit().unwrap(), 512);
+    }
+
+    #[test]
+    fn product_text_limits_come_from_kernel() {
+        assert_eq!(semantic_context_min_bytes().unwrap(), 24);
+        assert_eq!(rag_context_per_note_char_limit().unwrap(), 1500);
+        assert_eq!(embedding_text_char_limit().unwrap(), 2000);
     }
 
     #[test]

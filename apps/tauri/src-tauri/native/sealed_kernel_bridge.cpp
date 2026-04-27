@@ -1961,6 +1961,36 @@ int32_t sealed_kernel_bridge_build_semantic_context_text(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
+    uint64_t* out_bytes,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_semantic_context_min_bytes,
+      "kernel_get_semantic_context_min_bytes",
+      out_bytes,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_get_rag_context_per_note_char_limit(
+    uint64_t* out_chars,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_rag_context_per_note_char_limit,
+      "kernel_get_rag_context_per_note_char_limit",
+      out_chars,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
+    uint64_t* out_chars,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_embedding_text_char_limit,
+      "kernel_get_embedding_text_char_limit",
+      out_chars,
+      out_error);
+}
+
 int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
     const char* target_smiles_utf8,
     uint8_t depth,

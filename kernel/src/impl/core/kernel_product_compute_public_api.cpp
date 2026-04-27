@@ -23,6 +23,8 @@ constexpr int kExpPerMolEdit = 5;
 constexpr int kExpPerCodeBlock = 8;
 constexpr std::size_t kMinContextChars = 24;
 constexpr std::size_t kMaxContextChars = 2200;
+constexpr std::size_t kRagContextPerNoteChars = 1500;
+constexpr std::size_t kEmbeddingTextCharLimit = 2000;
 
 struct TruthAwardDraft {
   std::string attr;
@@ -316,6 +318,14 @@ bool fill_owned_buffer(std::string_view value, kernel_owned_buffer* out_buffer) 
   return true;
 }
 
+kernel_status write_size_limit(std::size_t value, std::size_t* out_value) {
+  if (out_value == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_value = value;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
 }  // namespace
 
 extern "C" kernel_status kernel_compute_truth_diff(
@@ -415,4 +425,16 @@ extern "C" kernel_status kernel_build_semantic_context(
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_semantic_context_min_bytes(std::size_t* out_bytes) {
+  return write_size_limit(kMinContextChars, out_bytes);
+}
+
+extern "C" kernel_status kernel_get_rag_context_per_note_char_limit(std::size_t* out_chars) {
+  return write_size_limit(kRagContextPerNoteChars, out_chars);
+}
+
+extern "C" kernel_status kernel_get_embedding_text_char_limit(std::size_t* out_chars) {
+  return write_size_limit(kEmbeddingTextCharLimit, out_chars);
 }

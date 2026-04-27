@@ -7,6 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
+use crate::sealed_kernel;
+
 use super::AiConfig;
 
 #[derive(Serialize)]
@@ -25,7 +27,6 @@ struct EmbeddingResponse {
     data: Vec<EmbeddingData>,
 }
 
-const MAX_TEXT_CHARS: usize = 2000;
 const REQUEST_TIMEOUT_SECS: u64 = 30;
 const EMBEDDING_CACHE_LIMIT: usize = 64;
 const EMBEDDING_CONCURRENCY_LIMIT: usize = 4;
@@ -80,7 +81,9 @@ impl EmbeddingRuntimeState {
 }
 
 fn normalize_embedding_text(text: &str) -> Result<String, String> {
-    let truncated: String = text.chars().take(MAX_TEXT_CHARS).collect();
+    let max_text_chars =
+        sealed_kernel::embedding_text_char_limit().map_err(|err| err.to_string())?;
+    let truncated: String = text.chars().take(max_text_chars).collect();
     if truncated.trim().is_empty() {
         return Err("文本内容为空，跳过向量化".to_string());
     }

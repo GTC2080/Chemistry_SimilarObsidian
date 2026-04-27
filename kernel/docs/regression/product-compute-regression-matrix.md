@@ -55,3 +55,14 @@ The repository must retain regression coverage for:
   buffer mirror structs or unsafe buffer-copy loops
 - Tauri Rust bridge tests continue to cover the existing command-facing string
   shape for short and focused long content
+
+## AI Host Text Limits
+
+The repository must retain regression coverage for:
+
+- `kernel_get_semantic_context_min_bytes(...)` returns `24`
+- `kernel_get_rag_context_per_note_char_limit(...)` returns `1500`
+- `kernel_get_embedding_text_char_limit(...)` returns `2000`
+- all product text limit getters reject null output pointers
+- Tauri Rust queries these limits through the sealed bridge instead of keeping
+  duplicate product text constants

@@ -97,7 +97,8 @@ pub async fn get_related_notes_raw(
     vector_cache: State<'_, ai::VectorCacheState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
     let context_text = crate::commands::cmd_compute::build_semantic_context(raw_content);
-    if context_text.len() < 24 {
+    let min_context_bytes = sealed_kernel::semantic_context_min_bytes()?;
+    if context_text.len() < min_context_bytes {
         return Ok(Vec::new());
     }
 

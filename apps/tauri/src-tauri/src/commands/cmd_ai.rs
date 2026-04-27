@@ -90,7 +90,7 @@ pub async fn ask_vault(
         sealed_kernel.inner(),
     );
 
-    let context = ai::build_rag_context(&note_contents);
+    let context = ai::build_rag_context(&note_contents)?;
     ai::stream_chat_with_context(&question, &context, &config, |chunk| {
         on_event
             .send(chunk)

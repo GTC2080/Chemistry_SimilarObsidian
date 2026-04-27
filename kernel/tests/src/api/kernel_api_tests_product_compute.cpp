@@ -198,6 +198,28 @@ void test_semantic_context_validates_arguments() {
   require_true(buffer.size == 0 && buffer.data == nullptr, "empty semantic context should return empty buffer");
 }
 
+void test_product_text_limits_are_kernel_owned() {
+  size_t value = 0;
+
+  require_ok_status(kernel_get_semantic_context_min_bytes(&value), "semantic context min bytes");
+  require_true(value == 24, "semantic context min bytes should come from kernel");
+  require_true(
+      kernel_get_semantic_context_min_bytes(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "semantic context min bytes should reject null output");
+
+  require_ok_status(kernel_get_rag_context_per_note_char_limit(&value), "RAG context per note chars");
+  require_true(value == 1500, "RAG context per-note char limit should come from kernel");
+  require_true(
+      kernel_get_rag_context_per_note_char_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "RAG context per-note char limit should reject null output");
+
+  require_ok_status(kernel_get_embedding_text_char_limit(&value), "embedding text char limit");
+  require_true(value == 2000, "embedding text char limit should come from kernel");
+  require_true(
+      kernel_get_embedding_text_char_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding text char limit should reject null output");
+}
+
 }  // namespace
 
 void run_product_compute_tests() {
@@ -208,4 +230,5 @@ void run_product_compute_tests() {
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();
   test_semantic_context_validates_arguments();
+  test_product_text_limits_are_kernel_owned();
 }
