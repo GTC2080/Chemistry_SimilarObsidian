@@ -74,7 +74,7 @@ fn query_week(conn: &Connection, week_start: i64) -> AppResult<i64> {
     .map_err(Into::into)
 }
 
-fn query_streak(conn: &Connection, today_bucket: i64) -> AppResult<i64> {
+fn query_streak_buckets(conn: &Connection) -> AppResult<Vec<i64>> {
     let mut stmt = conn.prepare(
         "SELECT DISTINCT (started_at / 86400) AS day_bucket
              FROM study_sessions
@@ -87,17 +87,7 @@ fn query_streak(conn: &Connection, today_bucket: i64) -> AppResult<i64> {
         .filter_map(|r| r.ok())
         .collect();
 
-    let mut streak: i64 = 0;
-    let mut expected = today_bucket;
-    for bucket in buckets {
-        if bucket == expected {
-            streak += 1;
-            expected -= 1;
-        } else if bucket < expected {
-            break;
-        }
-    }
-    Ok(streak)
+    Ok(buckets)
 }
 
 fn query_daily_summary(conn: &Connection, window_start: i64) -> AppResult<Vec<DailySummary>> {
@@ -267,6 +257,10 @@ pub fn query_heatmap_cells(conn: &Connection) -> AppResult<HeatmapGrid> {
     build_heatmap_grid_from_raw(query_all_heatmap(conn)?, now_secs)
 }
 
+fn build_streak_from_buckets(day_buckets: Vec<i64>, today_bucket: i64) -> AppResult<i64> {
+    sealed_kernel::compute_study_streak_days(&day_buckets, today_bucket)
+}
+
 // ──────────────────────────────────────────
 // 聚合入口
 // ──────────────────────────────────────────
@@ -278,7 +272,7 @@ pub fn query_stats(conn: &Connection, days_back: i64) -> AppResult<StudyStats> {
 
     let (today_active_secs, today_files) = query_today(conn, today_start)?;
     let week_active_secs = query_week(conn, today_start - 6 * 86400)?;
-    let streak_days = query_streak(conn, today_start / 86400)?;
+    let streak_days = build_streak_from_buckets(query_streak_buckets(conn)?, today_start / 86400)?;
 
     let window_start = today_start - (days_back - 1) * 86400;
     let daily_summary = query_daily_summary(conn, window_start)?;
@@ -341,5 +335,17 @@ mod tests {
         assert_eq!(grid.cells[181].secs, 300);
         assert_eq!(grid.cells[181].col, 25);
         assert_eq!(grid.cells[181].row, 6);
+    }
+
+    #[test]
+    fn build_streak_delegates_contiguous_day_rules_to_kernel() {
+        assert_eq!(
+            build_streak_from_buckets(vec![12, 10, 9, 10, 8, 2], 10).unwrap(),
+            3
+        );
+        assert_eq!(
+            build_streak_from_buckets(vec![12, 10, 9, 10, 8, 2], 11).unwrap(),
+            0
+        );
     }
 }

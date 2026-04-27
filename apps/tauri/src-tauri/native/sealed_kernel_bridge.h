@@ -227,6 +227,13 @@ int32_t sealed_kernel_bridge_compute_truth_state_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_compute_study_streak_days(
+    const int64_t* day_buckets,
+    uint64_t day_count,
+    int64_t today_bucket,
+    int64_t* out_streak_days,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
     const char* const* dates_utf8,
     const int64_t* active_secs,

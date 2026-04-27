@@ -2073,6 +2073,28 @@ int32_t sealed_kernel_bridge_compute_truth_state_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_compute_study_streak_days(
+    const int64_t* day_buckets,
+    uint64_t day_count,
+    int64_t today_bucket,
+    int64_t* out_streak_days,
+    char** out_error) {
+  if (out_streak_days == nullptr || (day_count > 0 && day_buckets == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_compute_study_streak_days(
+      day_buckets,
+      static_cast<size_t>(day_count),
+      today_bucket,
+      out_streak_days);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_compute_study_streak_days", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
     const char* const* dates_utf8,
     const int64_t* active_secs,

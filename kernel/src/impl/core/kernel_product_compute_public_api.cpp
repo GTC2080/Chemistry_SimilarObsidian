@@ -605,6 +605,33 @@ extern "C" kernel_status kernel_compute_truth_state_from_activity(
   return kernel::core::make_status(KERNEL_OK);
 }
 
+extern "C" kernel_status kernel_compute_study_streak_days(
+    const std::int64_t* day_buckets,
+    const std::size_t day_count,
+    const std::int64_t today_bucket,
+    std::int64_t* out_streak_days) {
+  if (out_streak_days == nullptr || (day_count > 0 && day_buckets == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_streak_days = 0;
+
+  std::set<std::int64_t> active_days;
+  for (std::size_t index = 0; index < day_count; ++index) {
+    active_days.insert(day_buckets[index]);
+  }
+
+  std::int64_t expected = today_bucket;
+  while (active_days.contains(expected)) {
+    ++(*out_streak_days);
+    if (expected == std::numeric_limits<std::int64_t>::min()) {
+      break;
+    }
+    --expected;
+  }
+
+  return kernel::core::make_status(KERNEL_OK);
+}
+
 extern "C" kernel_status kernel_build_study_heatmap_grid(
     const kernel_heatmap_day_activity* days,
     const std::size_t day_count,

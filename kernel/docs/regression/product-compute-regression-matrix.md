@@ -81,6 +81,20 @@ The repository must retain regression coverage for:
 - Tauri Rust study DB code aggregates SQLite rows and delegates truth rules to
   the sealed kernel bridge
 
+## Study Streak
+
+The repository must retain regression coverage for:
+
+- `kernel_compute_study_streak_days(...)` counts contiguous active days through
+  the current day bucket
+- missing current-day activity returns `0`
+- duplicate input day buckets are counted once
+- input order does not affect the result
+- empty bucket input returns `0`
+- null non-empty buffers and null output pointers are rejected
+- Tauri Rust study stats code reads SQLite day buckets and delegates streak
+  continuity rules to the sealed kernel bridge
+
 ## Study Heatmap Grid
 
 The repository must retain regression coverage for:

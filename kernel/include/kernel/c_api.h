@@ -198,6 +198,11 @@ kernel_status kernel_compute_truth_state_from_activity(
     const kernel_study_note_activity* activities,
     size_t activity_count,
     kernel_truth_state_snapshot* out_state);
+kernel_status kernel_compute_study_streak_days(
+    const int64_t* day_buckets,
+    size_t day_count,
+    int64_t today_bucket,
+    int64_t* out_streak_days);
 kernel_status kernel_build_study_heatmap_grid(
     const kernel_heatmap_day_activity* days,
     size_t day_count,

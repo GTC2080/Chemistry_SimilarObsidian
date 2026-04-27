@@ -18,6 +18,7 @@ Current surface:
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
 - `kernel_compute_truth_state_from_activity(activities, activity_count, out_state)`
+- `kernel_compute_study_streak_days(day_buckets, day_count, today_bucket, out_streak_days)`
 - `kernel_build_study_heatmap_grid(days, day_count, now_epoch_secs, out_grid)`
 - `kernel_free_study_heatmap_grid(out_grid)`
 
@@ -42,6 +43,8 @@ Frozen rules:
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns study truth attribute routing, active-seconds to EXP
   conversion, level progression, and attribute level progression
+- the kernel owns study streak duplicate-day handling and contiguous-day
+  counting
 - the kernel owns study heatmap grid dimensions, UTC day bucketing, Monday
   alignment, date formatting, cell coordinates, and max-second calculation
 - returned awards and strings are kernel-owned until released with
@@ -96,6 +99,7 @@ Frozen rules:
   embedding input text limits
 - hosts must not reimplement study truth EXP curves or note-extension to
   attribute routing
+- hosts must not reimplement study streak contiguous-day rules
 - hosts must not reimplement study heatmap grid calendar or layout rules
 - Rust hosts must not retain product compute C ABI mirror structs or unsafe
   result-copy loops for truth diff awards or semantic context buffers
@@ -148,6 +152,18 @@ Frozen rules:
   but must call `kernel_compute_truth_state_from_activity(...)` for the rules
 - null non-empty activity buffers, null note ids, and null output pointers are
   invalid
+
+## Study Streak
+
+Frozen rules:
+
+- study streak input is a handle-free list of day buckets plus the current day
+  bucket
+- input order is not significant
+- duplicate day buckets are counted once
+- streak starts at the current day bucket and walks backward one day at a time
+- missing current-day activity returns `0`
+- null non-empty bucket buffers and null output pointers are invalid
 
 ## Study Heatmap Grid
 

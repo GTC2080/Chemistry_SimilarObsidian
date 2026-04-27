@@ -269,6 +269,39 @@ void test_truth_state_validates_arguments() {
       "truth state should reject null output");
 }
 
+void test_study_streak_counts_contiguous_active_days() {
+  const int64_t buckets[] = {12, 10, 9, 10, 8, 2};
+  int64_t streak = 0;
+
+  require_ok_status(
+      kernel_compute_study_streak_days(buckets, 6, 10, &streak),
+      "study streak");
+
+  require_true(streak == 3, "streak should count contiguous days through today");
+
+  require_ok_status(
+      kernel_compute_study_streak_days(buckets, 6, 11, &streak),
+      "study streak missing today");
+  require_true(streak == 0, "streak should be zero when today has no activity");
+}
+
+void test_study_streak_validates_arguments() {
+  int64_t streak = 0;
+
+  require_ok_status(
+      kernel_compute_study_streak_days(nullptr, 0, 10, &streak),
+      "empty study streak");
+  require_true(streak == 0, "empty streak should be zero");
+  require_true(
+      kernel_compute_study_streak_days(nullptr, 1, 10, &streak).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "streak should reject null non-empty bucket buffer");
+  require_true(
+      kernel_compute_study_streak_days(nullptr, 0, 10, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "streak should reject null output");
+}
+
 std::string heatmap_date_at(const kernel_heatmap_grid& grid, const size_t index) {
   return grid.cells[index].date == nullptr ? std::string() : std::string(grid.cells[index].date);
 }
@@ -336,6 +369,8 @@ void run_product_compute_tests() {
   test_product_text_limits_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();
   test_truth_state_validates_arguments();
+  test_study_streak_counts_contiguous_active_days();
+  test_study_streak_validates_arguments();
   test_study_heatmap_grid_builds_fixed_monday_aligned_grid();
   test_study_heatmap_grid_validates_arguments();
 }

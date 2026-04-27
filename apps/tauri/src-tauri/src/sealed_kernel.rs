@@ -245,6 +245,13 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_compute_study_streak_days(
+        day_buckets: *const i64,
+        day_count: u64,
+        today_bucket: i64,
+        out_streak_days: *mut i64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_build_study_heatmap_grid_json(
         dates_utf8: *const *const c_char,
         active_secs: *const i64,
@@ -1711,6 +1718,28 @@ pub fn compute_truth_state_from_activity(
     })
 }
 
+pub fn compute_study_streak_days(day_buckets: &[i64], today_bucket: i64) -> AppResult<i64> {
+    let mut streak_days = 0;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_compute_study_streak_days(
+            day_buckets.as_ptr(),
+            day_buckets.len() as u64,
+            today_bucket,
+            &mut streak_days,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_compute_study_streak_days",
+            code,
+            error,
+        ));
+    }
+    Ok(streak_days)
+}
+
 pub fn build_study_heatmap_grid(
     days: &[(String, i64)],
     now_epoch_secs: i64,
@@ -2655,6 +2684,18 @@ mod tests {
         assert_eq!(state.attributes.engineering, 2);
         assert_eq!(state.attributes.creation, 2);
         assert_eq!(state.attributes.finance, 3);
+    }
+
+    #[test]
+    fn compute_study_streak_uses_kernel_contiguous_day_rules() {
+        assert_eq!(
+            compute_study_streak_days(&[12, 10, 9, 10, 8, 2], 10).unwrap(),
+            3
+        );
+        assert_eq!(
+            compute_study_streak_days(&[12, 10, 9, 10, 8, 2], 11).unwrap(),
+            0
+        );
     }
 
     #[test]
