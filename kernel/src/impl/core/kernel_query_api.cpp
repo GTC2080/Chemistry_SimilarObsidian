@@ -14,6 +14,13 @@
 
 namespace {
 
+constexpr std::size_t kDefaultSearchNoteLimit = 10;
+constexpr std::size_t kDefaultBacklinkLimit = 64;
+constexpr std::size_t kDefaultTagCatalogLimit = 512;
+constexpr std::size_t kDefaultTagNoteLimit = 128;
+constexpr std::size_t kDefaultTagTreeLimit = 512;
+constexpr std::size_t kDefaultGraphLimit = 2048;
+
 bool is_null_or_whitespace_only(const char* value) {
   if (kernel::core::is_null_or_empty(value)) {
     return true;
@@ -351,6 +358,54 @@ kernel_status fill_search_page_results(
 }
 
 }  // namespace
+
+extern "C" kernel_status kernel_get_search_note_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultSearchNoteLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_backlink_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultBacklinkLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_tag_catalog_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultTagCatalogLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_tag_note_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultTagNoteLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_tag_tree_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultTagTreeLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_graph_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultGraphLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
 
 extern "C" kernel_status kernel_search_notes(
     kernel_handle* handle,

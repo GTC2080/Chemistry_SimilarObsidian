@@ -10,6 +10,12 @@ This document freezes the Phase 1 host-facing behavior for:
 
 - `kernel_search_notes(...)`
 - `kernel_search_notes_limited(...)`
+- `kernel_get_search_note_default_limit(...)`
+- `kernel_get_backlink_default_limit(...)`
+- `kernel_get_tag_catalog_default_limit(...)`
+- `kernel_get_tag_note_default_limit(...)`
+- `kernel_get_tag_tree_default_limit(...)`
+- `kernel_get_graph_default_limit(...)`
 - `kernel_query_notes(...)`
 - `kernel_read_note(...)`
 - `kernel_write_note(...)`
@@ -39,6 +45,22 @@ Current Tauri host wiring:
 Host rule:
 
 - hosts may keep compatibility caches such as embedding rows, but they must not rebuild note metadata truth from their own filesystem walk or legacy Rust DB rows when a kernel note catalog entry is available
+
+## Kernel-Owned Query Defaults
+
+The relationship/query default limits are owned by the kernel and exported through the public ABI.
+Tauri commands must call these getters instead of hard-coding relationship defaults in Rust.
+
+Frozen defaults:
+
+- `kernel_get_search_note_default_limit(...) = 10`
+- `kernel_get_backlink_default_limit(...) = 64`
+- `kernel_get_tag_catalog_default_limit(...) = 512`
+- `kernel_get_tag_note_default_limit(...) = 128`
+- `kernel_get_tag_tree_default_limit(...) = 512`
+- `kernel_get_graph_default_limit(...) = 2048`
+
+Each getter requires a non-null output pointer and returns `KERNEL_ERROR_INVALID_ARGUMENT` otherwise.
 
 Legacy note-search status:
 

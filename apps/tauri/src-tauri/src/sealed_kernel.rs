@@ -112,6 +112,30 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_search_note_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_backlink_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_tag_catalog_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_tag_note_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_tag_tree_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_graph_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_query_tags_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
@@ -601,43 +625,36 @@ pub fn active_vault_path(state: &SealedKernelState) -> AppResult<String> {
         .ok_or_else(|| AppError::Custom("sealed kernel vault is not open.".to_string()))
 }
 
-pub fn note_catalog_default_limit() -> AppResult<u64> {
+fn kernel_default_limit(
+    operation: &str,
+    getter: unsafe extern "C" fn(*mut u64, *mut *mut c_char) -> c_int,
+) -> AppResult<u64> {
     let mut limit = 0u64;
     let mut error: *mut c_char = std::ptr::null_mut();
-    let code =
-        unsafe { sealed_kernel_bridge_get_note_catalog_default_limit(&mut limit, &mut error) };
+    let code = unsafe { getter(&mut limit, &mut error) };
     if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_get_note_catalog_default_limit",
-            code,
-            error,
-        ));
+        return Err(bridge_error(operation, code, error));
     }
     if limit == 0 {
-        return Err(AppError::Custom(
-            "kernel note catalog default limit must be greater than zero.".to_string(),
-        ));
+        return Err(AppError::Custom(format!(
+            "{operation} returned a zero default limit."
+        )));
     }
     Ok(limit)
 }
 
+pub fn note_catalog_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_note_catalog_default_limit",
+        sealed_kernel_bridge_get_note_catalog_default_limit,
+    )
+}
+
 pub fn vault_scan_default_limit() -> AppResult<u64> {
-    let mut limit = 0u64;
-    let mut error: *mut c_char = std::ptr::null_mut();
-    let code = unsafe { sealed_kernel_bridge_get_vault_scan_default_limit(&mut limit, &mut error) };
-    if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_get_vault_scan_default_limit",
-            code,
-            error,
-        ));
-    }
-    if limit == 0 {
-        return Err(AppError::Custom(
-            "kernel vault scan default limit must be greater than zero.".to_string(),
-        ));
-    }
-    Ok(limit)
+    kernel_default_limit(
+        "sealed_kernel_get_vault_scan_default_limit",
+        sealed_kernel_bridge_get_vault_scan_default_limit,
+    )
 }
 
 fn query_note_catalog(
@@ -793,22 +810,10 @@ pub fn query_note_infos_filtered(
 }
 
 pub fn file_tree_default_limit() -> AppResult<u64> {
-    let mut limit = 0u64;
-    let mut error: *mut c_char = std::ptr::null_mut();
-    let code = unsafe { sealed_kernel_bridge_get_file_tree_default_limit(&mut limit, &mut error) };
-    if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_get_file_tree_default_limit",
-            code,
-            error,
-        ));
-    }
-    if limit == 0 {
-        return Err(AppError::Custom(
-            "kernel file tree default limit must be greater than zero.".to_string(),
-        ));
-    }
-    Ok(limit)
+    kernel_default_limit(
+        "sealed_kernel_get_file_tree_default_limit",
+        sealed_kernel_bridge_get_file_tree_default_limit,
+    )
 }
 
 pub fn query_file_tree(
@@ -915,6 +920,48 @@ pub fn filter_supported_vault_paths_filtered(
         ))
     })?;
     Ok(catalog.paths)
+}
+
+pub fn search_note_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_search_note_default_limit",
+        sealed_kernel_bridge_get_search_note_default_limit,
+    )
+}
+
+pub fn backlink_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_backlink_default_limit",
+        sealed_kernel_bridge_get_backlink_default_limit,
+    )
+}
+
+pub fn tag_catalog_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_tag_catalog_default_limit",
+        sealed_kernel_bridge_get_tag_catalog_default_limit,
+    )
+}
+
+pub fn tag_note_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_tag_note_default_limit",
+        sealed_kernel_bridge_get_tag_note_default_limit,
+    )
+}
+
+pub fn tag_tree_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_tag_tree_default_limit",
+        sealed_kernel_bridge_get_tag_tree_default_limit,
+    )
+}
+
+pub fn graph_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_graph_default_limit",
+        sealed_kernel_bridge_get_graph_default_limit,
+    )
 }
 
 pub fn query_search_note_infos(
@@ -2353,6 +2400,16 @@ mod tests {
     #[test]
     fn file_tree_default_limit_comes_from_kernel() {
         assert_eq!(file_tree_default_limit().unwrap(), 4096);
+    }
+
+    #[test]
+    fn relationship_default_limits_come_from_kernel() {
+        assert_eq!(search_note_default_limit().unwrap(), 10);
+        assert_eq!(backlink_default_limit().unwrap(), 64);
+        assert_eq!(tag_catalog_default_limit().unwrap(), 512);
+        assert_eq!(tag_note_default_limit().unwrap(), 128);
+        assert_eq!(tag_tree_default_limit().unwrap(), 512);
+        assert_eq!(graph_default_limit().unwrap(), 2048);
     }
 
     #[test]

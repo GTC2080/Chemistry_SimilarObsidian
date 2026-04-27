@@ -77,6 +77,12 @@ kernel_status kernel_search_notes_limited(
     const char* query,
     size_t limit,
     kernel_search_results* out_results);
+kernel_status kernel_get_search_note_default_limit(size_t* out_limit);
+kernel_status kernel_get_backlink_default_limit(size_t* out_limit);
+kernel_status kernel_get_tag_catalog_default_limit(size_t* out_limit);
+kernel_status kernel_get_tag_note_default_limit(size_t* out_limit);
+kernel_status kernel_get_tag_tree_default_limit(size_t* out_limit);
+kernel_status kernel_get_graph_default_limit(size_t* out_limit);
 kernel_status kernel_query_search(
     kernel_handle* handle,
     const kernel_search_query* request,

@@ -1341,6 +1341,86 @@ int32_t sealed_kernel_bridge_query_search_notes_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+static int32_t KernelDefaultLimit(
+    kernel_status (*getter)(size_t*),
+    const char* operation,
+    uint64_t* out_limit,
+    char** out_error) {
+  if (out_limit == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  size_t limit = 0;
+  const kernel_status status = getter(&limit);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, operation, out_error);
+  }
+
+  *out_limit = static_cast<uint64_t>(limit);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_get_search_note_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_search_note_default_limit,
+      "kernel_get_search_note_default_limit",
+      out_limit,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_get_backlink_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_backlink_default_limit,
+      "kernel_get_backlink_default_limit",
+      out_limit,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_get_tag_catalog_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_tag_catalog_default_limit,
+      "kernel_get_tag_catalog_default_limit",
+      out_limit,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_get_tag_note_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_tag_note_default_limit,
+      "kernel_get_tag_note_default_limit",
+      out_limit,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_get_tag_tree_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_tag_tree_default_limit,
+      "kernel_get_tag_tree_default_limit",
+      out_limit,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_get_graph_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_graph_default_limit,
+      "kernel_get_graph_default_limit",
+      out_limit,
+      out_error);
+}
+
 int32_t sealed_kernel_bridge_query_tags_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,

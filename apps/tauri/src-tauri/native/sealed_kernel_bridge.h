@@ -94,6 +94,30 @@ int32_t sealed_kernel_bridge_query_search_notes_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_search_note_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_backlink_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_tag_catalog_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_tag_note_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_tag_tree_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_graph_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_query_tags_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,

@@ -77,6 +77,29 @@ void test_query_tags_limit_and_argument_validation() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_tag_default_limits_are_kernel_owned() {
+  size_t tag_catalog_limit = 0;
+  expect_ok(kernel_get_tag_catalog_default_limit(&tag_catalog_limit));
+  require_true(tag_catalog_limit == 512, "tag catalog default limit should be kernel-owned");
+  require_true(
+      kernel_get_tag_catalog_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "tag catalog default limit should require output pointer");
+
+  size_t tag_note_limit = 0;
+  expect_ok(kernel_get_tag_note_default_limit(&tag_note_limit));
+  require_true(tag_note_limit == 128, "tag-note default limit should be kernel-owned");
+  require_true(
+      kernel_get_tag_note_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "tag-note default limit should require output pointer");
+
+  size_t tag_tree_limit = 0;
+  expect_ok(kernel_get_tag_tree_default_limit(&tag_tree_limit));
+  require_true(tag_tree_limit == 512, "tag-tree default limit should be kernel-owned");
+  require_true(
+      kernel_get_tag_tree_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "tag-tree default limit should require output pointer");
+}
+
 void test_query_tag_notes_uses_live_kernel_tag_index() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -102,5 +125,6 @@ void test_query_tag_notes_uses_live_kernel_tag_index() {
 void run_kernel_api_core_tag_contract_tests() {
   test_query_tags_returns_live_summaries_sorted_by_count_then_name();
   test_query_tags_limit_and_argument_validation();
+  test_tag_default_limits_are_kernel_owned();
   test_query_tag_notes_uses_live_kernel_tag_index();
 }

@@ -155,6 +155,15 @@ void test_search_api_limited_query_rejects_invalid_inputs_and_supports_limit() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_search_note_default_limit_is_kernel_owned() {
+  size_t limit = 0;
+  expect_ok(kernel_get_search_note_default_limit(&limit));
+  require_true(limit == 10, "legacy note search default limit should be kernel-owned");
+  require_true(
+      kernel_get_search_note_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "legacy note search default limit should require output pointer");
+}
+
 }  // namespace
 
 void run_search_legacy_note_surface_tests() {
@@ -162,4 +171,5 @@ void run_search_legacy_note_surface_tests() {
   test_search_api_matches_filename_fallback_title_token();
   test_search_api_reports_title_and_body_match_flags();
   test_search_api_limited_query_rejects_invalid_inputs_and_supports_limit();
+  test_search_note_default_limit_is_kernel_owned();
 }

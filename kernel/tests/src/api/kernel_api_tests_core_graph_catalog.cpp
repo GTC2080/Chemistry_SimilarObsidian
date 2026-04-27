@@ -134,9 +134,26 @@ void test_query_graph_limit_and_argument_validation() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_graph_default_limits_are_kernel_owned() {
+  size_t graph_limit = 0;
+  expect_ok(kernel_get_graph_default_limit(&graph_limit));
+  require_true(graph_limit == 2048, "graph default limit should be kernel-owned");
+  require_true(
+      kernel_get_graph_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "graph default limit should require output pointer");
+
+  size_t backlink_limit = 0;
+  expect_ok(kernel_get_backlink_default_limit(&backlink_limit));
+  require_true(backlink_limit == 64, "backlink default limit should be kernel-owned");
+  require_true(
+      kernel_get_backlink_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "backlink default limit should require output pointer");
+}
+
 }  // namespace
 
 void run_kernel_api_core_graph_contract_tests() {
   test_query_graph_returns_live_notes_and_kernel_edges();
   test_query_graph_limit_and_argument_validation();
+  test_graph_default_limits_are_kernel_owned();
 }

@@ -12,7 +12,8 @@ pub fn search_notes(
     query: String,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    sealed_kernel::query_search_note_infos(sealed_kernel.inner(), &query, 10)
+    let limit = sealed_kernel::search_note_default_limit()?;
+    sealed_kernel::query_search_note_infos(sealed_kernel.inner(), &query, limit)
 }
 
 #[tauri::command]
@@ -20,7 +21,8 @@ pub fn get_backlinks(
     target_name: String,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    sealed_kernel::backlink_note_infos(sealed_kernel.inner(), &target_name, 64)
+    let limit = sealed_kernel::backlink_default_limit()?;
+    sealed_kernel::backlink_note_infos(sealed_kernel.inner(), &target_name, limit)
 }
 
 #[tauri::command]
@@ -60,12 +62,14 @@ pub async fn get_related_notes(
 
 #[tauri::command]
 pub fn get_graph_data(sealed_kernel: State<SealedKernelState>) -> Result<GraphData, AppError> {
-    sealed_kernel::query_graph_data(sealed_kernel.inner(), 2048)
+    let limit = sealed_kernel::graph_default_limit()?;
+    sealed_kernel::query_graph_data(sealed_kernel.inner(), limit)
 }
 
 #[tauri::command]
 pub fn get_all_tags(sealed_kernel: State<SealedKernelState>) -> Result<Vec<TagInfo>, AppError> {
-    sealed_kernel::query_tag_infos(sealed_kernel.inner(), 512)
+    let limit = sealed_kernel::tag_catalog_default_limit()?;
+    sealed_kernel::query_tag_infos(sealed_kernel.inner(), limit)
 }
 
 #[tauri::command]
@@ -73,7 +77,8 @@ pub fn get_notes_by_tag(
     tag: String,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    sealed_kernel::tag_note_infos(sealed_kernel.inner(), &tag, 128)
+    let limit = sealed_kernel::tag_note_default_limit()?;
+    sealed_kernel::tag_note_infos(sealed_kernel.inner(), &tag, limit)
 }
 
 // ──────────────────────────────────────────
@@ -107,7 +112,8 @@ pub async fn get_related_notes_raw(
 /// 返回预构建的标签树结构（替代前端 buildTagTree）
 #[tauri::command]
 pub fn get_tag_tree(sealed_kernel: State<SealedKernelState>) -> Result<Vec<TagTreeNode>, AppError> {
-    sealed_kernel::query_tag_tree(sealed_kernel.inner(), 512)
+    let limit = sealed_kernel::tag_tree_default_limit()?;
+    sealed_kernel::query_tag_tree(sealed_kernel.inner(), limit)
 }
 
 /// 返回增强版图谱数据，包含预计算的邻接索引（替代前端 useMemo 构建）
@@ -115,5 +121,6 @@ pub fn get_tag_tree(sealed_kernel: State<SealedKernelState>) -> Result<Vec<TagTr
 pub fn get_enriched_graph_data(
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<EnrichedGraphData, AppError> {
-    sealed_kernel::query_enriched_graph_data(sealed_kernel.inner(), 2048)
+    let limit = sealed_kernel::graph_default_limit()?;
+    sealed_kernel::query_enriched_graph_data(sealed_kernel.inner(), limit)
 }
