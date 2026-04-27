@@ -2,7 +2,7 @@
 
 # Product Compute Regression Matrix
 
-Last updated: `2026-04-27`
+Last updated: `2026-04-28`
 
 ## Truth Diff Awards
 
@@ -80,6 +80,21 @@ The repository must retain regression coverage for:
 - null non-empty buffers, null note ids, and null output pointers are rejected
 - Tauri Rust study DB code aggregates SQLite rows and delegates truth rules to
   the sealed kernel bridge
+
+## Study Stats Window
+
+The repository must retain regression coverage for:
+
+- `kernel_compute_study_stats_window(...)` floors current epoch seconds to UTC
+  midnight
+- the current day bucket is returned by the kernel
+- week stats keep the legacy six-day lookback from today
+- daily summary/detail windows include exactly `days_back` days
+- legacy stats heatmap reads keep the `179` day lookback from today
+- folder ranking limit remains `5` and comes from the kernel
+- non-positive `days_back` and null output pointers are rejected
+- Tauri Rust study stats code queries SQLite with kernel-returned boundaries
+  and does not hard-code study stats windows or folder ranking limits
 
 ## Study Streak
 

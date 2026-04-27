@@ -519,6 +519,15 @@ typedef struct kernel_study_note_activity {
   int64_t active_secs;
 } kernel_study_note_activity;
 
+typedef struct kernel_study_stats_window {
+  int64_t today_start_epoch_secs;
+  int64_t today_bucket;
+  int64_t week_start_epoch_secs;
+  int64_t daily_window_start_epoch_secs;
+  int64_t heatmap_start_epoch_secs;
+  size_t folder_rank_limit;
+} kernel_study_stats_window;
+
 typedef struct kernel_truth_attribute_values {
   int64_t science;
   int64_t engineering;

@@ -2,7 +2,7 @@
 
 # Product Compute Contract
 
-Last updated: `2026-04-27`
+Last updated: `2026-04-28`
 
 ## Scope
 
@@ -18,6 +18,7 @@ Current surface:
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
 - `kernel_compute_truth_state_from_activity(activities, activity_count, out_state)`
+- `kernel_compute_study_stats_window(now_epoch_secs, days_back, out_window)`
 - `kernel_compute_study_streak_days(day_buckets, day_count, today_bucket, out_streak_days)`
 - `kernel_build_study_heatmap_grid(days, day_count, now_epoch_secs, out_grid)`
 - `kernel_free_study_heatmap_grid(out_grid)`
@@ -43,6 +44,8 @@ Frozen rules:
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns study truth attribute routing, active-seconds to EXP
   conversion, level progression, and attribute level progression
+- the kernel owns study stats UTC day boundary calculation, week/daily/legacy
+  heatmap window starts, current day bucket, and folder ranking limit
 - the kernel owns study streak duplicate-day handling and contiguous-day
   counting
 - the kernel owns study heatmap grid dimensions, UTC day bucketing, Monday
@@ -99,6 +102,7 @@ Frozen rules:
   embedding input text limits
 - hosts must not reimplement study truth EXP curves or note-extension to
   attribute routing
+- hosts must not reimplement study stats window or folder ranking limit rules
 - hosts must not reimplement study streak contiguous-day rules
 - hosts must not reimplement study heatmap grid calendar or layout rules
 - Rust hosts must not retain product compute C ABI mirror structs or unsafe
@@ -152,6 +156,21 @@ Frozen rules:
   but must call `kernel_compute_truth_state_from_activity(...)` for the rules
 - null non-empty activity buffers, null note ids, and null output pointers are
   invalid
+
+## Study Stats Window
+
+Frozen rules:
+
+- study stats window input is the current epoch seconds plus `days_back`
+- the current day is floored to UTC midnight
+- `today_bucket = floor(today_start_epoch_secs / 86400)`
+- `week_start_epoch_secs = today_start_epoch_secs - 6 * 86400`
+- `daily_window_start_epoch_secs = today_start_epoch_secs - (days_back - 1) * 86400`
+- `heatmap_start_epoch_secs = today_start_epoch_secs - 179 * 86400`
+- `folder_rank_limit = 5`
+- hosts may query SQLite using these returned boundaries, but must not compute
+  or hard-code them outside the kernel
+- non-positive `days_back` and null output pointers are invalid
 
 ## Study Streak
 

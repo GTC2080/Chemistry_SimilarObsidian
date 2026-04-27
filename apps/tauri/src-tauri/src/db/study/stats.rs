@@ -151,15 +151,18 @@ fn query_daily_details(conn: &Connection, window_start: i64) -> AppResult<Vec<Da
     Ok(groups)
 }
 
-fn query_folder_ranking(conn: &Connection) -> AppResult<Vec<FolderRank>> {
+fn query_folder_ranking(conn: &Connection, limit: u64) -> AppResult<Vec<FolderRank>> {
+    let limit: i64 = limit.try_into().map_err(|_| {
+        crate::AppError::Custom("Study folder ranking limit exceeds SQLite range.".to_string())
+    })?;
     let mut stmt = conn.prepare(
         "SELECT folder, COALESCE(SUM(active_secs), 0) AS total
              FROM study_sessions
-             GROUP BY folder ORDER BY total DESC LIMIT 5",
+             GROUP BY folder ORDER BY total DESC LIMIT ?1",
     )?;
 
     let rows = stmt
-        .query_map([], |row| {
+        .query_map(params![limit], |row| {
             Ok(FolderRank {
                 folder: row.get(0)?,
                 total_secs: row.get(1)?,
@@ -268,17 +271,16 @@ fn build_streak_from_buckets(day_buckets: Vec<i64>, today_bucket: i64) -> AppRes
 /// 聚合统计，days_back 控制 daily_summary / daily_details 回溯天数
 pub fn query_stats(conn: &Connection, days_back: i64) -> AppResult<StudyStats> {
     let now_secs = super::unix_now_secs()?;
-    let today_start = (now_secs / 86400) * 86400;
+    let window = sealed_kernel::compute_study_stats_window(now_secs, days_back)?;
 
-    let (today_active_secs, today_files) = query_today(conn, today_start)?;
-    let week_active_secs = query_week(conn, today_start - 6 * 86400)?;
-    let streak_days = build_streak_from_buckets(query_streak_buckets(conn)?, today_start / 86400)?;
+    let (today_active_secs, today_files) = query_today(conn, window.today_start_epoch_secs)?;
+    let week_active_secs = query_week(conn, window.week_start_epoch_secs)?;
+    let streak_days = build_streak_from_buckets(query_streak_buckets(conn)?, window.today_bucket)?;
 
-    let window_start = today_start - (days_back - 1) * 86400;
-    let daily_summary = query_daily_summary(conn, window_start)?;
-    let daily_details = query_daily_details(conn, window_start)?;
-    let folder_ranking = query_folder_ranking(conn)?;
-    let heatmap = query_heatmap(conn, today_start - 179 * 86400)?;
+    let daily_summary = query_daily_summary(conn, window.daily_window_start_epoch_secs)?;
+    let daily_details = query_daily_details(conn, window.daily_window_start_epoch_secs)?;
+    let folder_ranking = query_folder_ranking(conn, window.folder_rank_limit)?;
+    let heatmap = query_heatmap(conn, window.heatmap_start_epoch_secs)?;
 
     Ok(StudyStats {
         today_active_secs,

@@ -269,6 +269,34 @@ void test_truth_state_validates_arguments() {
       "truth state should reject null output");
 }
 
+void test_study_stats_window_computes_legacy_boundaries() {
+  kernel_study_stats_window window{};
+
+  require_ok_status(
+      kernel_compute_study_stats_window(1714305600, 7, &window),
+      "study stats window");
+
+  require_true(window.today_start_epoch_secs == 1714262400, "stats window should floor now to UTC day");
+  require_true(window.today_bucket == 19841, "stats window should expose today bucket");
+  require_true(window.week_start_epoch_secs == 1713744000, "stats window should preserve 6-day week lookback");
+  require_true(window.daily_window_start_epoch_secs == 1713744000, "stats window should include days_back days");
+  require_true(window.heatmap_start_epoch_secs == 1698796800, "stats window should preserve legacy heatmap lookback");
+  require_true(window.folder_rank_limit == 5, "stats window should own folder ranking limit");
+}
+
+void test_study_stats_window_validates_arguments() {
+  kernel_study_stats_window window{};
+
+  require_true(
+      kernel_compute_study_stats_window(1714305600, 0, &window).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "stats window should reject non-positive days_back");
+  require_true(
+      kernel_compute_study_stats_window(1714305600, 7, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "stats window should reject null output");
+}
+
 void test_study_streak_counts_contiguous_active_days() {
   const int64_t buckets[] = {12, 10, 9, 10, 8, 2};
   int64_t streak = 0;
@@ -369,6 +397,8 @@ void run_product_compute_tests() {
   test_product_text_limits_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();
   test_truth_state_validates_arguments();
+  test_study_stats_window_computes_legacy_boundaries();
+  test_study_stats_window_validates_arguments();
   test_study_streak_counts_contiguous_active_days();
   test_study_streak_validates_arguments();
   test_study_heatmap_grid_builds_fixed_monday_aligned_grid();

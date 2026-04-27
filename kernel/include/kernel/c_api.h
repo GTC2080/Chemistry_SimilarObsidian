@@ -198,6 +198,10 @@ kernel_status kernel_compute_truth_state_from_activity(
     const kernel_study_note_activity* activities,
     size_t activity_count,
     kernel_truth_state_snapshot* out_state);
+kernel_status kernel_compute_study_stats_window(
+    int64_t now_epoch_secs,
+    int64_t days_back,
+    kernel_study_stats_window* out_window);
 kernel_status kernel_compute_study_streak_days(
     const int64_t* day_buckets,
     size_t day_count,

@@ -234,6 +234,17 @@ int32_t sealed_kernel_bridge_compute_study_streak_days(
     int64_t* out_streak_days,
     char** out_error);
 
+int32_t sealed_kernel_bridge_compute_study_stats_window(
+    int64_t now_epoch_secs,
+    int64_t days_back,
+    int64_t* out_today_start_epoch_secs,
+    int64_t* out_today_bucket,
+    int64_t* out_week_start_epoch_secs,
+    int64_t* out_daily_window_start_epoch_secs,
+    int64_t* out_heatmap_start_epoch_secs,
+    uint64_t* out_folder_rank_limit,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
     const char* const* dates_utf8,
     const int64_t* active_secs,

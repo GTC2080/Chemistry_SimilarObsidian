@@ -252,6 +252,17 @@ extern "C" {
         out_streak_days: *mut i64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_compute_study_stats_window(
+        now_epoch_secs: i64,
+        days_back: i64,
+        out_today_start_epoch_secs: *mut i64,
+        out_today_bucket: *mut i64,
+        out_week_start_epoch_secs: *mut i64,
+        out_daily_window_start_epoch_secs: *mut i64,
+        out_heatmap_start_epoch_secs: *mut i64,
+        out_folder_rank_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_build_study_heatmap_grid_json(
         dates_utf8: *const *const c_char,
         active_secs: *const i64,
@@ -497,6 +508,16 @@ pub struct SealedKernelHeatmapCell {
 pub struct SealedKernelHeatmapGrid {
     pub cells: Vec<SealedKernelHeatmapCell>,
     pub max_secs: i64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct SealedKernelStudyStatsWindow {
+    pub today_start_epoch_secs: i64,
+    pub today_bucket: i64,
+    pub week_start_epoch_secs: i64,
+    pub daily_window_start_epoch_secs: i64,
+    pub heatmap_start_epoch_secs: i64,
+    pub folder_rank_limit: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -1740,6 +1761,48 @@ pub fn compute_study_streak_days(day_buckets: &[i64], today_bucket: i64) -> AppR
     Ok(streak_days)
 }
 
+pub fn compute_study_stats_window(
+    now_epoch_secs: i64,
+    days_back: i64,
+) -> AppResult<SealedKernelStudyStatsWindow> {
+    let mut today_start_epoch_secs = 0;
+    let mut today_bucket = 0;
+    let mut week_start_epoch_secs = 0;
+    let mut daily_window_start_epoch_secs = 0;
+    let mut heatmap_start_epoch_secs = 0;
+    let mut folder_rank_limit = 0;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_compute_study_stats_window(
+            now_epoch_secs,
+            days_back,
+            &mut today_start_epoch_secs,
+            &mut today_bucket,
+            &mut week_start_epoch_secs,
+            &mut daily_window_start_epoch_secs,
+            &mut heatmap_start_epoch_secs,
+            &mut folder_rank_limit,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_compute_study_stats_window",
+            code,
+            error,
+        ));
+    }
+
+    Ok(SealedKernelStudyStatsWindow {
+        today_start_epoch_secs,
+        today_bucket,
+        week_start_epoch_secs,
+        daily_window_start_epoch_secs,
+        heatmap_start_epoch_secs,
+        folder_rank_limit,
+    })
+}
+
 pub fn build_study_heatmap_grid(
     days: &[(String, i64)],
     now_epoch_secs: i64,
@@ -2696,6 +2759,18 @@ mod tests {
             compute_study_streak_days(&[12, 10, 9, 10, 8, 2], 11).unwrap(),
             0
         );
+    }
+
+    #[test]
+    fn compute_study_stats_window_uses_kernel_calendar_rules() {
+        let window = compute_study_stats_window(1714305600, 7).unwrap();
+
+        assert_eq!(window.today_start_epoch_secs, 1714262400);
+        assert_eq!(window.today_bucket, 19841);
+        assert_eq!(window.week_start_epoch_secs, 1713744000);
+        assert_eq!(window.daily_window_start_epoch_secs, 1713744000);
+        assert_eq!(window.heatmap_start_epoch_secs, 1698796800);
+        assert_eq!(window.folder_rank_limit, 5);
     }
 
     #[test]

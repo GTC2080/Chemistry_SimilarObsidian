@@ -2095,6 +2095,40 @@ int32_t sealed_kernel_bridge_compute_study_streak_days(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_compute_study_stats_window(
+    int64_t now_epoch_secs,
+    int64_t days_back,
+    int64_t* out_today_start_epoch_secs,
+    int64_t* out_today_bucket,
+    int64_t* out_week_start_epoch_secs,
+    int64_t* out_daily_window_start_epoch_secs,
+    int64_t* out_heatmap_start_epoch_secs,
+    uint64_t* out_folder_rank_limit,
+    char** out_error) {
+  if (
+      out_today_start_epoch_secs == nullptr || out_today_bucket == nullptr ||
+      out_week_start_epoch_secs == nullptr || out_daily_window_start_epoch_secs == nullptr ||
+      out_heatmap_start_epoch_secs == nullptr || out_folder_rank_limit == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_study_stats_window window{};
+  const kernel_status status =
+      kernel_compute_study_stats_window(now_epoch_secs, days_back, &window);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_compute_study_stats_window", out_error);
+  }
+
+  *out_today_start_epoch_secs = window.today_start_epoch_secs;
+  *out_today_bucket = window.today_bucket;
+  *out_week_start_epoch_secs = window.week_start_epoch_secs;
+  *out_daily_window_start_epoch_secs = window.daily_window_start_epoch_secs;
+  *out_heatmap_start_epoch_secs = window.heatmap_start_epoch_secs;
+  *out_folder_rank_limit = static_cast<uint64_t>(window.folder_rank_limit);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
     const char* const* dates_utf8,
     const int64_t* active_secs,

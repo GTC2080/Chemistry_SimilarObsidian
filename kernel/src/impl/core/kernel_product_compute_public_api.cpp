@@ -35,6 +35,9 @@ constexpr std::int64_t kStudyAttrExpPerLevel = 50;
 constexpr std::int64_t kSecsPerDay = 86400;
 constexpr std::size_t kStudyHeatmapWeeks = 26;
 constexpr std::size_t kStudyHeatmapDaysPerWeek = 7;
+constexpr std::int64_t kStudyWeekLookbackDays = 6;
+constexpr std::int64_t kStudyLegacyHeatmapLookbackDays = 179;
+constexpr std::size_t kStudyFolderRankLimit = 5;
 
 struct TruthAwardDraft {
   std::string attr;
@@ -422,6 +425,25 @@ std::int64_t positive_mod(const std::int64_t value, const std::int64_t modulus) 
   return remainder < 0 ? remainder + modulus : remainder;
 }
 
+bool subtract_days(
+    const std::int64_t epoch_secs,
+    const std::int64_t days,
+    std::int64_t* out_epoch_secs) {
+  if (out_epoch_secs == nullptr || days < 0) {
+    return false;
+  }
+  if (days > std::numeric_limits<std::int64_t>::max() / kSecsPerDay) {
+    return false;
+  }
+
+  const std::int64_t delta = days * kSecsPerDay;
+  if (epoch_secs < std::numeric_limits<std::int64_t>::min() + delta) {
+    return false;
+  }
+  *out_epoch_secs = epoch_secs - delta;
+  return true;
+}
+
 std::string format_date_from_epoch_secs(const std::int64_t epoch_secs) {
   const std::int64_t days = floor_div(epoch_secs, kSecsPerDay);
   const std::int64_t z = days + 719468;
@@ -602,6 +624,39 @@ extern "C" kernel_status kernel_compute_truth_state_from_activity(
   out_state->next_level_exp = next_level_exp;
   out_state->attributes = attribute_levels_from_exp(exp);
   out_state->attribute_exp = exp;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_compute_study_stats_window(
+    const std::int64_t now_epoch_secs,
+    const std::int64_t days_back,
+    kernel_study_stats_window* out_window) {
+  if (out_window == nullptr || days_back <= 0) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_study_stats_window window{};
+  window.today_start_epoch_secs = floor_div(now_epoch_secs, kSecsPerDay) * kSecsPerDay;
+  window.today_bucket = floor_div(window.today_start_epoch_secs, kSecsPerDay);
+  window.folder_rank_limit = kStudyFolderRankLimit;
+
+  if (
+      !subtract_days(
+          window.today_start_epoch_secs,
+          kStudyWeekLookbackDays,
+          &window.week_start_epoch_secs) ||
+      !subtract_days(
+          window.today_start_epoch_secs,
+          days_back - 1,
+          &window.daily_window_start_epoch_secs) ||
+      !subtract_days(
+          window.today_start_epoch_secs,
+          kStudyLegacyHeatmapLookbackDays,
+          &window.heatmap_start_epoch_secs)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  *out_window = window;
   return kernel::core::make_status(KERNEL_OK);
 }
 
