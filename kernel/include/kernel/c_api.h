@@ -15,6 +15,7 @@ kernel_status kernel_get_rebuild_status(
     kernel_handle* handle,
     kernel_rebuild_status_snapshot* out_status);
 kernel_status kernel_get_note_catalog_default_limit(size_t* out_limit);
+kernel_status kernel_get_vault_scan_default_limit(size_t* out_limit);
 kernel_status kernel_read_note(
     kernel_handle* handle,
     const char* rel_path,

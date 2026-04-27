@@ -34,6 +34,10 @@ int32_t sealed_kernel_bridge_get_note_catalog_default_limit(
     uint64_t* out_limit,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_vault_scan_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_query_notes_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,

@@ -52,6 +52,10 @@ extern "C" {
         out_limit: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_vault_scan_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_query_notes_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
@@ -594,6 +598,25 @@ pub fn note_catalog_default_limit() -> AppResult<u64> {
     if limit == 0 {
         return Err(AppError::Custom(
             "kernel note catalog default limit must be greater than zero.".to_string(),
+        ));
+    }
+    Ok(limit)
+}
+
+pub fn vault_scan_default_limit() -> AppResult<u64> {
+    let mut limit = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe { sealed_kernel_bridge_get_vault_scan_default_limit(&mut limit, &mut error) };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_get_vault_scan_default_limit",
+            code,
+            error,
+        ));
+    }
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "kernel vault scan default limit must be greater than zero.".to_string(),
         ));
     }
     Ok(limit)
@@ -2226,6 +2249,11 @@ mod tests {
     #[test]
     fn note_catalog_default_limit_comes_from_kernel() {
         assert_eq!(note_catalog_default_limit().unwrap(), 100000);
+    }
+
+    #[test]
+    fn vault_scan_default_limit_comes_from_kernel() {
+        assert_eq!(vault_scan_default_limit().unwrap(), 4096);
     }
 
     #[test]

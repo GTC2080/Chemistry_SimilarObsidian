@@ -244,7 +244,7 @@ pub fn scan_vault(
     sealed_kernel::query_note_infos_filtered(
         &vault_path,
         sealed_kernel.inner(),
-        4096,
+        sealed_kernel::vault_scan_default_limit()?,
         ignored_folders.as_deref().unwrap_or(""),
     )
 }
