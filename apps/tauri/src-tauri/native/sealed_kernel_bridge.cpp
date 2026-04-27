@@ -2019,6 +2019,80 @@ int32_t sealed_kernel_bridge_get_pdf_ink_default_tolerance(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_compute_pdf_annotation_storage_key(
+    const char* pdf_path_utf8,
+    char** out_key,
+    char** out_error) {
+  if (out_key != nullptr) {
+    *out_key = nullptr;
+  }
+  if (out_key == nullptr || pdf_path_utf8 == nullptr || pdf_path_utf8[0] == '\0') {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_compute_pdf_annotation_storage_key(pdf_path_utf8, &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(status.code);
+  }
+
+  const std::string key =
+      buffer.data == nullptr ? std::string() : std::string(buffer.data, buffer.size);
+  kernel_free_buffer(&buffer);
+  *out_key = CopyString(key);
+  if (*out_key == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_compute_pdf_lightweight_hash(
+    const uint8_t* head,
+    uint64_t head_size,
+    const uint8_t* tail,
+    uint64_t tail_size,
+    uint64_t file_size,
+    char** out_hash,
+    char** out_error) {
+  if (out_hash != nullptr) {
+    *out_hash = nullptr;
+  }
+  if (
+      out_hash == nullptr || (head_size > 0 && head == nullptr) ||
+      (tail_size > 0 && tail == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_compute_pdf_lightweight_hash(
+      head,
+      static_cast<size_t>(head_size),
+      tail,
+      static_cast<size_t>(tail_size),
+      file_size,
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(status.code);
+  }
+
+  const std::string hash =
+      buffer.data == nullptr ? std::string() : std::string(buffer.data, buffer.size);
+  kernel_free_buffer(&buffer);
+  *out_hash = CopyString(hash);
+  if (*out_hash == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_smooth_ink_strokes_json(
     const float* xs,
     const float* ys,

@@ -97,3 +97,18 @@ The repository must retain regression coverage for:
   retaining Rust-owned ink C ABI structs or result-copy loops
 - Tauri `smooth_ink_strokes` reads the default tolerance through the sealed
   kernel bridge instead of a duplicate Rust constant
+
+## Stateless PDF Annotation Hashing
+
+The repository must retain regression coverage for:
+
+- `kernel_compute_pdf_annotation_storage_key(...)` returning the first 16 hex
+  characters of the PDF path SHA-256
+- `kernel_compute_pdf_annotation_storage_key(...)` rejecting null or empty path
+  and null output
+- `kernel_compute_pdf_lightweight_hash(...)` hashing
+  `first_1kb || last_1kb || file_size_le`
+- `kernel_compute_pdf_lightweight_hash(...)` rejecting null non-empty head,
+  null non-empty tail, and null output
+- Tauri PDF annotation persistence reading both rules through the sealed kernel
+  bridge instead of using Rust-side SHA-256

@@ -204,6 +204,20 @@ int32_t sealed_kernel_bridge_get_pdf_ink_default_tolerance(
     float* out_tolerance,
     char** out_error);
 
+int32_t sealed_kernel_bridge_compute_pdf_annotation_storage_key(
+    const char* pdf_path_utf8,
+    char** out_key,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_compute_pdf_lightweight_hash(
+    const uint8_t* head,
+    uint64_t head_size,
+    const uint8_t* tail,
+    uint64_t tail_size,
+    uint64_t file_size,
+    char** out_hash,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_smooth_ink_strokes_json(
     const float* xs,
     const float* ys,

@@ -222,6 +222,20 @@ extern "C" {
         out_tolerance: *mut f32,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_compute_pdf_annotation_storage_key(
+        pdf_path_utf8: *const c_char,
+        out_key: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_compute_pdf_lightweight_hash(
+        head: *const u8,
+        head_size: u64,
+        tail: *const u8,
+        tail_size: u64,
+        file_size: u64,
+        out_hash: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_smooth_ink_strokes_json(
         xs: *const f32,
         ys: *const f32,
@@ -1636,6 +1650,62 @@ pub fn pdf_ink_default_tolerance() -> AppResult<f32> {
     Ok(tolerance)
 }
 
+pub fn pdf_annotation_storage_key(pdf_path: &str) -> AppResult<String> {
+    let pdf_path_c = cstring_arg(pdf_path.to_string(), "pdf_path")?;
+    let mut raw_key: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_compute_pdf_annotation_storage_key(
+            pdf_path_c.as_ptr(),
+            &mut raw_key,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_compute_pdf_annotation_storage_key",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_key))
+}
+
+pub fn compute_pdf_lightweight_hash(head: &[u8], tail: &[u8], file_size: u64) -> AppResult<String> {
+    let head_ptr = if head.is_empty() {
+        std::ptr::null()
+    } else {
+        head.as_ptr()
+    };
+    let tail_ptr = if tail.is_empty() {
+        std::ptr::null()
+    } else {
+        tail.as_ptr()
+    };
+
+    let mut raw_hash: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_compute_pdf_lightweight_hash(
+            head_ptr,
+            head.len() as u64,
+            tail_ptr,
+            tail.len() as u64,
+            file_size,
+            &mut raw_hash,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_compute_pdf_lightweight_hash",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_hash))
+}
+
 pub fn smooth_ink_strokes(
     strokes: Vec<RawStroke>,
     tolerance: f32,
@@ -2469,6 +2539,22 @@ mod tests {
     #[test]
     fn pdf_ink_default_tolerance_comes_from_kernel() {
         assert!((pdf_ink_default_tolerance().unwrap() - 0.002).abs() < 1.0e-7);
+    }
+
+    #[test]
+    fn pdf_annotation_storage_key_comes_from_kernel() {
+        assert_eq!(
+            pdf_annotation_storage_key("assets/paper.pdf").unwrap(),
+            "d7af56fa7308eb53"
+        );
+    }
+
+    #[test]
+    fn pdf_lightweight_hash_comes_from_kernel() {
+        assert_eq!(
+            compute_pdf_lightweight_hash(b"%PDF", b"EOF", 1234).unwrap(),
+            "d1a340980bc6729a17b938075e8d855ebb53f367c78d49b6bd1040254c4ba5ca"
+        );
     }
 
     #[test]

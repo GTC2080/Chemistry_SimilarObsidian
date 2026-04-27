@@ -6,14 +6,13 @@
 //! 文件内容同时记录 PDF 文件自身的内容哈希（首尾各 1KB + 文件大小），
 //! 可用于检测文件是否被替换。
 
-use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::error::{AppError, AppResult};
+use crate::sealed_kernel;
 
 // ---------------------------------------------------------------------------
 // 数据结构
@@ -115,61 +114,51 @@ pub struct AnnotationFile {
 
 /// 计算 PDF 文件的轻量内容哈希
 ///
-/// 算法：SHA-256(first_1kb || last_1kb || file_size_le_bytes)
+/// 算法由 kernel 固化：SHA-256(first_1kb || last_1kb || file_size_le_bytes)
 /// 使用局部读取而非加载整个文件，适用于大型 PDF。
 pub fn compute_pdf_hash(path: &Path) -> AppResult<String> {
-    let mut file =
-        File::open(path).map_err(|e| AppError::PdfAnnotation(format!("无法打开 PDF 文件: {e}")))?;
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| AppError::PdfAnnotation(format!("无法打开 PDF 文件: {e}")))?;
 
     let file_size = file
         .seek(SeekFrom::End(0))
         .map_err(|e| AppError::PdfAnnotation(format!("无法获取文件大小: {e}")))?;
 
-    let mut hasher = Sha256::new();
-
     // 读取前 1KB
     file.seek(SeekFrom::Start(0))
         .map_err(|e| AppError::PdfAnnotation(format!("seek 失败: {e}")))?;
-    let mut buf = [0u8; 1024];
-    let n = file
-        .read(&mut buf)
+    let mut head = [0u8; 1024];
+    let head_len = file
+        .read(&mut head)
         .map_err(|e| AppError::PdfAnnotation(format!("读取文件头部失败: {e}")))?;
-    hasher.update(&buf[..n]);
 
     // 读取后 1KB（若文件不足 2KB 则直接读取末尾）
     let tail_start = file_size.saturating_sub(1024);
     file.seek(SeekFrom::Start(tail_start))
         .map_err(|e| AppError::PdfAnnotation(format!("seek 到文件尾部失败: {e}")))?;
-    let n = file
-        .read(&mut buf)
+    let mut tail = [0u8; 1024];
+    let tail_len = file
+        .read(&mut tail)
         .map_err(|e| AppError::PdfAnnotation(format!("读取文件尾部失败: {e}")))?;
-    hasher.update(&buf[..n]);
 
-    // 混入文件大小（little-endian 8 字节）
-    hasher.update(file_size.to_le_bytes());
-
-    let hash = hasher.finalize();
-    Ok(hex_encode(&hash))
+    sealed_kernel::compute_pdf_lightweight_hash(&head[..head_len], &tail[..tail_len], file_size)
 }
 
 /// 根据 PDF 路径字符串的 SHA-256 前 16 字符确定批注文件位置
 ///
 /// 路径格式：`{vault_root}/.nexus/pdf-annotations/{hash16}.json`
-pub fn annotation_file_path(vault_root: &Path, pdf_path: &Path) -> PathBuf {
-    let mut hasher = Sha256::new();
-    hasher.update(pdf_path.to_string_lossy().as_bytes());
-    let hash = hasher.finalize();
-    let hash16 = &hex_encode(&hash)[..16];
+pub fn annotation_file_path(vault_root: &Path, pdf_path: &Path) -> AppResult<PathBuf> {
+    let key = sealed_kernel::pdf_annotation_storage_key(&pdf_path.to_string_lossy())?;
 
-    vault_root
+    Ok(vault_root
         .join(".nexus")
         .join("pdf-annotations")
-        .join(format!("{hash16}.json"))
+        .join(format!("{key}.json")))
 }
 
 /// 加载指定 PDF 的批注列表；若文件不存在则返回空列表
 pub fn load_annotations(vault_root: &Path, pdf_path: &Path) -> AppResult<Vec<PdfAnnotation>> {
-    let file_path = annotation_file_path(vault_root, pdf_path);
+    let file_path = annotation_file_path(vault_root, pdf_path)?;
 
     if !file_path.exists() {
         return Ok(Vec::new());
@@ -190,7 +179,7 @@ pub fn save_annotations(
     pdf_path: &Path,
     annotations: Vec<PdfAnnotation>,
 ) -> AppResult<()> {
-    let file_path = annotation_file_path(vault_root, pdf_path);
+    let file_path = annotation_file_path(vault_root, pdf_path)?;
 
     // 确保目录存在
     if let Some(dir) = file_path.parent() {
@@ -213,12 +202,4 @@ pub fn save_annotations(
         .map_err(|e| AppError::PdfAnnotation(format!("写入批注文件失败: {e}")))?;
 
     Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// 内部工具
-// ---------------------------------------------------------------------------
-
-fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }

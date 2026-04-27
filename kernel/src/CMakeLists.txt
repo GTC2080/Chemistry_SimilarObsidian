@@ -47,6 +47,7 @@ add_library(
   impl/core/kernel_chemistry_reference_public_api.cpp
   impl/core/kernel_pdf_query_shared.cpp
   impl/core/kernel_pdf_api.cpp
+  impl/core/kernel_pdf_annotation_public_api.cpp
   impl/core/kernel_pdf_ink_public_api.cpp
   impl/core/kernel_domain_api_reset.cpp
   impl/core/kernel_domain_api_fill.cpp

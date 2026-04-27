@@ -25,6 +25,11 @@ Batch 3 lands:
 - `kernel_query_note_pdf_source_refs(handle, note_rel_path, limit, out_refs)`
 - `kernel_query_pdf_referrers(handle, attachment_rel_path, limit, out_referrers)`
 
+Stateless annotation hashing lands:
+
+- `kernel_compute_pdf_annotation_storage_key(pdf_path, out_buffer)`
+- `kernel_compute_pdf_lightweight_hash(head, head_size, tail, tail_size, file_size, out_buffer)`
+
 Stateless ink smoothing lands:
 
 - `kernel_get_pdf_ink_default_tolerance(out_tolerance)`
@@ -140,7 +145,24 @@ Frozen semantics:
 - host bridges may serialize output strokes and points to JSON, but Rust hosts
   must not retain duplicate ink C ABI structs or result-copy loops
 
-The kernel does not store ink annotations through this surface. Annotation persistence remains a host/platform glue concern until a separate durable annotation contract is frozen.
+The kernel does not store ink annotations through this surface. Durable annotation
+JSON persistence remains a host/platform glue concern until a separate durable
+annotation contract is frozen.
+
+## Annotation Hash Boundary
+
+PDF annotation storage remains host-owned file I/O, but deterministic annotation
+hashing rules are kernel-owned.
+
+Frozen semantics:
+
+- annotation storage key is the first 16 hex characters of SHA-256 over the
+  host-supplied PDF path string
+- lightweight PDF hash is SHA-256 over `first_1kb || last_1kb || file_size_le`
+- `file_size_le` is an unsigned 64-bit little-endian value
+- hosts may choose where to store the JSON file under their vault support
+  directory, but must not retain duplicate SHA-256 key or lightweight-hash rules
+  in Rust
 
 ## Surface Consistency Rules
 

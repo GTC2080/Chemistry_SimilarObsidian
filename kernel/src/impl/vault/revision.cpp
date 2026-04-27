@@ -31,6 +31,8 @@ constexpr std::uint32_t rotr(std::uint32_t value, int bits) {
   return (value >> bits) | (value << (32 - bits));
 }
 
+}  // namespace
+
 std::string sha256_hex(std::string_view input) {
   std::array<std::uint32_t, 8> state = kInitialState;
 
@@ -105,8 +107,6 @@ std::string sha256_hex(std::string_view input) {
   }
   return stream.str();
 }
-
-}  // namespace
 
 std::string compute_content_revision(std::string_view bytes) {
   return "v1:sha256:" + sha256_hex(bytes);

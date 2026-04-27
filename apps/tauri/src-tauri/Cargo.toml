@@ -23,8 +23,6 @@ tokio = { version = "1", features = ["macros", "process", "fs", "io-util", "sync
 nalgebra = "0.33"
 # 类型化错误处理，用 derive 宏自动生成 Display / Error / From 实现
 thiserror = "2"
-# SHA-2 哈希算法，用于 PDF 渲染缓存的内容寻址键生成
-sha2 = "0.10"
 # 文件系统监听，用于增量监听 Vault 文件变更（替代全盘扫描）
 notify = "7"
 # notify 的去抖包装，合并短时间内的连续事件

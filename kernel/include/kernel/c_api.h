@@ -131,6 +131,16 @@ kernel_status kernel_query_pdf_referrers(
     const char* attachment_rel_path,
     size_t limit,
     kernel_pdf_referrers* out_referrers);
+kernel_status kernel_compute_pdf_annotation_storage_key(
+    const char* pdf_path,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_compute_pdf_lightweight_hash(
+    const uint8_t* head,
+    size_t head_size,
+    const uint8_t* tail,
+    size_t tail_size,
+    uint64_t file_size,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_get_pdf_ink_default_tolerance(float* out_tolerance);
 kernel_status kernel_smooth_ink_strokes(
     const kernel_ink_stroke_input* strokes,
