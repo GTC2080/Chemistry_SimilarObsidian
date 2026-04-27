@@ -10,6 +10,13 @@
 
 #include <vector>
 
+namespace {
+
+constexpr size_t kDefaultChemSpectrumRefsLimit = 512;
+constexpr size_t kDefaultChemSpectrumReferrersLimit = 512;
+
+}  // namespace
+
 extern "C" kernel_status kernel_query_note_chem_spectrum_refs(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -32,6 +39,14 @@ extern "C" kernel_status kernel_query_note_chem_spectrum_refs(
   }
 
   return kernel::core::chemistry_reference_api::fill_chem_spectrum_source_refs(refs, out_refs);
+}
+
+extern "C" kernel_status kernel_get_note_chem_spectrum_refs_default_limit(size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultChemSpectrumRefsLimit;
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" kernel_status kernel_query_chem_spectrum_referrers(
@@ -58,4 +73,12 @@ extern "C" kernel_status kernel_query_chem_spectrum_referrers(
   return kernel::core::chemistry_reference_api::fill_chem_spectrum_referrers(
       referrers,
       out_referrers);
+}
+
+extern "C" kernel_status kernel_get_chem_spectrum_referrers_default_limit(size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultChemSpectrumReferrersLimit;
+  return kernel::core::make_status(KERNEL_OK);
 }

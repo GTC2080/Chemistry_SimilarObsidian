@@ -11,6 +11,12 @@
 
 #include <vector>
 
+namespace {
+
+constexpr size_t kDefaultChemSpectraLimit = 512;
+
+}  // namespace
+
 extern "C" kernel_status kernel_query_chem_spectrum_metadata(
     kernel_handle* handle,
     const char* attachment_rel_path,
@@ -55,6 +61,14 @@ extern "C" kernel_status kernel_query_chem_spectra(
   }
 
   return kernel::core::chemistry_api::fill_chem_spectrum_list(spectra, out_spectra);
+}
+
+extern "C" kernel_status kernel_get_chem_spectra_default_limit(size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultChemSpectraLimit;
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" kernel_status kernel_get_chem_spectrum(

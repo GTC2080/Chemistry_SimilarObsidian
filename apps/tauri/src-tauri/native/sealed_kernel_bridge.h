@@ -150,6 +150,10 @@ int32_t sealed_kernel_bridge_query_chem_spectra_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_chem_spectra_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_get_chem_spectrum_json(
     sealed_kernel_bridge_session* session,
     const char* attachment_rel_path_utf8,
@@ -163,11 +167,19 @@ int32_t sealed_kernel_bridge_query_note_chem_spectrum_refs_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_note_chem_spectrum_refs_default_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_query_chem_spectrum_referrers_json(
     sealed_kernel_bridge_session* session,
     const char* attachment_rel_path_utf8,
     uint64_t limit,
     char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_chem_spectrum_referrers_default_limit(
+    uint64_t* out_limit,
     char** out_error);
 
 int32_t sealed_kernel_bridge_parse_spectroscopy_text_json(

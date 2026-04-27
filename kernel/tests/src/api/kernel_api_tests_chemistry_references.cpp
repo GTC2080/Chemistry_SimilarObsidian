@@ -457,6 +457,16 @@ void test_chemistry_referrers_surface_reports_referrers_and_argument_contract() 
       status.code == KERNEL_ERROR_INVALID_ARGUMENT,
       "chemistry note refs should reject null note paths");
 
+  size_t note_refs_default_limit = 0;
+  expect_ok(kernel_get_note_chem_spectrum_refs_default_limit(&note_refs_default_limit));
+  require_true(
+      note_refs_default_limit == 512,
+      "chemistry note refs default limit should be kernel-owned");
+  require_true(
+      kernel_get_note_chem_spectrum_refs_default_limit(nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "chemistry note refs default limit should require output pointer");
+
   kernel_chem_spectrum_referrers raw_referrers{};
   status = kernel_query_chem_spectrum_referrers(handle, nullptr, 4, &raw_referrers);
   require_true(
@@ -467,6 +477,16 @@ void test_chemistry_referrers_surface_reports_referrers_and_argument_contract() 
   require_true(
       status.code == KERNEL_ERROR_INVALID_ARGUMENT,
       "chemistry referrers should reject zero limits");
+
+  size_t referrers_default_limit = 0;
+  expect_ok(kernel_get_chem_spectrum_referrers_default_limit(&referrers_default_limit));
+  require_true(
+      referrers_default_limit == 512,
+      "chemistry spectrum referrers default limit should be kernel-owned");
+  require_true(
+      kernel_get_chem_spectrum_referrers_default_limit(nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "chemistry spectrum referrers default limit should require output pointer");
 
   status = kernel_query_chem_spectrum_referrers(handle, "spectra/unreferenced.jdx", 4, &raw_referrers);
   require_true(

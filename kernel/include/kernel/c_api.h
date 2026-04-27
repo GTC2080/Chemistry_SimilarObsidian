@@ -167,6 +167,7 @@ kernel_status kernel_query_chem_spectra(
     kernel_handle* handle,
     size_t limit,
     kernel_chem_spectrum_list* out_spectra);
+kernel_status kernel_get_chem_spectra_default_limit(size_t* out_limit);
 kernel_status kernel_get_chem_spectrum(
     kernel_handle* handle,
     const char* attachment_rel_path,
@@ -316,11 +317,13 @@ kernel_status kernel_query_note_chem_spectrum_refs(
     const char* note_rel_path,
     size_t limit,
     kernel_chem_spectrum_source_refs* out_refs);
+kernel_status kernel_get_note_chem_spectrum_refs_default_limit(size_t* out_limit);
 kernel_status kernel_query_chem_spectrum_referrers(
     kernel_handle* handle,
     const char* attachment_rel_path,
     size_t limit,
     kernel_chem_spectrum_referrers* out_referrers);
+kernel_status kernel_get_chem_spectrum_referrers_default_limit(size_t* out_limit);
 kernel_status kernel_query_pdf_domain_metadata(
     kernel_handle* handle,
     const char* attachment_rel_path,

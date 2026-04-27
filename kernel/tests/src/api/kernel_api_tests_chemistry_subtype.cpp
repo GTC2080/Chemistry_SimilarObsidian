@@ -205,6 +205,17 @@ void test_chemistry_subtype_surface_lists_present_missing_unresolved_and_unsuppo
       "chem subtype list should apply limit after stable rel_path ordering");
   kernel_free_chem_spectrum_list(&spectra);
 
+  size_t spectra_default_limit = 0;
+  require_ok_status(
+      kernel_get_chem_spectra_default_limit(&spectra_default_limit),
+      "chem spectra default limit");
+  require_true(
+      spectra_default_limit == 512,
+      "chem spectra default limit should be kernel-owned");
+  require_true(
+      kernel_get_chem_spectra_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "chem spectra default limit should require output pointer");
+
   kernel_chem_spectrum_record spectrum{};
   require_ok_status(
       kernel_get_chem_spectrum(handle, "spectra\\strict.csv", &spectrum),

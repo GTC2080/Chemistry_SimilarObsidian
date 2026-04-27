@@ -168,6 +168,10 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_chem_spectra_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_get_chem_spectrum_json(
         session: *mut SealedKernelBridgeSession,
         attachment_rel_path_utf8: *const c_char,
@@ -181,11 +185,19 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_note_chem_spectrum_refs_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_query_chem_spectrum_referrers_json(
         session: *mut SealedKernelBridgeSession,
         attachment_rel_path_utf8: *const c_char,
         limit: u64,
         out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_chem_spectrum_referrers_default_limit(
+        out_limit: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_parse_spectroscopy_text_json(
@@ -961,6 +973,27 @@ pub fn graph_default_limit() -> AppResult<u64> {
     kernel_default_limit(
         "sealed_kernel_get_graph_default_limit",
         sealed_kernel_bridge_get_graph_default_limit,
+    )
+}
+
+pub fn chem_spectra_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_chem_spectra_default_limit",
+        sealed_kernel_bridge_get_chem_spectra_default_limit,
+    )
+}
+
+pub fn note_chem_spectrum_refs_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_note_chem_spectrum_refs_default_limit",
+        sealed_kernel_bridge_get_note_chem_spectrum_refs_default_limit,
+    )
+}
+
+pub fn chem_spectrum_referrers_default_limit() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_chem_spectrum_referrers_default_limit",
+        sealed_kernel_bridge_get_chem_spectrum_referrers_default_limit,
     )
 }
 
@@ -2240,7 +2273,11 @@ pub fn sealed_kernel_query_chem_spectra(
     limit: Option<u64>,
     state: State<'_, SealedKernelState>,
 ) -> AppResult<Value> {
-    query_chem_spectra_value(state.inner(), limit.unwrap_or(512))
+    let limit = match limit {
+        Some(value) => value,
+        None => chem_spectra_default_limit()?,
+    };
+    query_chem_spectra_value(state.inner(), limit)
 }
 
 #[tauri::command]
@@ -2257,7 +2294,11 @@ pub fn sealed_kernel_query_note_chem_spectrum_refs(
     limit: Option<u64>,
     state: State<'_, SealedKernelState>,
 ) -> AppResult<Value> {
-    query_note_chem_spectrum_refs_value(state.inner(), &note_rel_path, limit.unwrap_or(512))
+    let limit = match limit {
+        Some(value) => value,
+        None => note_chem_spectrum_refs_default_limit()?,
+    };
+    query_note_chem_spectrum_refs_value(state.inner(), &note_rel_path, limit)
 }
 
 #[tauri::command]
@@ -2266,7 +2307,11 @@ pub fn sealed_kernel_query_chem_spectrum_referrers(
     limit: Option<u64>,
     state: State<'_, SealedKernelState>,
 ) -> AppResult<Value> {
-    query_chem_spectrum_referrers_value(state.inner(), &attachment_rel_path, limit.unwrap_or(512))
+    let limit = match limit {
+        Some(value) => value,
+        None => chem_spectrum_referrers_default_limit()?,
+    };
+    query_chem_spectrum_referrers_value(state.inner(), &attachment_rel_path, limit)
 }
 
 #[cfg(test)]
@@ -2410,6 +2455,13 @@ mod tests {
         assert_eq!(tag_note_default_limit().unwrap(), 128);
         assert_eq!(tag_tree_default_limit().unwrap(), 512);
         assert_eq!(graph_default_limit().unwrap(), 2048);
+    }
+
+    #[test]
+    fn chemistry_spectrum_default_limits_come_from_kernel() {
+        assert_eq!(chem_spectra_default_limit().unwrap(), 512);
+        assert_eq!(note_chem_spectrum_refs_default_limit().unwrap(), 512);
+        assert_eq!(chem_spectrum_referrers_default_limit().unwrap(), 512);
     }
 
     #[test]

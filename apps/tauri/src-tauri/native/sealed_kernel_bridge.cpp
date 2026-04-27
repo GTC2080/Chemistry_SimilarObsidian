@@ -1642,6 +1642,16 @@ int32_t sealed_kernel_bridge_query_chem_spectra_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_get_chem_spectra_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_chem_spectra_default_limit,
+      "kernel_get_chem_spectra_default_limit",
+      out_limit,
+      out_error);
+}
+
 int32_t sealed_kernel_bridge_get_chem_spectrum_json(
     sealed_kernel_bridge_session* session,
     const char* attachment_rel_path_utf8,
@@ -1731,6 +1741,16 @@ int32_t sealed_kernel_bridge_query_note_chem_spectrum_refs_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_get_note_chem_spectrum_refs_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_note_chem_spectrum_refs_default_limit,
+      "kernel_get_note_chem_spectrum_refs_default_limit",
+      out_limit,
+      out_error);
+}
+
 int32_t sealed_kernel_bridge_query_chem_spectrum_referrers_json(
     sealed_kernel_bridge_session* session,
     const char* attachment_rel_path_utf8,
@@ -1778,6 +1798,16 @@ int32_t sealed_kernel_bridge_query_chem_spectrum_referrers_json(
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_get_chem_spectrum_referrers_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  return KernelDefaultLimit(
+      kernel_get_chem_spectrum_referrers_default_limit,
+      "kernel_get_chem_spectrum_referrers_default_limit",
+      out_limit,
+      out_error);
 }
 
 int32_t sealed_kernel_bridge_parse_spectroscopy_text_json(

@@ -271,6 +271,7 @@ Frozen boundary rule:
 Batch 2 lands:
 
 - `kernel_query_chem_spectra(handle, limit, out_spectra)`
+- `kernel_get_chem_spectra_default_limit(out_limit)`
 - `kernel_get_chem_spectrum(handle, attachment_rel_path, out_spectrum)`
 - `kernel_free_chem_spectrum_record(out_spectrum)`
 - `kernel_free_chem_spectrum_list(out_spectra)`
@@ -286,6 +287,10 @@ Frozen list / lookup rules:
 - `kernel_get_chem_spectrum(...)` returns `NOT_FOUND` for:
   - non-live attachment paths
   - non-candidate attachment paths
+- `kernel_get_chem_spectra_default_limit(...)` returns the host-default
+  chemistry spectrum catalog limit of `512`
+- the default getter requires a non-null output pointer and returns
+  `KERNEL_ERROR_INVALID_ARGUMENT` otherwise
 
 Frozen `kernel_chem_spectrum_record` fields:
 
@@ -372,10 +377,19 @@ Frozen `source_format` mapping:
 Batch 3 lands:
 
 - `kernel_query_note_chem_spectrum_refs(handle, note_rel_path, limit, out_refs)`
+- `kernel_get_note_chem_spectrum_refs_default_limit(out_limit)`
 - `kernel_query_chem_spectrum_referrers(handle, attachment_rel_path, limit, out_referrers)`
+- `kernel_get_chem_spectrum_referrers_default_limit(out_limit)`
 - corresponding free functions for chemistry spectrum refs / referrers
 - host bridges may expose these refs as JSON, but must not reconstruct them
   from note text, attachment refs, backlinks, or search results
+
+Frozen default-limit rules:
+
+- `kernel_get_note_chem_spectrum_refs_default_limit(...) = 512`
+- `kernel_get_chem_spectrum_referrers_default_limit(...) = 512`
+- each default getter requires a non-null output pointer and returns
+  `KERNEL_ERROR_INVALID_ARGUMENT` otherwise
 
 ### Source-Reference Boundary
 

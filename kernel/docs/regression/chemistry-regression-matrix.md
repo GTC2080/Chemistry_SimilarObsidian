@@ -115,6 +115,8 @@ The repository must retain regression coverage for:
 The repository must retain regression coverage for:
 
 - `kernel_query_chem_spectra(...)` succeeds for live chemistry spectrum carriers
+- `kernel_get_chem_spectra_default_limit(...)` returns the frozen host default
+  and rejects null output pointers
 - `kernel_get_chem_spectrum(...)` succeeds for supported live spectrum carriers
 - Tauri sealed bridge `sealed_kernel_query_chem_spectra` and
   `sealed_kernel_get_chem_spectrum` expose the kernel catalog / lookup without
@@ -136,6 +138,8 @@ The repository must retain regression coverage for:
 
 - `kernel_query_note_chem_spectrum_refs(...)` succeeds for live notes
 - `kernel_query_chem_spectrum_referrers(...)` succeeds for live spectrum objects
+- chemistry spectrum source-ref / referrer default limits come from kernel
+  getters and reject null output pointers
 - Tauri sealed bridge `sealed_kernel_query_note_chem_spectrum_refs` and
   `sealed_kernel_query_chem_spectrum_referrers` expose kernel source refs /
   referrers without rebuilding chemistry references from note text,
