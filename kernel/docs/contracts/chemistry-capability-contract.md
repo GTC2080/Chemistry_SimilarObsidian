@@ -2,7 +2,7 @@
 
 # Chemistry Capability Contract
 
-Last updated: `2026-04-25`
+Last updated: `2026-04-27`
 
 ## Scope
 
@@ -73,15 +73,17 @@ Frozen rules:
   spectroscopy extension support or CSV/JDX parsing rules
 - Tauri Rust may own file IO and serde command marshalling, but not molecular
   extension support or PDB/XYZ/CIF preview construction rules
-- host bridges may serialize polymerization-kinetics, retrosynthesis,
-  spectroscopy, and molecular-preview kernel results to JSON, but Rust hosts
-  must not retain duplicate C ABI structs or copy loops for these compute
-  surfaces
+- host bridges may serialize polymerization-kinetics, stoichiometry,
+  retrosynthesis, spectroscopy, and molecular-preview kernel results to JSON,
+  but Rust hosts must not retain duplicate C ABI structs or copy loops for
+  these compute surfaces
 - Tauri Rust and other hosts keep row identity, names, formulas, and UI labels;
   the kernel owns stoichiometry numeric propagation rules
 - all returned kinetics arrays are kernel-owned until released with
   `kernel_free_polymerization_kinetics_result(...)`
 - stoichiometry output rows remain host-owned and require no kernel free call
+- sealed host bridges may allocate the stoichiometry output buffer internally
+  and return host-owned JSON/text to higher-level runtimes
 - all returned retrosynthesis pathway arrays and strings are kernel-owned until
   released with `kernel_free_retro_tree(...)`
 - all returned spectroscopy arrays, labels, and titles are kernel-owned until

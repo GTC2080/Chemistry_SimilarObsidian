@@ -195,6 +195,19 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_recalculate_stoichiometry_json(
+        mw: *const f64,
+        eq: *const f64,
+        moles: *const f64,
+        mass: *const f64,
+        volume: *const f64,
+        density: *const f64,
+        has_density: *const u8,
+        is_reference: *const u8,
+        count: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_smooth_ink_strokes_json(
         xs: *const f32,
         ys: *const f32,
@@ -336,6 +349,36 @@ pub struct SealedKernelTruthAward {
 #[derive(Deserialize)]
 struct SealedKernelTruthDiffResult {
     awards: Vec<SealedKernelTruthAward>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SealedKernelStoichiometryInput {
+    pub mw: f64,
+    pub eq: f64,
+    pub moles: f64,
+    pub mass: f64,
+    pub volume: f64,
+    pub density: f64,
+    pub has_density: bool,
+    pub is_reference: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SealedKernelStoichiometryRow {
+    pub mw: f64,
+    pub eq: f64,
+    pub moles: f64,
+    pub mass: f64,
+    pub volume: f64,
+    pub density: f64,
+    pub has_density: bool,
+    pub is_reference: bool,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelStoichiometryResult {
+    rows: Vec<SealedKernelStoichiometryRow>,
 }
 
 #[derive(Deserialize)]
@@ -1180,6 +1223,17 @@ fn kinetics_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
     AppError::Custom(message)
 }
 
+fn stoichiometry_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "invalid_argument" => "化学计量参数无效".to_string(),
+        "allocation_failed" => "化学计量内核结果分配失败".to_string(),
+        "stoichiometry_failed" | "" => "化学计量内核计算失败".to_string(),
+        _ => format!("sealed bridge stoichiometry failed with kernel status {code}."),
+    };
+    AppError::Custom(message)
+}
+
 fn ink_smoothing_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
     let token = take_bridge_string(raw_error);
     let message = match token.as_str() {
@@ -1390,6 +1444,69 @@ pub fn simulate_polymerization_kinetics(params: KineticsParams) -> AppResult<Kin
     let value = take_bridge_string(raw_json);
     serde_json::from_str(&value)
         .map_err(|err| AppError::Custom(format!("sealed kernel kinetics JSON is invalid: {err}")))
+}
+
+fn f64_ptr(values: &[f64]) -> *const f64 {
+    if values.is_empty() {
+        std::ptr::null()
+    } else {
+        values.as_ptr()
+    }
+}
+
+fn u8_ptr(values: &[u8]) -> *const u8 {
+    if values.is_empty() {
+        std::ptr::null()
+    } else {
+        values.as_ptr()
+    }
+}
+
+pub fn recalculate_stoichiometry(
+    rows: &[SealedKernelStoichiometryInput],
+) -> AppResult<Vec<SealedKernelStoichiometryRow>> {
+    let mw: Vec<f64> = rows.iter().map(|row| row.mw).collect();
+    let eq: Vec<f64> = rows.iter().map(|row| row.eq).collect();
+    let moles: Vec<f64> = rows.iter().map(|row| row.moles).collect();
+    let mass: Vec<f64> = rows.iter().map(|row| row.mass).collect();
+    let volume: Vec<f64> = rows.iter().map(|row| row.volume).collect();
+    let density: Vec<f64> = rows.iter().map(|row| row.density).collect();
+    let has_density: Vec<u8> = rows.iter().map(|row| u8::from(row.has_density)).collect();
+    let is_reference: Vec<u8> = rows.iter().map(|row| u8::from(row.is_reference)).collect();
+
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_recalculate_stoichiometry_json(
+            f64_ptr(&mw),
+            f64_ptr(&eq),
+            f64_ptr(&moles),
+            f64_ptr(&mass),
+            f64_ptr(&volume),
+            f64_ptr(&density),
+            u8_ptr(&has_density),
+            u8_ptr(&is_reference),
+            rows.len() as u64,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(stoichiometry_bridge_error(code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    let parsed: SealedKernelStoichiometryResult = serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel stoichiometry JSON is invalid: {err}"
+        ))
+    })?;
+    if parsed.rows.len() != rows.len() {
+        return Err(AppError::Custom(
+            "sealed kernel stoichiometry row count mismatch".to_string(),
+        ));
+    }
+    Ok(parsed.rows)
 }
 
 pub fn smooth_ink_strokes(
@@ -2037,6 +2154,61 @@ mod tests {
         let err = simulate_polymerization_kinetics(params).expect_err("invalid kinetics params");
 
         assert_eq!(err.to_string(), "聚合动力学参数无效");
+    }
+
+    fn stoichiometry_input(
+        mw: f64,
+        eq: f64,
+        moles: f64,
+        mass: f64,
+        volume: f64,
+        is_reference: bool,
+        density: Option<f64>,
+    ) -> SealedKernelStoichiometryInput {
+        SealedKernelStoichiometryInput {
+            mw,
+            eq,
+            moles,
+            mass,
+            volume,
+            density: density.unwrap_or(0.0),
+            has_density: density.is_some(),
+            is_reference,
+        }
+    }
+
+    #[test]
+    fn recalculate_stoichiometry_uses_sealed_bridge_reference_row() {
+        let result = recalculate_stoichiometry(&[
+            stoichiometry_input(50.0, 2.0, 99.0, 0.0, 0.0, false, None),
+            stoichiometry_input(100.0, 7.0, 0.25, 9.0, 3.0, true, Some(2.0)),
+            stoichiometry_input(10.0, 3.0, 99.0, 8.0, 4.0, true, None),
+        ])
+        .expect("sealed bridge stoichiometry");
+
+        assert_eq!(result.len(), 3);
+        assert!(!result[0].is_reference);
+        assert!(result[1].is_reference);
+        assert!(!result[2].is_reference);
+        assert_eq!(result[1].eq, 1.0);
+        assert_eq!(result[1].moles, 0.25);
+        assert_eq!(result[1].mass, 25.0);
+        assert!(result[1].has_density);
+        assert_eq!(result[1].density, 2.0);
+        assert_eq!(result[1].volume, 12.5);
+        assert_eq!(result[2].eq, 3.0);
+        assert_eq!(result[2].moles, 0.75);
+        assert_eq!(result[2].mass, 7.5);
+        assert!(result[2].has_density);
+        assert_eq!(result[2].density, 2.0);
+        assert_eq!(result[2].volume, 3.75);
+    }
+
+    #[test]
+    fn recalculate_stoichiometry_delegates_empty_rows_through_sealed_bridge() {
+        let result = recalculate_stoichiometry(&[]).expect("sealed bridge empty stoichiometry");
+
+        assert!(result.is_empty());
     }
 
     #[test]

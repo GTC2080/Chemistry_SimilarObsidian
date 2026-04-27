@@ -2,16 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppError;
 
-const KERNEL_OK: i32 = 0;
 const KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA: i32 = 1;
 const KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE: i32 = 2;
 const KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT: i32 = 3;
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelStatus {
-    code: i32,
-}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,40 +67,6 @@ pub fn build_semantic_context(content: String) -> String {
 // 化学计量计算（Rust 桥接 C++ kernel）
 // ──────────────────────────────────────────
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct KernelStoichiometryRowInput {
-    mw: f64,
-    eq: f64,
-    moles: f64,
-    mass: f64,
-    volume: f64,
-    density: f64,
-    has_density: u8,
-    is_reference: u8,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-struct KernelStoichiometryRowOutput {
-    mw: f64,
-    eq: f64,
-    moles: f64,
-    mass: f64,
-    volume: f64,
-    density: f64,
-    has_density: u8,
-    is_reference: u8,
-}
-
-extern "C" {
-    fn kernel_recalculate_stoichiometry(
-        rows: *const KernelStoichiometryRowInput,
-        count: usize,
-        out_rows: *mut KernelStoichiometryRowOutput,
-    ) -> KernelStatus;
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoichiometryRow {
@@ -124,41 +83,39 @@ pub struct StoichiometryRow {
     pub density: Option<f64>,
 }
 
-fn kernel_stoichiometry_input_from(row: &StoichiometryRow) -> KernelStoichiometryRowInput {
-    KernelStoichiometryRowInput {
+fn sealed_stoichiometry_input_from(
+    row: &StoichiometryRow,
+) -> crate::sealed_kernel::SealedKernelStoichiometryInput {
+    crate::sealed_kernel::SealedKernelStoichiometryInput {
         mw: row.mw,
         eq: row.eq,
         moles: row.moles,
         mass: row.mass,
         volume: row.volume,
         density: row.density.unwrap_or(0.0),
-        has_density: u8::from(row.density.is_some()),
-        is_reference: u8::from(row.is_reference),
+        has_density: row.density.is_some(),
+        is_reference: row.is_reference,
     }
 }
 
 #[tauri::command]
 pub fn recalculate_stoichiometry(rows: Vec<StoichiometryRow>) -> Vec<StoichiometryRow> {
-    let input: Vec<KernelStoichiometryRowInput> =
-        rows.iter().map(kernel_stoichiometry_input_from).collect();
-    let mut output = vec![KernelStoichiometryRowOutput::default(); input.len()];
-    let status = unsafe {
-        kernel_recalculate_stoichiometry(input.as_ptr(), input.len(), output.as_mut_ptr())
-    };
-    if status.code != KERNEL_OK {
+    let input: Vec<crate::sealed_kernel::SealedKernelStoichiometryInput> =
+        rows.iter().map(sealed_stoichiometry_input_from).collect();
+    let Ok(output) = crate::sealed_kernel::recalculate_stoichiometry(&input) else {
         return rows;
-    }
+    };
 
     rows.into_iter()
         .zip(output)
         .map(|(mut row, out)| {
-            row.is_reference = out.is_reference != 0;
+            row.is_reference = out.is_reference;
             row.eq = out.eq;
             row.moles = out.moles;
             row.mw = out.mw;
             row.mass = out.mass;
             row.volume = out.volume;
-            row.density = if out.has_density != 0 {
+            row.density = if out.has_density {
                 Some(out.density)
             } else {
                 None

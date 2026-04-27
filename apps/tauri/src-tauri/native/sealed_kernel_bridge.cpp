@@ -678,6 +678,30 @@ void AppendKineticsJson(
   json += "}";
 }
 
+void AppendStoichiometryJson(
+    std::string& json,
+    const std::vector<kernel_stoichiometry_row_output>& rows) {
+  json += "{\"rows\":[";
+  for (size_t index = 0; index < rows.size(); ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const kernel_stoichiometry_row_output& row = rows[index];
+    json += "{\"mw\":" + std::to_string(row.mw) + ",";
+    json += "\"eq\":" + std::to_string(row.eq) + ",";
+    json += "\"moles\":" + std::to_string(row.moles) + ",";
+    json += "\"mass\":" + std::to_string(row.mass) + ",";
+    json += "\"volume\":" + std::to_string(row.volume) + ",";
+    json += "\"density\":" + std::to_string(row.density) + ",";
+    json += "\"hasDensity\":";
+    json += row.has_density != 0 ? "true" : "false";
+    json += ",\"isReference\":";
+    json += row.is_reference != 0 ? "true" : "false";
+    json += "}";
+  }
+  json += "]}";
+}
+
 void AppendFloatJson(std::string& json, const float value) {
   json += std::to_string(value);
 }
@@ -1844,6 +1868,77 @@ int32_t sealed_kernel_bridge_simulate_polymerization_kinetics_json(
   std::string json;
   AppendKineticsJson(json, result);
   kernel_free_polymerization_kinetics_result(&result);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_recalculate_stoichiometry_json(
+    const double* mw,
+    const double* eq,
+    const double* moles,
+    const double* mass,
+    const double* volume,
+    const double* density,
+    const uint8_t* has_density,
+    const uint8_t* is_reference,
+    uint64_t count,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  if (count > 0 &&
+      (mw == nullptr ||
+       eq == nullptr ||
+       moles == nullptr ||
+       mass == nullptr ||
+       volume == nullptr ||
+       density == nullptr ||
+       has_density == nullptr ||
+       is_reference == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<kernel_stoichiometry_row_input> input;
+  input.reserve(static_cast<size_t>(count));
+  for (uint64_t index = 0; index < count; ++index) {
+    const size_t row_index = static_cast<size_t>(index);
+    input.push_back(kernel_stoichiometry_row_input{
+        mw[row_index],
+        eq[row_index],
+        moles[row_index],
+        mass[row_index],
+        volume[row_index],
+        density[row_index],
+        static_cast<uint8_t>(has_density[row_index] != 0),
+        static_cast<uint8_t>(is_reference[row_index] != 0)});
+  }
+
+  std::vector<kernel_stoichiometry_row_output> output(static_cast<size_t>(count));
+  const kernel_status status = kernel_recalculate_stoichiometry(
+      input.empty() ? nullptr : input.data(),
+      input.size(),
+      output.empty() ? nullptr : output.data());
+  if (status.code != KERNEL_OK) {
+    SetError(
+        out_error,
+        status.code == KERNEL_ERROR_INVALID_ARGUMENT
+            ? "invalid_argument"
+            : "stoichiometry_failed");
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string json;
+  AppendStoichiometryJson(json, output);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

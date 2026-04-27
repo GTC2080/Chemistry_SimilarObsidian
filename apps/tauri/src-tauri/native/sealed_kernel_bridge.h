@@ -174,6 +174,19 @@ int32_t sealed_kernel_bridge_simulate_polymerization_kinetics_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_recalculate_stoichiometry_json(
+    const double* mw,
+    const double* eq,
+    const double* moles,
+    const double* mass,
+    const double* volume,
+    const double* density,
+    const uint8_t* has_density,
+    const uint8_t* is_reference,
+    uint64_t count,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_smooth_ink_strokes_json(
     const float* xs,
     const float* ys,

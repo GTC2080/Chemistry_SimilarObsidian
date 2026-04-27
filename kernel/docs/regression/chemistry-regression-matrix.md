@@ -2,7 +2,7 @@
 
 # Chemistry Regression Matrix
 
-Last updated: `2026-04-25`
+Last updated: `2026-04-27`
 
 ## Frozen Cross-Batch Invariants
 
@@ -49,6 +49,8 @@ The repository must retain regression coverage for:
 - stoichiometry accepts zero-count null buffers without allocation
 - Tauri `recalculate_stoichiometry` delegates empty row lists to
   `kernel_recalculate_stoichiometry(...)`
+- Tauri sealed bridge serializes stoichiometry kernel outputs to JSON without
+  retaining Rust-owned stoichiometry C ABI structs or output-copy loops
 - `kernel_generate_mock_retrosynthesis(...)` emits an amide pathway for
   `C(=O)N` targets
 - retrosynthesis target ids use the `retro_` prefix
