@@ -47,6 +47,7 @@
 - **v1.0.6-dev** — study truth 经验状态继续内核化：`truth_state_from_study` 只在 Rust 聚合 SQLite activity rows，扩展名属性路由、秒数转 EXP、总等级曲线和属性等级曲线由 `kernel_compute_truth_state_from_activity(...)` 提供。
 - **v1.0.6-dev** — study heatmap 网格继续内核化：`get_heatmap_cells` 只在 Rust 读取 SQLite daily activity rows，26x7 网格大小、UTC 日期格式化、周一对齐、cell 坐标和 max_secs 由 `kernel_build_study_heatmap_grid(...)` 提供。
 - **v1.0.6-dev** — study streak 连续天数规则继续内核化：Rust 只从 SQLite 读取 active day bucket，重复 bucket 去重、从今天向前连续计数和缺失当天归零规则由 `kernel_compute_study_streak_days(...)` 提供。
+- **v1.0.6-dev** — AI RAG 笔记读取继续瘦身：`ask_vault` 的候选 note id 先交给 `kernel_filter_changed_markdown_paths(...)` 做 Markdown 过滤、路径归一和去重，Rust 只负责按 kernel rel path 读取正文并拼接上下文。
 - **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文与 media 文本读取走 kernel note read surface；全量 note catalog 与 `build_file_tree` 的 ignored root 过滤分别由 `kernel_query_notes_filtered(...)`、`kernel_query_file_tree_filtered(...)` 提供，增量 changed-entry 的 Markdown 路径归一/过滤/去重由 `kernel_filter_changed_markdown_paths(...)` 提供。Tauri Rust 只保留命令编排、embedding 兼容缓存写入和后台任务调度。
 - **v1.0.6-dev** — note catalog 扫描默认上限改由 `kernel_get_note_catalog_default_limit(...)` 提供，`scan_vault` 快速元数据预览上限改由 `kernel_get_vault_scan_default_limit(...)` 提供；`scan_vault` / `index_vault_content` 不再在 Rust command 中保留重复的 catalog limit 常量。
 - **v1.0.6-dev** — 直接 note catalog 查询的宿主默认页大小改由 `kernel_get_note_query_default_limit(...)` 提供；`sealed_kernel_query_notes` 不再用 Rust `unwrap_or(512)` 持有查询默认值。
@@ -87,6 +88,7 @@
 - changed-entry path normalization -> `kernel_filter_changed_markdown_paths(...)`
 - `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
+- `ask_vault` RAG note content -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
 - `remove_deleted_entries` -> `kernel_filter_changed_markdown_paths(...)` + legacy embedding cache delete
 - `parse_spectroscopy` / `read_molecular_preview` -> `kernel_read_note(...)` + sealed C++ bridge over chemistry kernel compute ABI
 - `write_note` -> `kernel_write_note(...)`

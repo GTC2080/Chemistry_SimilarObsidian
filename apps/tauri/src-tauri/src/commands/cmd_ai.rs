@@ -18,26 +18,25 @@ fn note_display_name(note_id: &str) -> String {
 fn collect_rag_note_contents(
     note_ids: impl IntoIterator<Item = String>,
     kernel_state: &SealedKernelState,
-) -> Vec<(String, String)> {
-    let mut seen = std::collections::HashSet::new();
+) -> Result<Vec<(String, String)>, AppError> {
     let mut contents = Vec::new();
 
-    for note_id in note_ids {
-        let normalized = note_id.trim().replace('\\', "/");
-        if normalized.is_empty() || !seen.insert(normalized.clone()) {
-            continue;
-        }
-
-        match sealed_kernel::read_note_by_rel_path(&normalized, kernel_state) {
+    for rel_path in rag_note_rel_paths(note_ids)? {
+        match sealed_kernel::read_note_by_rel_path(&rel_path, kernel_state) {
             Ok(content) if !content.trim().is_empty() => {
-                contents.push((note_display_name(&normalized), content));
+                contents.push((note_display_name(&rel_path), content));
             }
             Ok(_) => {}
-            Err(err) => eprintln!("[ask_vault] 跳过 RAG 笔记 [{}]: {}", normalized, err),
+            Err(err) => eprintln!("[ask_vault] 跳过 RAG 笔记 [{}]: {}", rel_path, err),
         }
     }
 
-    contents
+    Ok(contents)
+}
+
+fn rag_note_rel_paths(note_ids: impl IntoIterator<Item = String>) -> Result<Vec<String>, AppError> {
+    let candidates: Vec<String> = note_ids.into_iter().collect();
+    sealed_kernel::filter_changed_markdown_paths(&candidates)
 }
 
 #[tauri::command]
@@ -88,7 +87,7 @@ pub async fn ask_vault(
     let note_contents = collect_rag_note_contents(
         active_note_id.iter().cloned().chain(related_ids),
         sealed_kernel.inner(),
-    );
+    )?;
 
     let context = ai::build_rag_context(&note_contents)?;
     ai::stream_chat_with_context(&question, &context, &config, |chunk| {
@@ -99,4 +98,25 @@ pub async fn ask_vault(
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rag_note_rel_paths_delegate_normalization_and_dedup_to_kernel() {
+        let paths = vec![
+            " Folder\\Note.md ".to_string(),
+            "Folder/Note.md".to_string(),
+            "Folder/Note.txt".to_string(),
+            "Other.MD".to_string(),
+            "".to_string(),
+        ];
+
+        assert_eq!(
+            rag_note_rel_paths(paths).expect("kernel RAG path filter"),
+            vec!["Folder/Note.md".to_string(), "Other.MD".to_string()]
+        );
+    }
 }

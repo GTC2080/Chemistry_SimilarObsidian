@@ -35,5 +35,7 @@ Tauri bridge coverage:
   note content from the kernel
 - `read_note_indexed_content` uses kernel-filtered relative paths before
   reading note content from the kernel
+- `ask_vault` uses kernel-filtered relative paths before reading RAG note
+  content from the kernel
 - `remove_deleted_entries` uses kernel-filtered relative paths before deleting
   legacy embedding cache rows
