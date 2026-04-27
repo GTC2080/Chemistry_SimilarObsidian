@@ -42,6 +42,7 @@ They land:
 - `kernel_free_retro_tree(out_tree)`
 - `kernel_parse_spectroscopy_text(raw, raw_size, extension, out_data)`
 - `kernel_free_spectroscopy_data(out_data)`
+- `kernel_normalize_molecular_preview_atom_limit(requested_atoms, out_atoms)`
 - `kernel_build_molecular_preview(raw, raw_size, extension, max_atoms, out_preview)`
 - `kernel_free_molecular_preview(out_preview)`
 
@@ -60,6 +61,8 @@ Frozen rules:
   derived only from caller-provided text and extension
 - the molecular preview builder returns deterministic PDB/XYZ/CIF preview text
   derived only from caller-provided text, extension, and atom limit
+- molecular preview atom-limit defaulting and min/max bounds are owned by the
+  kernel, not by host command preflight checks
 - spectroscopy and molecular file extension support decisions are owned by the
   kernel compute surfaces, not by host command preflight checks
 - Tauri Rust may own serde command marshalling, but not the simulation model
@@ -151,6 +154,9 @@ Frozen spectroscopy parser rules:
 Frozen molecular preview rules:
 
 - supported extensions are `pdb`, `xyz`, and `cif`
+- requested atom limit `0` maps to the default `2000`
+- requested atom limits below `200` are normalized to `200`
+- requested atom limits above `20000` are normalized to `20000`
 - PDB preview counts `ATOM` and `HETATM` records, preserves non-atom lines, and
   emits only the first `max_atoms` atom records
 - XYZ preview ignores blank atom rows, rewrites the first line to the previewed

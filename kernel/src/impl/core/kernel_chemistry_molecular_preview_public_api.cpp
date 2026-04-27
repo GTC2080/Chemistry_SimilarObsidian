@@ -6,10 +6,15 @@
 #include "chemistry/molecular_preview.h"
 #include "core/kernel_shared.h"
 
+#include <algorithm>
 #include <new>
 #include <string_view>
 
 namespace {
+
+constexpr std::size_t kDefaultPreviewAtomLimit = 2000;
+constexpr std::size_t kMinPreviewAtomLimit = 200;
+constexpr std::size_t kMaxPreviewAtomLimit = 20000;
 
 void reset_molecular_preview_impl(kernel_molecular_preview* preview) {
   if (preview == nullptr) {
@@ -38,6 +43,19 @@ bool fill_molecular_preview(
 }
 
 }  // namespace
+
+extern "C" kernel_status kernel_normalize_molecular_preview_atom_limit(
+    const std::size_t requested_atoms,
+    std::size_t* out_atoms) {
+  if (out_atoms == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::size_t candidate =
+      requested_atoms == 0 ? kDefaultPreviewAtomLimit : requested_atoms;
+  *out_atoms = std::clamp(candidate, kMinPreviewAtomLimit, kMaxPreviewAtomLimit);
+  return kernel::core::make_status(KERNEL_OK);
+}
 
 extern "C" kernel_status kernel_build_molecular_preview(
     const char* raw,

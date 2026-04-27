@@ -2071,6 +2071,28 @@ int32_t sealed_kernel_bridge_build_molecular_preview_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_normalize_molecular_preview_atom_limit(
+    uint64_t requested_atoms,
+    uint64_t* out_atoms,
+    char** out_error) {
+  if (out_atoms == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  size_t normalized = 0;
+  const kernel_status status = kernel_normalize_molecular_preview_atom_limit(
+      static_cast<size_t>(requested_atoms),
+      &normalized);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(status.code);
+  }
+
+  *out_atoms = static_cast<uint64_t>(normalized);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_calculate_symmetry_json(
     const char* raw_utf8,
     uint64_t raw_size,

@@ -178,6 +178,9 @@ kernel_status kernel_parse_spectroscopy_text(
     size_t raw_size,
     const char* extension,
     kernel_spectroscopy_data* out_data);
+kernel_status kernel_normalize_molecular_preview_atom_limit(
+    size_t requested_atoms,
+    size_t* out_atoms);
 kernel_status kernel_build_molecular_preview(
     const char* raw,
     size_t raw_size,

@@ -80,12 +80,16 @@ The repository must retain regression coverage for:
   partially filled data
 - `kernel_build_molecular_preview(...)` counts and truncates PDB `ATOM` /
   `HETATM` records while preserving non-atom lines
+- `kernel_normalize_molecular_preview_atom_limit(...)` owns default, minimum,
+  and maximum preview atom bounds
 - molecular preview rewrites XYZ atom counts after blank-row filtering
 - molecular preview preserves CIF text without inferring atom counts
 - unsupported molecular preview extensions report
   `KERNEL_MOLECULAR_PREVIEW_ERROR_UNSUPPORTED_EXTENSION`
 - Tauri `read_molecular_preview` delegates extension support decisions to
   `kernel_build_molecular_preview(...)`
+- Tauri `read_molecular_preview` delegates atom limit normalization to
+  `kernel_normalize_molecular_preview_atom_limit(...)`
 - Tauri sealed bridge serializes molecular-preview kernel results to JSON
   without retaining Rust-owned molecular-preview C ABI structs
 - `kernel_free_molecular_preview(...)` leaves the result empty and is safe on

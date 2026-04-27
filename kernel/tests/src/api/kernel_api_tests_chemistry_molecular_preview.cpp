@@ -103,10 +103,39 @@ void test_molecular_preview_preserves_cif_text_and_rejects_unsupported() {
       "molecular preview should reject null output");
 }
 
+void test_molecular_preview_atom_limit_normalization() {
+  std::size_t atoms = 0;
+  require_ok_status(
+      kernel_normalize_molecular_preview_atom_limit(0, &atoms),
+      "default molecular preview atom limit");
+  require_true(atoms == 2000, "zero atom limit should map to the default preview limit");
+
+  require_ok_status(
+      kernel_normalize_molecular_preview_atom_limit(2, &atoms),
+      "minimum molecular preview atom limit");
+  require_true(atoms == 200, "small atom limit should clamp to the minimum preview limit");
+
+  require_ok_status(
+      kernel_normalize_molecular_preview_atom_limit(500, &atoms),
+      "middle molecular preview atom limit");
+  require_true(atoms == 500, "middle atom limit should be preserved");
+
+  require_ok_status(
+      kernel_normalize_molecular_preview_atom_limit(50000, &atoms),
+      "maximum molecular preview atom limit");
+  require_true(atoms == 20000, "large atom limit should clamp to the maximum preview limit");
+
+  require_true(
+      kernel_normalize_molecular_preview_atom_limit(2000, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "atom limit normalization should reject null output");
+}
+
 }  // namespace
 
 void run_chemistry_molecular_preview_tests() {
   test_molecular_preview_truncates_pdb_atom_lines();
   test_molecular_preview_rewrites_xyz_header_count();
   test_molecular_preview_preserves_cif_text_and_rejects_unsupported();
+  test_molecular_preview_atom_limit_normalization();
 }

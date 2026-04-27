@@ -228,6 +228,11 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_normalize_molecular_preview_atom_limit(
+        requested_atoms: u64,
+        out_atoms: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_calculate_symmetry_json(
         raw_utf8: *const c_char,
         raw_size: u64,
@@ -1615,6 +1620,22 @@ pub fn build_molecular_preview_from_text(
     })
 }
 
+pub fn normalize_molecular_preview_atom_limit(requested_atoms: usize) -> AppResult<usize> {
+    let mut normalized = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_normalize_molecular_preview_atom_limit(
+            requested_atoms as u64,
+            &mut normalized,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(molecular_preview_bridge_error("", code, error));
+    }
+    Ok(normalized as usize)
+}
+
 pub fn calculate_symmetry_from_text(raw_data: &str, format: &str) -> AppResult<SymmetryData> {
     let format_c = cstring_arg(format.to_string(), "format")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -2094,6 +2115,17 @@ mod tests {
         assert_eq!(parsed.series.len(), 1);
         assert_eq!(parsed.series[0].label, "INTENSITY");
         assert_eq!(parsed.series[0].y, vec![10.0, 11.0]);
+    }
+
+    #[test]
+    fn normalize_molecular_preview_atom_limit_uses_kernel_bounds() {
+        assert_eq!(normalize_molecular_preview_atom_limit(0).unwrap(), 2000);
+        assert_eq!(normalize_molecular_preview_atom_limit(2).unwrap(), 200);
+        assert_eq!(normalize_molecular_preview_atom_limit(500).unwrap(), 500);
+        assert_eq!(
+            normalize_molecular_preview_atom_limit(50000).unwrap(),
+            20000
+        );
     }
 
     #[test]

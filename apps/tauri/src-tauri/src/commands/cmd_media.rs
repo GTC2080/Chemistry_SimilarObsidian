@@ -7,10 +7,6 @@ use crate::models::{MolecularPreview, SpectroscopyData};
 use crate::sealed_kernel::{self, SealedKernelState};
 use crate::AppError;
 
-const DEFAULT_PREVIEW_ATOM_LIMIT: usize = 2000;
-const MIN_PREVIEW_ATOM_LIMIT: usize = 200;
-const MAX_PREVIEW_ATOM_LIMIT: usize = 20000;
-
 #[tauri::command]
 pub async fn parse_spectroscopy(
     file_path: String,
@@ -30,10 +26,8 @@ pub async fn parse_spectroscopy(
     .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
 }
 
-fn clamp_preview_limit(limit: Option<usize>) -> usize {
-    limit
-        .unwrap_or(DEFAULT_PREVIEW_ATOM_LIMIT)
-        .clamp(MIN_PREVIEW_ATOM_LIMIT, MAX_PREVIEW_ATOM_LIMIT)
+fn normalize_preview_limit(limit: Option<usize>) -> Result<usize, AppError> {
+    sealed_kernel::normalize_molecular_preview_atom_limit(limit.unwrap_or(0))
 }
 
 fn build_molecular_preview(
@@ -56,7 +50,7 @@ pub async fn read_molecular_preview(
         .unwrap_or("")
         .to_lowercase();
     let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
-    let limit = clamp_preview_limit(max_atoms);
+    let limit = normalize_preview_limit(max_atoms)?;
     tauri::async_runtime::spawn_blocking(move || build_molecular_preview(&raw, &ext, limit))
         .await
         .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
