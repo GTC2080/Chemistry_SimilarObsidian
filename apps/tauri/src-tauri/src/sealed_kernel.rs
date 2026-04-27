@@ -245,6 +245,14 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_build_study_heatmap_grid_json(
+        dates_utf8: *const *const c_char,
+        active_secs: *const i64,
+        day_count: u64,
+        now_epoch_secs: i64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_generate_mock_retrosynthesis_json(
         target_smiles_utf8: *const c_char,
         depth: u8,
@@ -467,6 +475,21 @@ pub struct SealedKernelTruthState {
     pub next_level_exp: i64,
     pub attributes: SealedKernelTruthAttributes,
     pub attribute_exp: SealedKernelTruthAttributes,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SealedKernelHeatmapCell {
+    pub date: String,
+    pub secs: i64,
+    pub col: usize,
+    pub row: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SealedKernelHeatmapGrid {
+    pub cells: Vec<SealedKernelHeatmapCell>,
+    pub max_secs: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -1688,6 +1711,49 @@ pub fn compute_truth_state_from_activity(
     })
 }
 
+pub fn build_study_heatmap_grid(
+    days: &[(String, i64)],
+    now_epoch_secs: i64,
+) -> AppResult<SealedKernelHeatmapGrid> {
+    let dates: Vec<CString> = days
+        .iter()
+        .map(|(date, _)| {
+            CString::new(date.as_str()).map_err(|_| {
+                AppError::Custom("Heatmap date contains an invalid NUL byte.".to_string())
+            })
+        })
+        .collect::<AppResult<Vec<_>>>()?;
+    let date_ptrs: Vec<*const c_char> = dates.iter().map(|value| value.as_ptr()).collect();
+    let active_secs: Vec<i64> = days.iter().map(|(_, secs)| *secs).collect();
+
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_study_heatmap_grid_json(
+            date_ptrs.as_ptr(),
+            active_secs.as_ptr(),
+            days.len() as u64,
+            now_epoch_secs,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_build_study_heatmap_grid",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel study heatmap grid JSON is invalid: {err}"
+        ))
+    })
+}
+
 pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
     let extension_c = cstring_arg(extension.to_string(), "extension")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -2589,6 +2655,34 @@ mod tests {
         assert_eq!(state.attributes.engineering, 2);
         assert_eq!(state.attributes.creation, 2);
         assert_eq!(state.attributes.finance, 3);
+    }
+
+    #[test]
+    fn build_study_heatmap_grid_uses_kernel_calendar_rules() {
+        let grid = build_study_heatmap_grid(
+            &[
+                ("2023-10-30".to_string(), 60),
+                ("2024-01-01".to_string(), 120),
+                ("2024-01-01".to_string(), 30),
+                ("2024-04-28".to_string(), 300),
+                ("2022-01-01".to_string(), 999),
+            ],
+            1714305600,
+        )
+        .unwrap();
+
+        assert_eq!(grid.cells.len(), 182);
+        assert_eq!(grid.max_secs, 300);
+        assert_eq!(grid.cells[0].date, "2023-10-30");
+        assert_eq!(grid.cells[0].secs, 60);
+        assert_eq!(grid.cells[0].col, 0);
+        assert_eq!(grid.cells[0].row, 0);
+        assert_eq!(grid.cells[63].date, "2024-01-01");
+        assert_eq!(grid.cells[63].secs, 150);
+        assert_eq!(grid.cells[181].date, "2024-04-28");
+        assert_eq!(grid.cells[181].secs, 300);
+        assert_eq!(grid.cells[181].col, 25);
+        assert_eq!(grid.cells[181].row, 6);
     }
 
     #[test]

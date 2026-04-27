@@ -80,3 +80,19 @@ The repository must retain regression coverage for:
 - null non-empty buffers, null note ids, and null output pointers are rejected
 - Tauri Rust study DB code aggregates SQLite rows and delegates truth rules to
   the sealed kernel bridge
+
+## Study Heatmap Grid
+
+The repository must retain regression coverage for:
+
+- `kernel_build_study_heatmap_grid(...)` returns `26 * 7` cells
+- the generated grid starts on Monday and ends on the current UTC day
+- duplicate daily rows are summed before assigning cell seconds
+- stale out-of-window daily rows do not affect cells or `max_secs`
+- returned cell coordinates preserve `col = week` and `row = day-of-week`
+- `kernel_free_study_heatmap_grid(...)` releases owned date strings and resets
+  the grid
+- null non-empty buffers, null date pointers, and null output pointers are
+  rejected
+- Tauri Rust study stats code reads SQLite daily rows and delegates heatmap
+  grid calendar/layout rules to the sealed kernel bridge

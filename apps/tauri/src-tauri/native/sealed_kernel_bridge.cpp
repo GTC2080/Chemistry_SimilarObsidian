@@ -665,6 +665,22 @@ void AppendTruthStateJson(std::string& json, const kernel_truth_state_snapshot& 
   json += "}";
 }
 
+void AppendHeatmapGridJson(std::string& json, const kernel_heatmap_grid& grid) {
+  json += "{\"cells\":[";
+  for (size_t index = 0; index < grid.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const kernel_heatmap_cell& cell = grid.cells[index];
+    const std::string date_utf8 = ActiveCodePageToUtf8(cell.date);
+    json += "{\"date\":\"" + JsonEscape(date_utf8.c_str()) + "\",";
+    json += "\"secs\":" + std::to_string(cell.secs) + ",";
+    json += "\"col\":" + std::to_string(cell.col) + ",";
+    json += "\"row\":" + std::to_string(cell.row) + "}";
+  }
+  json += "],\"maxSecs\":" + std::to_string(grid.max_secs) + "}";
+}
+
 void AppendRetroPrecursorJson(std::string& json, const kernel_retro_precursor& precursor) {
   json += "{\"id\":\"" + JsonEscape(precursor.id) + "\",";
   json += "\"smiles\":\"" + JsonEscape(precursor.smiles) + "\",";
@@ -2049,6 +2065,58 @@ int32_t sealed_kernel_bridge_compute_truth_state_json(
 
   std::string json;
   AppendTruthStateJson(json, state);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
+    const char* const* dates_utf8,
+    const int64_t* active_secs,
+    uint64_t day_count,
+    int64_t now_epoch_secs,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (
+      out_json == nullptr || (day_count > 0 && dates_utf8 == nullptr) ||
+      (day_count > 0 && active_secs == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<std::string> dates;
+  dates.reserve(static_cast<std::size_t>(day_count));
+  std::vector<kernel_heatmap_day_activity> days;
+  days.reserve(static_cast<std::size_t>(day_count));
+  for (uint64_t index = 0; index < day_count; ++index) {
+    if (dates_utf8[index] == nullptr) {
+      SetError(out_error, "invalid_argument");
+      return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+    dates.push_back(Utf8ToActiveCodePage(dates_utf8[index]));
+    days.push_back(kernel_heatmap_day_activity{dates.back().c_str(), active_secs[index]});
+  }
+
+  kernel_heatmap_grid grid{};
+  const kernel_status status = kernel_build_study_heatmap_grid(
+      days.empty() ? nullptr : days.data(),
+      static_cast<size_t>(days.size()),
+      now_epoch_secs,
+      &grid);
+  if (status.code != KERNEL_OK) {
+    kernel_free_study_heatmap_grid(&grid);
+    return ReturnKernelError(status, "kernel_build_study_heatmap_grid", out_error);
+  }
+
+  std::string json;
+  AppendHeatmapGridJson(json, grid);
+  kernel_free_study_heatmap_grid(&grid);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

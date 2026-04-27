@@ -198,6 +198,11 @@ kernel_status kernel_compute_truth_state_from_activity(
     const kernel_study_note_activity* activities,
     size_t activity_count,
     kernel_truth_state_snapshot* out_state);
+kernel_status kernel_build_study_heatmap_grid(
+    const kernel_heatmap_day_activity* days,
+    size_t day_count,
+    int64_t now_epoch_secs,
+    kernel_heatmap_grid* out_grid);
 kernel_status kernel_generate_mock_retrosynthesis(
     const char* target_smiles,
     uint8_t depth,
@@ -397,6 +402,7 @@ void kernel_free_chem_spectrum_record(kernel_chem_spectrum_record* spectrum);
 void kernel_free_chem_spectrum_list(kernel_chem_spectrum_list* spectra);
 void kernel_free_polymerization_kinetics_result(kernel_polymerization_kinetics_result* result);
 void kernel_free_truth_diff_result(kernel_truth_diff_result* result);
+void kernel_free_study_heatmap_grid(kernel_heatmap_grid* grid);
 void kernel_free_retro_tree(kernel_retro_tree* tree);
 void kernel_free_spectroscopy_data(kernel_spectroscopy_data* data);
 void kernel_free_molecular_preview(kernel_molecular_preview* preview);

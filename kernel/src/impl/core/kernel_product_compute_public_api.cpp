@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -15,6 +16,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -30,6 +32,9 @@ constexpr double kStudySecsPerExp = 60.0;
 constexpr double kStudyBaseExp = 100.0;
 constexpr double kStudyGrowthRate = 1.5;
 constexpr std::int64_t kStudyAttrExpPerLevel = 50;
+constexpr std::int64_t kSecsPerDay = 86400;
+constexpr std::size_t kStudyHeatmapWeeks = 26;
+constexpr std::size_t kStudyHeatmapDaysPerWeek = 7;
 
 struct TruthAwardDraft {
   std::string attr;
@@ -53,6 +58,24 @@ void reset_truth_diff_result_impl(kernel_truth_diff_result* result) {
   }
   result->awards = nullptr;
   result->count = 0;
+}
+
+void reset_heatmap_grid_impl(kernel_heatmap_grid* grid) {
+  if (grid == nullptr) {
+    return;
+  }
+  if (grid->cells != nullptr) {
+    for (std::size_t index = 0; index < grid->count; ++index) {
+      delete[] grid->cells[index].date;
+      grid->cells[index].date = nullptr;
+    }
+    delete[] grid->cells;
+  }
+  grid->cells = nullptr;
+  grid->count = 0;
+  grid->max_secs = 0;
+  grid->weeks = 0;
+  grid->days_per_week = 0;
 }
 
 bool is_ascii_word(const char ch) {
@@ -385,6 +408,46 @@ std::int64_t total_exp(const kernel_truth_attribute_values& exp) {
   return exp.science + exp.engineering + exp.creation + exp.finance;
 }
 
+std::int64_t floor_div(const std::int64_t value, const std::int64_t divisor) {
+  std::int64_t quotient = value / divisor;
+  const std::int64_t remainder = value % divisor;
+  if (remainder != 0 && ((remainder < 0) != (divisor < 0))) {
+    --quotient;
+  }
+  return quotient;
+}
+
+std::int64_t positive_mod(const std::int64_t value, const std::int64_t modulus) {
+  const std::int64_t remainder = value % modulus;
+  return remainder < 0 ? remainder + modulus : remainder;
+}
+
+std::string format_date_from_epoch_secs(const std::int64_t epoch_secs) {
+  const std::int64_t days = floor_div(epoch_secs, kSecsPerDay);
+  const std::int64_t z = days + 719468;
+  const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+  const std::uint64_t doe = static_cast<std::uint64_t>(z - era * 146097);
+  const std::uint64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+  std::int64_t year = static_cast<std::int64_t>(yoe) + era * 400;
+  const std::uint64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+  const std::uint64_t mp = (5 * doy + 2) / 153;
+  const std::uint64_t day = doy - (153 * mp + 2) / 5 + 1;
+  const std::uint64_t month = mp < 10 ? mp + 3 : mp - 9;
+  if (month <= 2) {
+    ++year;
+  }
+
+  char buffer[16]{};
+  std::snprintf(
+      buffer,
+      sizeof(buffer),
+      "%04lld-%02llu-%02llu",
+      static_cast<long long>(year),
+      static_cast<unsigned long long>(month),
+      static_cast<unsigned long long>(day));
+  return std::string(buffer);
+}
+
 }  // namespace
 
 extern "C" kernel_status kernel_compute_truth_diff(
@@ -540,4 +603,70 @@ extern "C" kernel_status kernel_compute_truth_state_from_activity(
   out_state->attributes = attribute_levels_from_exp(exp);
   out_state->attribute_exp = exp;
   return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_build_study_heatmap_grid(
+    const kernel_heatmap_day_activity* days,
+    const std::size_t day_count,
+    const std::int64_t now_epoch_secs,
+    kernel_heatmap_grid* out_grid) {
+  if (out_grid == nullptr || (day_count > 0 && days == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  reset_heatmap_grid_impl(out_grid);
+
+  std::unordered_map<std::string, std::int64_t> secs_by_date;
+  secs_by_date.reserve(day_count);
+  for (std::size_t index = 0; index < day_count; ++index) {
+    if (days[index].date == nullptr) {
+      return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+    secs_by_date[days[index].date] += days[index].active_secs;
+  }
+
+  constexpr std::size_t kTotalCells = kStudyHeatmapWeeks * kStudyHeatmapDaysPerWeek;
+  out_grid->cells = new (std::nothrow) kernel_heatmap_cell[kTotalCells]{};
+  if (out_grid->cells == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  out_grid->count = kTotalCells;
+  out_grid->weeks = kStudyHeatmapWeeks;
+  out_grid->days_per_week = kStudyHeatmapDaysPerWeek;
+
+  const std::int64_t today_start = floor_div(now_epoch_secs, kSecsPerDay) * kSecsPerDay;
+  const std::int64_t total_days = static_cast<std::int64_t>(kTotalCells);
+  std::int64_t start_date = today_start - (total_days - 1) * kSecsPerDay;
+  const std::int64_t day_of_week =
+      positive_mod(floor_div(start_date, kSecsPerDay) + 3, 7);
+  start_date -= day_of_week * kSecsPerDay;
+
+  for (std::size_t week = 0; week < kStudyHeatmapWeeks; ++week) {
+    for (std::size_t day = 0; day < kStudyHeatmapDaysPerWeek; ++day) {
+      const std::size_t cell_index = week * kStudyHeatmapDaysPerWeek + day;
+      const std::int64_t ts =
+          start_date + static_cast<std::int64_t>(cell_index) * kSecsPerDay;
+      const std::string date = format_date_from_epoch_secs(ts);
+      const auto found = secs_by_date.find(date);
+      const std::int64_t secs = found == secs_by_date.end() ? 0 : found->second;
+
+      kernel_heatmap_cell& cell = out_grid->cells[cell_index];
+      cell.date = kernel::core::duplicate_c_string(date);
+      if (cell.date == nullptr) {
+        reset_heatmap_grid_impl(out_grid);
+        return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+      }
+      cell.secs = secs;
+      cell.col = week;
+      cell.row = day;
+      if (secs > out_grid->max_secs) {
+        out_grid->max_secs = secs;
+      }
+    }
+  }
+
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" void kernel_free_study_heatmap_grid(kernel_heatmap_grid* grid) {
+  reset_heatmap_grid_impl(grid);
 }

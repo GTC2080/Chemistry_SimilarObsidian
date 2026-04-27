@@ -534,6 +534,26 @@ typedef struct kernel_truth_state_snapshot {
   kernel_truth_attribute_values attribute_exp;
 } kernel_truth_state_snapshot;
 
+typedef struct kernel_heatmap_day_activity {
+  const char* date;
+  int64_t active_secs;
+} kernel_heatmap_day_activity;
+
+typedef struct kernel_heatmap_cell {
+  char* date;
+  int64_t secs;
+  size_t col;
+  size_t row;
+} kernel_heatmap_cell;
+
+typedef struct kernel_heatmap_grid {
+  kernel_heatmap_cell* cells;
+  size_t count;
+  int64_t max_secs;
+  size_t weeks;
+  size_t days_per_week;
+} kernel_heatmap_grid;
+
 typedef struct kernel_retro_precursor {
   char* id;
   char* smiles;

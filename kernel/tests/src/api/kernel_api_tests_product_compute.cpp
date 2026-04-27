@@ -269,6 +269,60 @@ void test_truth_state_validates_arguments() {
       "truth state should reject null output");
 }
 
+std::string heatmap_date_at(const kernel_heatmap_grid& grid, const size_t index) {
+  return grid.cells[index].date == nullptr ? std::string() : std::string(grid.cells[index].date);
+}
+
+void test_study_heatmap_grid_builds_fixed_monday_aligned_grid() {
+  const kernel_heatmap_day_activity days[] = {
+      {"2023-10-30", 60},
+      {"2024-01-01", 120},
+      {"2024-01-01", 30},
+      {"2024-04-28", 300},
+      {"2022-01-01", 999},
+  };
+  kernel_heatmap_grid grid{};
+
+  require_ok_status(
+      kernel_build_study_heatmap_grid(days, 5, 1714305600, &grid),
+      "study heatmap grid");
+
+  require_true(grid.weeks == 26, "study heatmap grid should own week count");
+  require_true(grid.days_per_week == 7, "study heatmap grid should own days per week");
+  require_true(grid.count == 182, "study heatmap grid should return 26x7 cells");
+  require_true(grid.max_secs == 300, "study heatmap grid should compute max seconds");
+  require_true(heatmap_date_at(grid, 0) == "2023-10-30", "heatmap should start on Monday");
+  require_true(grid.cells[0].secs == 60, "first cell should include matching activity");
+  require_true(grid.cells[0].col == 0 && grid.cells[0].row == 0, "first cell coordinates");
+  require_true(heatmap_date_at(grid, 63) == "2024-01-01", "duplicate activity date should be in grid");
+  require_true(grid.cells[63].secs == 150, "duplicate activity dates should be summed");
+  require_true(grid.cells[63].col == 9 && grid.cells[63].row == 0, "January first cell coordinates");
+  require_true(heatmap_date_at(grid, 181) == "2024-04-28", "heatmap should end on today");
+  require_true(grid.cells[181].secs == 300, "last cell should include today activity");
+  require_true(grid.cells[181].col == 25 && grid.cells[181].row == 6, "last cell coordinates");
+
+  kernel_free_study_heatmap_grid(&grid);
+  require_true(grid.cells == nullptr && grid.count == 0, "heatmap free should reset grid");
+}
+
+void test_study_heatmap_grid_validates_arguments() {
+  kernel_heatmap_grid grid{};
+  const kernel_heatmap_day_activity invalid[] = {{nullptr, 60}};
+
+  require_true(
+      kernel_build_study_heatmap_grid(nullptr, 1, 1714305600, &grid).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "heatmap grid should reject null non-empty day buffer");
+  require_true(
+      kernel_build_study_heatmap_grid(invalid, 1, 1714305600, &grid).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "heatmap grid should reject null dates");
+  require_true(
+      kernel_build_study_heatmap_grid(nullptr, 0, 1714305600, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "heatmap grid should reject null output");
+}
+
 }  // namespace
 
 void run_product_compute_tests() {
@@ -282,4 +336,6 @@ void run_product_compute_tests() {
   test_product_text_limits_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();
   test_truth_state_validates_arguments();
+  test_study_heatmap_grid_builds_fixed_monday_aligned_grid();
+  test_study_heatmap_grid_validates_arguments();
 }

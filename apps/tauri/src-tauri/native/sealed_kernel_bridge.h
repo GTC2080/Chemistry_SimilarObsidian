@@ -227,6 +227,14 @@ int32_t sealed_kernel_bridge_compute_truth_state_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
+    const char* const* dates_utf8,
+    const int64_t* active_secs,
+    uint64_t day_count,
+    int64_t now_epoch_secs,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
     const char* target_smiles_utf8,
     uint8_t depth,
