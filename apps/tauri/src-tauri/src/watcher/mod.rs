@@ -5,7 +5,6 @@
 
 mod handler;
 
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -47,7 +46,7 @@ impl WatcherState {
     pub fn start(
         &self,
         vault_path: &str,
-        ignored_folders: &HashSet<String>,
+        ignored_roots: &str,
         app: AppHandle,
     ) -> Result<(), String> {
         let vault = PathBuf::from(vault_path);
@@ -57,7 +56,7 @@ impl WatcherState {
 
         self.stop();
 
-        let callback = handler::build_event_handler(vault.clone(), ignored_folders.clone(), app);
+        let callback = handler::build_event_handler(vault.clone(), ignored_roots.to_string(), app);
 
         let mut debouncer = new_debouncer(Duration::from_millis(500), callback)
             .map_err(|e| format!("创建 debouncer 失败: {}", e))?;

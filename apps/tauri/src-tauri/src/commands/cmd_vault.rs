@@ -9,7 +9,7 @@ use crate::ai;
 use crate::db::{self, DbState};
 use crate::models::NoteInfo;
 use crate::sealed_kernel::{self, SealedKernelState};
-use crate::shared::command_utils::{parse_ignored_folders, read_ai_config};
+use crate::shared::command_utils::read_ai_config;
 use crate::watcher::WatcherState;
 use crate::AppError;
 
@@ -489,9 +489,9 @@ pub fn start_watcher(
     app: AppHandle,
     watcher: State<WatcherState>,
 ) -> Result<(), AppError> {
-    let ignored = parse_ignored_folders(ignored_folders);
+    let ignored_roots = ignored_folders.unwrap_or_default();
     watcher
-        .start(&vault_path, &ignored, app)
+        .start(&vault_path, &ignored_roots, app)
         .map_err(AppError::Custom)
 }
 

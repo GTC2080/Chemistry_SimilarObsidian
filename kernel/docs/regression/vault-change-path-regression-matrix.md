@@ -27,6 +27,8 @@ Tauri bridge coverage:
   `vault:fs-change`
 - watcher Rust only performs platform directory-event checks before kernel path
   filtering
+- watcher Rust passes raw ignored-root CSV to the kernel rather than
+  normalizing/deduplicating ignored roots itself
 - `scan_changed_entries` uses kernel-filtered relative paths before querying the
   kernel note catalog
 - `index_changed_entries` uses kernel-filtered relative paths before reading

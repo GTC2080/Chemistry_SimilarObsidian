@@ -62,6 +62,7 @@ Tauri Rust may still:
 
 - receive file-change vectors from the watcher/front-end command payload
 - pass the vectors through the sealed kernel bridge
+- pass raw ignored-root CSV through the sealed kernel bridge
 - use returned relative paths to request kernel note catalog/read surfaces
 - use returned relative paths to emit supported vault file-change events
 - use the same kernel path filter to validate one-off indexed Markdown note
@@ -73,4 +74,4 @@ Tauri Rust may still:
 
 Tauri Rust must not reimplement supported-extension filtering, changed-entry
 Markdown filtering, hidden segment filtering, ignored-root filtering,
-normalization, or deduplication.
+ignored-root normalization, or path deduplication.

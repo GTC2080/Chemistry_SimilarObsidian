@@ -1,6 +1,5 @@
 //! Debouncer 事件回调：将 notify 原始事件转换为 `FsChangeEvent` 并发送给前端。
 
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use notify_debouncer_mini::{DebouncedEvent, DebouncedEventKind};
@@ -18,10 +17,9 @@ use crate::sealed_kernel;
 /// 4. 通过 Tauri 事件总线发送 `vault:fs-change`
 pub fn build_event_handler(
     vault: PathBuf,
-    ignored: HashSet<String>,
+    ignored_roots: String,
     app: AppHandle,
 ) -> impl FnMut(Result<Vec<DebouncedEvent>, notify::Error>) {
-    let ignored_roots = ignored.into_iter().collect::<Vec<_>>().join(",");
     move |res| match res {
         Ok(events) => {
             let (changed, removed) = classify_events(&events, &vault, &ignored_roots);

@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
@@ -48,13 +46,4 @@ pub fn read_ai_config(app: &AppHandle) -> Result<AiConfig, String> {
         embedding_model,
         chat_model,
     })
-}
-
-pub fn parse_ignored_folders(ignored_folders: Option<String>) -> HashSet<String> {
-    ignored_folders
-        .unwrap_or_default()
-        .split(',')
-        .map(|s| s.trim().trim_matches('/').trim_matches('\\').to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
 }

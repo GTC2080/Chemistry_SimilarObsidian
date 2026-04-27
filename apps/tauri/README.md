@@ -84,7 +84,7 @@
 
 Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 兼容缓存和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
 `scan_vault` / `index_vault_content` 的默认 note catalog 拉取上限从 kernel 查询，不再由 Rust command 持有业务边界常量。
-Rust watcher 只保留 notify 事件分类、平台目录事件判断和 IPC 发送；隐藏路径、ignored root、支持扩展名、归一化与去重规则由 kernel path filter 统一判定。
+Rust watcher 只保留 notify 事件分类、平台目录事件判断、原始 ignored-root CSV 透传和 IPC 发送；隐藏路径、ignored root 解析/归一、支持扩展名、路径归一化与去重规则由 kernel path filter 统一判定。
 Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单。
 
 已收口到 kernel 的关系读面：
