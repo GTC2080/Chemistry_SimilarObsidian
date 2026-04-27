@@ -8,6 +8,7 @@ Current surface:
 
 - `kernel_filter_changed_markdown_paths(changed_paths_lf, out_paths)`
 - `kernel_filter_supported_vault_paths(changed_paths_lf, out_paths)`
+- `kernel_filter_supported_vault_paths_filtered(changed_paths_lf, ignored_roots_csv, out_paths)`
 - `kernel_free_path_list(out_paths)`
 
 The input is a line-feed separated list of changed relative paths from the host
@@ -46,6 +47,15 @@ All path filters:
   - `png`, `jpg`, `jpeg`, `gif`, `svg`, `webp`, `bmp`, `ico`, `pdf`
   - `mol`, `chemdraw`, `paper`, `csv`, `jdx`, `pdb`, `xyz`, `cif`
 
+`kernel_filter_supported_vault_paths_filtered(...)`:
+
+- applies all `kernel_filter_supported_vault_paths(...)` semantics
+- accepts a comma-separated ignored root list
+- trims ignored roots, strips leading/trailing slashes, normalizes `\` to `/`,
+  and compares only the first root segment
+- drops paths whose first relative path segment matches an ignored root exactly
+- drops any path with a hidden segment whose name starts with `.`
+
 ## Host Boundary
 
 Tauri Rust may still:
@@ -58,8 +68,9 @@ Tauri Rust may still:
   reads
 - use the same kernel path filter before deleting legacy embedding cache rows
   for removed Markdown notes
-- ignore directories, hidden path segments, and user-configured ignored roots as
-  platform watcher concerns before calling the kernel path filter
+- ignore directory events as a platform watcher concern before calling the
+  kernel path filter
 
 Tauri Rust must not reimplement supported-extension filtering, changed-entry
-Markdown filtering, normalization, or deduplication.
+Markdown filtering, hidden segment filtering, ignored-root filtering,
+normalization, or deduplication.

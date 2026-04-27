@@ -164,6 +164,33 @@ void test_filter_supported_vault_paths_normalizes_filters_and_deduplicates() {
       "supported path filter should require output pointer");
 }
 
+void test_filter_supported_vault_paths_filtered_applies_hidden_and_ignored_roots() {
+  kernel_path_list paths{};
+  expect_ok(kernel_filter_supported_vault_paths_filtered(
+      " Folder\\Note.md \n"
+      "Folder/Note.md\n"
+      ".hidden/Note.md\n"
+      "Folder/.hidden/Note.md\n"
+      "node_modules/Note.md\n"
+      "Other.PDF\n"
+      "Other.exe\n",
+      " node_modules ",
+      &paths));
+
+  require_true(paths.count == 2, "filtered supported path filter should drop hidden and ignored roots");
+  require_true(
+      std::string(paths.paths[0]) == "Folder/Note.md",
+      "filtered supported path filter should still trim, normalize, and deduplicate");
+  require_true(
+      std::string(paths.paths[1]) == "Other.PDF",
+      "filtered supported path filter should keep supported non-Markdown files");
+  kernel_free_path_list(&paths);
+  require_true(
+      kernel_filter_supported_vault_paths_filtered("note.md", "node_modules", nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "filtered supported path filter should require output pointer");
+}
+
 }  // namespace
 
 void run_kernel_api_core_vault_entry_contract_tests() {
@@ -173,4 +200,5 @@ void run_kernel_api_core_vault_entry_contract_tests() {
   test_move_note_updates_catalog();
   test_filter_changed_markdown_paths_normalizes_filters_and_deduplicates();
   test_filter_supported_vault_paths_normalizes_filters_and_deduplicates();
+  test_filter_supported_vault_paths_filtered_applies_hidden_and_ignored_roots();
 }

@@ -43,6 +43,10 @@ kernel_status kernel_filter_changed_markdown_paths(
 kernel_status kernel_filter_supported_vault_paths(
     const char* changed_paths_lf,
     kernel_path_list* out_paths);
+kernel_status kernel_filter_supported_vault_paths_filtered(
+    const char* changed_paths_lf,
+    const char* ignored_roots_csv,
+    kernel_path_list* out_paths);
 kernel_status kernel_write_note(
     kernel_handle* handle,
     const char* rel_path,

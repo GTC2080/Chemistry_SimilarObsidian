@@ -55,8 +55,9 @@ int32_t sealed_kernel_bridge_filter_changed_markdown_paths_json(
     char** out_json,
     char** out_error);
 
-int32_t sealed_kernel_bridge_filter_supported_vault_paths_json(
+int32_t sealed_kernel_bridge_filter_supported_vault_paths_filtered_json(
     const char* changed_paths_lf_utf8,
+    const char* ignored_roots_utf8,
     char** out_json,
     char** out_error);
 

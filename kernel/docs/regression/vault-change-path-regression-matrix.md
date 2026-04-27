@@ -12,6 +12,8 @@ Required coverage:
 - `.MD` and other case variants are accepted
 - `.PDB` and other supported non-Markdown case variants are accepted by the
   watcher event filter
+- `kernel_filter_supported_vault_paths_filtered(...)` removes hidden root
+  folders, hidden child folders/files, and ignored root folders
 - duplicate paths are removed after normalization
 - first-seen order is preserved
 - original path case is preserved
@@ -21,8 +23,10 @@ Required coverage:
 Tauri bridge coverage:
 
 - watcher event classification passes changed/removed relative path candidates
-  through `kernel_filter_supported_vault_paths(...)` before emitting
+  through `kernel_filter_supported_vault_paths_filtered(...)` before emitting
   `vault:fs-change`
+- watcher Rust only performs platform directory-event checks before kernel path
+  filtering
 - `scan_changed_entries` uses kernel-filtered relative paths before querying the
   kernel note catalog
 - `index_changed_entries` uses kernel-filtered relative paths before reading

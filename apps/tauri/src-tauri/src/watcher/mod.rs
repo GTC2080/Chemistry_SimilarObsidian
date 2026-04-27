@@ -1,10 +1,8 @@
 //! 文件系统增量监听模块
 //!
 //! 模块结构：
-//! - `filter`  — 路径过滤规则（隐藏文件、忽略文件夹、扩展名白名单）
-//! - `handler` — debouncer 事件回调（事件分类、去重、IPC 发送）
+//! - `handler` — debouncer 事件回调（事件分类、kernel path filtering、IPC 发送）
 
-mod filter;
 mod handler;
 
 use std::collections::HashSet;

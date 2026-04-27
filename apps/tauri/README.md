@@ -72,7 +72,7 @@
 
 - `scan_vault` / `scan_changed_entries` -> `kernel_query_notes(...)` / `kernel_query_notes_filtered(...)`
 - `build_file_tree` -> `kernel_query_file_tree_filtered(...)`
-- watcher supported path filtering -> `kernel_filter_supported_vault_paths(...)`
+- watcher hidden/ignored/supported path filtering -> `kernel_filter_supported_vault_paths_filtered(...)`
 - changed-entry path normalization -> `kernel_filter_changed_markdown_paths(...)`
 - `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
@@ -81,6 +81,7 @@
 - `write_note` -> `kernel_write_note(...)`
 
 Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 兼容缓存和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
+Rust watcher 只保留 notify 事件分类、平台目录事件判断和 IPC 发送；隐藏路径、ignored root、支持扩展名、归一化与去重规则由 kernel path filter 统一判定。
 Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单。
 
 已收口到 kernel 的关系读面：

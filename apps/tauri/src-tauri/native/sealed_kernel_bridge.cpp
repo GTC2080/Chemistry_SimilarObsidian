@@ -193,6 +193,19 @@ std::string JsonEscape(const char* value) {
   return escaped;
 }
 
+std::string PathListToJson(const kernel_path_list& paths) {
+  std::string json = "{\"paths\":[";
+  for (size_t index = 0; index < paths.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const std::string path_utf8 = ActiveCodePageToUtf8(paths.paths[index]);
+    json += "\"" + JsonEscape(path_utf8.c_str()) + "\"";
+  }
+  json += "],\"count\":" + std::to_string(paths.count) + "}";
+  return json;
+}
+
 void AppendNoteHitJson(
     std::string& json,
     const char* rel_path,
@@ -1074,16 +1087,7 @@ int32_t sealed_kernel_bridge_filter_changed_markdown_paths_json(
     return ReturnKernelError(status, "kernel_filter_changed_markdown_paths", out_error);
   }
 
-  std::string json = "{\"paths\":[";
-  for (size_t index = 0; index < paths.count; ++index) {
-    if (index != 0) {
-      json += ",";
-    }
-    const std::string path_utf8 = ActiveCodePageToUtf8(paths.paths[index]);
-    json += "\"" + JsonEscape(path_utf8.c_str()) + "\"";
-  }
-  json += "],\"count\":" + std::to_string(paths.count) + "}";
-
+  const std::string json = PathListToJson(paths);
   kernel_free_path_list(&paths);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
@@ -1093,40 +1097,35 @@ int32_t sealed_kernel_bridge_filter_changed_markdown_paths_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
-int32_t sealed_kernel_bridge_filter_supported_vault_paths_json(
+int32_t sealed_kernel_bridge_filter_supported_vault_paths_filtered_json(
     const char* changed_paths_lf_utf8,
+    const char* ignored_roots_utf8,
     char** out_json,
     char** out_error) {
   if (out_json != nullptr) {
     *out_json = nullptr;
   }
   if (out_json == nullptr) {
-    SetError(out_error, "supported vault path output pointer is invalid.");
+    SetError(out_error, "filtered supported vault path output pointer is invalid.");
     return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
   const std::string changed_paths = Utf8ToActiveCodePage(changed_paths_lf_utf8);
+  const std::string ignored_roots = Utf8ToActiveCodePage(ignored_roots_utf8);
   kernel_path_list paths{};
-  const kernel_status status =
-      kernel_filter_supported_vault_paths(changed_paths.c_str(), &paths);
+  const kernel_status status = kernel_filter_supported_vault_paths_filtered(
+      changed_paths.c_str(),
+      ignored_roots.c_str(),
+      &paths);
   if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_filter_supported_vault_paths", out_error);
+    return ReturnKernelError(status, "kernel_filter_supported_vault_paths_filtered", out_error);
   }
 
-  std::string json = "{\"paths\":[";
-  for (size_t index = 0; index < paths.count; ++index) {
-    if (index != 0) {
-      json += ",";
-    }
-    const std::string path_utf8 = ActiveCodePageToUtf8(paths.paths[index]);
-    json += "\"" + JsonEscape(path_utf8.c_str()) + "\"";
-  }
-  json += "],\"count\":" + std::to_string(paths.count) + "}";
-
+  const std::string json = PathListToJson(paths);
   kernel_free_path_list(&paths);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
-    SetError(out_error, "failed to allocate supported vault path JSON.");
+    SetError(out_error, "failed to allocate filtered supported vault path JSON.");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);

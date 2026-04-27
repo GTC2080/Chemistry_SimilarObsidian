@@ -76,8 +76,9 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_filter_supported_vault_paths_json(
+    fn sealed_kernel_bridge_filter_supported_vault_paths_filtered_json(
         changed_paths_lf_utf8: *const c_char,
+        ignored_roots_utf8: *const c_char,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -784,21 +785,26 @@ pub fn filter_changed_markdown_paths(paths: &[String]) -> AppResult<Vec<String>>
     Ok(catalog.paths)
 }
 
-pub fn filter_supported_vault_paths(paths: &[String]) -> AppResult<Vec<String>> {
+pub fn filter_supported_vault_paths_filtered(
+    paths: &[String],
+    ignored_roots: &str,
+) -> AppResult<Vec<String>> {
     let joined = paths.join("\n");
     let paths_c = cstring_arg(joined, "changed_paths")?;
+    let ignored_roots_c = cstring_arg(ignored_roots.to_string(), "ignored_roots")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
     let code = unsafe {
-        sealed_kernel_bridge_filter_supported_vault_paths_json(
+        sealed_kernel_bridge_filter_supported_vault_paths_filtered_json(
             paths_c.as_ptr(),
+            ignored_roots_c.as_ptr(),
             &mut raw_json,
             &mut error,
         )
     };
     if code != 0 {
         return Err(bridge_error(
-            "sealed_kernel_filter_supported_vault_paths",
+            "sealed_kernel_filter_supported_vault_paths_filtered",
             code,
             error,
         ));
@@ -807,7 +813,7 @@ pub fn filter_supported_vault_paths(paths: &[String]) -> AppResult<Vec<String>> 
     let value = take_bridge_string(raw_json);
     let catalog: SealedKernelPathCatalog = serde_json::from_str(&value).map_err(|err| {
         AppError::Custom(format!(
-            "sealed kernel supported vault path JSON is invalid: {err}"
+            "sealed kernel filtered supported vault path JSON is invalid: {err}"
         ))
     })?;
     Ok(catalog.paths)
@@ -2011,17 +2017,21 @@ mod tests {
     }
 
     #[test]
-    fn filter_supported_vault_paths_uses_kernel_path_filter() {
+    fn filter_supported_vault_paths_filtered_uses_kernel_hidden_and_ignored_rules() {
         let paths = vec![
             " Folder\\Note.md ".to_string(),
             "Folder/Note.md".to_string(),
-            "Folder/Note.exe".to_string(),
-            "Molecule.PDB".to_string(),
+            ".hidden/Note.md".to_string(),
+            "Folder/.hidden/Note.md".to_string(),
+            "node_modules/Note.md".to_string(),
+            "Other.PDF".to_string(),
+            "Other.exe".to_string(),
         ];
 
         assert_eq!(
-            filter_supported_vault_paths(&paths).expect("kernel supported path filter"),
-            vec!["Folder/Note.md".to_string(), "Molecule.PDB".to_string()]
+            filter_supported_vault_paths_filtered(&paths, " node_modules ")
+                .expect("kernel filtered supported path filter"),
+            vec!["Folder/Note.md".to_string(), "Other.PDF".to_string()]
         );
     }
 
