@@ -29,6 +29,7 @@ kernel_status kernel_query_notes_filtered(
     size_t limit,
     const char* ignored_roots_csv,
     kernel_note_list* out_notes);
+kernel_status kernel_get_file_tree_default_limit(size_t* out_limit);
 kernel_status kernel_query_file_tree(
     kernel_handle* handle,
     size_t limit,

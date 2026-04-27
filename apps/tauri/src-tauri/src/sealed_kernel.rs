@@ -65,6 +65,10 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_file_tree_default_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_query_file_tree_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
@@ -745,6 +749,25 @@ pub fn query_note_infos_filtered(
         .into_iter()
         .map(|record| note_info_from_record(vault_path, record))
         .collect())
+}
+
+pub fn file_tree_default_limit() -> AppResult<u64> {
+    let mut limit = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe { sealed_kernel_bridge_get_file_tree_default_limit(&mut limit, &mut error) };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_get_file_tree_default_limit",
+            code,
+            error,
+        ));
+    }
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "kernel file tree default limit must be greater than zero.".to_string(),
+        ));
+    }
+    Ok(limit)
 }
 
 pub fn query_file_tree(
@@ -2203,6 +2226,11 @@ mod tests {
     #[test]
     fn note_catalog_default_limit_comes_from_kernel() {
         assert_eq!(note_catalog_default_limit().unwrap(), 100000);
+    }
+
+    #[test]
+    fn file_tree_default_limit_comes_from_kernel() {
+        assert_eq!(file_tree_default_limit().unwrap(), 4096);
     }
 
     #[test]

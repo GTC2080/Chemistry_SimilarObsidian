@@ -88,6 +88,15 @@ void test_query_file_tree_limit_is_applied_before_tree_construction() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_file_tree_default_limit_is_kernel_owned() {
+  size_t limit = 0;
+  expect_ok(kernel_get_file_tree_default_limit(&limit));
+  require_true(limit == 4096, "file tree default limit should come from kernel");
+  require_true(
+      kernel_get_file_tree_default_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "file tree default limit should reject null output");
+}
+
 void test_query_file_tree_filtered_ignores_only_matching_roots() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -137,6 +146,7 @@ void test_query_file_tree_requires_valid_arguments() {
 void run_kernel_api_core_file_tree_contract_tests() {
   test_query_file_tree_builds_sorted_folder_first_tree();
   test_query_file_tree_limit_is_applied_before_tree_construction();
+  test_file_tree_default_limit_is_kernel_owned();
   test_query_file_tree_filtered_ignores_only_matching_roots();
   test_query_file_tree_requires_valid_arguments();
 }

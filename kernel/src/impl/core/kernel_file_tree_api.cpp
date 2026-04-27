@@ -17,6 +17,8 @@
 
 namespace {
 
+constexpr std::size_t kDefaultFileTreeLimit = 4096;
+
 struct TreeNote {
   std::string rel_path;
   std::string name;
@@ -326,6 +328,14 @@ bool fill_file_tree_nodes(const std::vector<TreeNode>& source, kernel_file_tree_
 }
 
 }  // namespace
+
+extern "C" kernel_status kernel_get_file_tree_default_limit(std::size_t* out_limit) {
+  if (out_limit == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_limit = kDefaultFileTreeLimit;
+  return kernel::core::make_status(KERNEL_OK);
+}
 
 kernel_status query_file_tree_impl(
     kernel_handle* handle,

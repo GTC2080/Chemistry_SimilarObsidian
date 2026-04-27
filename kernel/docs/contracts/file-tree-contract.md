@@ -6,6 +6,7 @@
 
 Current surface:
 
+- `kernel_get_file_tree_default_limit(out_limit)`
 - `kernel_query_file_tree(handle, limit, out_tree)`
 - `kernel_query_file_tree_filtered(handle, limit, ignored_roots_csv, out_tree)`
 - `kernel_free_file_tree(out_tree)`
@@ -15,6 +16,8 @@ The tree is derived from the same live note catalog used by `kernel_query_notes(
 ## Ownership
 
 - the kernel owns returned tree nodes, note payload strings, and child arrays
+- the kernel owns the default host-facing file-tree source catalog limit
+  returned by `kernel_get_file_tree_default_limit(...)`
 - callers release the whole tree with `kernel_free_file_tree(...)`
 - `kernel_free_file_tree(...)` is idempotent and leaves `nodes == nullptr` and `count == 0`
 - invalid handle, null output, or zero limit returns `KERNEL_ERROR_INVALID_ARGUMENT`
@@ -27,6 +30,8 @@ The tree is derived from the same live note catalog used by `kernel_query_notes(
 - file leaves have `file_count == 1`
 - file leaves carry a note payload with relative path, file stem, extension, and mtime
 - path separators are normalized to `/`
+- hosts that need the default file-tree source catalog limit must read it from
+  `kernel_get_file_tree_default_limit(...)`, not from a Rust constant
 - the limit applies to the source note catalog before tree construction
 - filtered queries parse comma-separated ignored root names by trimming
   whitespace and leading/trailing slashes
@@ -43,4 +48,5 @@ Tauri Rust may still:
 - register the Tauri command and serialize the response
 
 Tauri Rust must not rebuild folder hierarchy, sorting, recursive counts, or
-ignored-root filtering from raw note rows.
+ignored-root filtering from raw note rows. It must also not retain a duplicate
+default file-tree query limit.

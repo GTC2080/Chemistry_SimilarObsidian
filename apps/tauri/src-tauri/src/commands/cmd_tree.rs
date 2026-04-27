@@ -17,7 +17,7 @@ pub fn build_file_tree(
     sealed_kernel::query_file_tree(
         &vault_path,
         sealed_kernel.inner(),
-        4096,
+        sealed_kernel::file_tree_default_limit()?,
         ignored_folders.as_deref().unwrap_or(""),
     )
 }

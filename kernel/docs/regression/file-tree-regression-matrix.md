@@ -6,6 +6,8 @@
 
 Required coverage:
 
+- `kernel_get_file_tree_default_limit(...)` returns the kernel-owned default
+  source catalog limit and rejects null output
 - `kernel_query_file_tree(...)` builds a nested tree from live note catalog rows
 - folders sort before files
 - sibling folders/files sort by `name`
@@ -27,5 +29,7 @@ Required coverage:
 Required coverage:
 
 - `build_file_tree` consumes the kernel file tree instead of rebuilding from note infos
+- `build_file_tree` reads the default source catalog limit through the sealed
+  kernel bridge instead of a duplicate Rust constant
 - ignored top-level folders are passed through the Tauri native bridge into the
   kernel filtered file tree surface

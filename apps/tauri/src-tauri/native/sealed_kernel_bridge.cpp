@@ -1043,6 +1043,25 @@ int32_t sealed_kernel_bridge_query_notes_filtered_json(
   return QueryNotesJson(session, limit, ignored_roots_utf8, out_json, out_error);
 }
 
+int32_t sealed_kernel_bridge_get_file_tree_default_limit(
+    uint64_t* out_limit,
+    char** out_error) {
+  if (out_limit == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  size_t limit = 0;
+  const kernel_status status = kernel_get_file_tree_default_limit(&limit);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(status.code);
+  }
+
+  *out_limit = static_cast<uint64_t>(limit);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_query_file_tree_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,
