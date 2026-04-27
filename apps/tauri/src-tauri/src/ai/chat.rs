@@ -60,9 +60,6 @@ struct ChatCompletionMessage {
     content: String,
 }
 
-const CHAT_TIMEOUT_SECS: u64 = 120;
-const PONDER_TIMEOUT_SECS: u64 = 60;
-
 const RAG_SYSTEM_PROMPT: &str =
     "你是一个私人知识库的极客助手。请严格基于以下提供的上下文回答用户问题。\
 如果上下文中没有答案，请诚实地说明。请在引用相关内容时，在句末使用 [[笔记名称]] 的格式标注出处。";
@@ -118,8 +115,9 @@ where
         stream: true,
     };
 
+    let timeout_secs = sealed_kernel::ai_chat_timeout_secs().map_err(|err| err.to_string())?;
     let client = Client::builder()
-        .timeout(Duration::from_secs(CHAT_TIMEOUT_SECS))
+        .timeout(Duration::from_secs(timeout_secs))
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
 
@@ -210,8 +208,9 @@ pub async fn ponder_node(topic: &str, context: &str, config: &AiConfig) -> Resul
         temperature: 0.7,
     };
 
+    let timeout_secs = sealed_kernel::ai_ponder_timeout_secs().map_err(|err| err.to_string())?;
     let client = Client::builder()
-        .timeout(Duration::from_secs(PONDER_TIMEOUT_SECS))
+        .timeout(Duration::from_secs(timeout_secs))
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
 

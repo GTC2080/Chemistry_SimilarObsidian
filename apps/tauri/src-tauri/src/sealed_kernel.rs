@@ -238,6 +238,26 @@ extern "C" {
         out_chars: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_chat_timeout_secs(
+        out_secs: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_ponder_timeout_secs(
+        out_secs: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_embedding_request_timeout_secs(
+        out_secs: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_embedding_cache_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_compute_truth_state_json(
         note_ids_utf8: *const *const c_char,
         active_secs: *const i64,
@@ -1700,6 +1720,41 @@ pub fn embedding_text_char_limit() -> AppResult<usize> {
     )
 }
 
+pub fn ai_chat_timeout_secs() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_ai_chat_timeout_secs",
+        sealed_kernel_bridge_get_ai_chat_timeout_secs,
+    )
+}
+
+pub fn ai_ponder_timeout_secs() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_ai_ponder_timeout_secs",
+        sealed_kernel_bridge_get_ai_ponder_timeout_secs,
+    )
+}
+
+pub fn ai_embedding_request_timeout_secs() -> AppResult<u64> {
+    kernel_default_limit(
+        "sealed_kernel_get_ai_embedding_request_timeout_secs",
+        sealed_kernel_bridge_get_ai_embedding_request_timeout_secs,
+    )
+}
+
+pub fn ai_embedding_cache_limit() -> AppResult<usize> {
+    kernel_default_usize_limit(
+        "sealed_kernel_get_ai_embedding_cache_limit",
+        sealed_kernel_bridge_get_ai_embedding_cache_limit,
+    )
+}
+
+pub fn ai_embedding_concurrency_limit() -> AppResult<usize> {
+    kernel_default_usize_limit(
+        "sealed_kernel_get_ai_embedding_concurrency_limit",
+        sealed_kernel_bridge_get_ai_embedding_concurrency_limit,
+    )
+}
+
 pub fn compute_truth_state_from_activity(
     activities: &[(String, i64)],
 ) -> AppResult<SealedKernelTruthState> {
@@ -2724,6 +2779,15 @@ mod tests {
         assert_eq!(semantic_context_min_bytes().unwrap(), 24);
         assert_eq!(rag_context_per_note_char_limit().unwrap(), 1500);
         assert_eq!(embedding_text_char_limit().unwrap(), 2000);
+    }
+
+    #[test]
+    fn ai_host_runtime_defaults_come_from_kernel() {
+        assert_eq!(ai_chat_timeout_secs().unwrap(), 120);
+        assert_eq!(ai_ponder_timeout_secs().unwrap(), 60);
+        assert_eq!(ai_embedding_request_timeout_secs().unwrap(), 30);
+        assert_eq!(ai_embedding_cache_limit().unwrap(), 64);
+        assert_eq!(ai_embedding_concurrency_limit().unwrap(), 4);
     }
 
     #[test]

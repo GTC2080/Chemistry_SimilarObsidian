@@ -56,16 +56,24 @@ The repository must retain regression coverage for:
 - Tauri Rust bridge tests continue to cover the existing command-facing string
   shape for short and focused long content
 
-## AI Host Text Limits
+## AI Host Limits
 
 The repository must retain regression coverage for:
 
 - `kernel_get_semantic_context_min_bytes(...)` returns `24`
 - `kernel_get_rag_context_per_note_char_limit(...)` returns `1500`
 - `kernel_get_embedding_text_char_limit(...)` returns `2000`
+- `kernel_get_ai_chat_timeout_secs(...)` returns `120`
+- `kernel_get_ai_ponder_timeout_secs(...)` returns `60`
+- `kernel_get_ai_embedding_request_timeout_secs(...)` returns `30`
+- `kernel_get_ai_embedding_cache_limit(...)` returns `64`
+- `kernel_get_ai_embedding_concurrency_limit(...)` returns `4`
 - all product text limit getters reject null output pointers
 - Tauri Rust queries these limits through the sealed bridge instead of keeping
   duplicate product text constants
+- Tauri Rust AI code queries chat, ponder, embedding timeout, cache, and
+  concurrency defaults through the sealed bridge instead of keeping duplicate
+  runtime constants
 
 ## Study Truth State
 

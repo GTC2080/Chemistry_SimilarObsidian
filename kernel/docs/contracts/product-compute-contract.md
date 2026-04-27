@@ -17,6 +17,11 @@ Current surface:
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
+- `kernel_get_ai_chat_timeout_secs(out_secs)`
+- `kernel_get_ai_ponder_timeout_secs(out_secs)`
+- `kernel_get_ai_embedding_request_timeout_secs(out_secs)`
+- `kernel_get_ai_embedding_cache_limit(out_limit)`
+- `kernel_get_ai_embedding_concurrency_limit(out_limit)`
 - `kernel_compute_truth_state_from_activity(activities, activity_count, out_state)`
 - `kernel_compute_study_stats_window(now_epoch_secs, days_back, out_window)`
 - `kernel_compute_study_streak_days(day_buckets, day_count, today_bucket, out_streak_days)`
@@ -42,6 +47,8 @@ Frozen rules:
   selection, and context length limits
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
+- the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
+  request timeout, embedding cache size, and embedding concurrency
 - the kernel owns study truth attribute routing, active-seconds to EXP
   conversion, level progression, and attribute level progression
 - the kernel owns study stats UTC day boundary calculation, week/daily/legacy
@@ -100,6 +107,8 @@ Frozen rules:
 - hosts must not reimplement semantic context extraction rules
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
+- hosts must not hard-code AI chat, ponder, embedding timeout, cache, or
+  concurrency defaults
 - hosts must not reimplement study truth EXP curves or note-extension to
   attribute routing
 - hosts must not reimplement study stats window or folder ranking limit rules
@@ -128,12 +137,17 @@ Frozen rules:
 - null non-empty content buffers and null output buffers are invalid
 - `kernel_get_semantic_context_min_bytes(...) = 24`
 
-## AI Host Text Limits
+## AI Host Limits
 
 Frozen rules:
 
 - `kernel_get_rag_context_per_note_char_limit(...) = 1500`
 - `kernel_get_embedding_text_char_limit(...) = 2000`
+- `kernel_get_ai_chat_timeout_secs(...) = 120`
+- `kernel_get_ai_ponder_timeout_secs(...) = 60`
+- `kernel_get_ai_embedding_request_timeout_secs(...) = 30`
+- `kernel_get_ai_embedding_cache_limit(...) = 64`
+- `kernel_get_ai_embedding_concurrency_limit(...) = 4`
 - null output pointers are invalid
 
 ## Study Truth State

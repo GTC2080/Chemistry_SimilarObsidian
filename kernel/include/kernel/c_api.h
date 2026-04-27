@@ -194,6 +194,11 @@ kernel_status kernel_build_semantic_context(
 kernel_status kernel_get_semantic_context_min_bytes(size_t* out_bytes);
 kernel_status kernel_get_rag_context_per_note_char_limit(size_t* out_chars);
 kernel_status kernel_get_embedding_text_char_limit(size_t* out_chars);
+kernel_status kernel_get_ai_chat_timeout_secs(size_t* out_secs);
+kernel_status kernel_get_ai_ponder_timeout_secs(size_t* out_secs);
+kernel_status kernel_get_ai_embedding_request_timeout_secs(size_t* out_secs);
+kernel_status kernel_get_ai_embedding_cache_limit(size_t* out_limit);
+kernel_status kernel_get_ai_embedding_concurrency_limit(size_t* out_limit);
 kernel_status kernel_compute_truth_state_from_activity(
     const kernel_study_note_activity* activities,
     size_t activity_count,

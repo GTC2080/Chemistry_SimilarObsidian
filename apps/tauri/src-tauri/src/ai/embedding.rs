@@ -27,10 +27,6 @@ struct EmbeddingResponse {
     data: Vec<EmbeddingData>,
 }
 
-const REQUEST_TIMEOUT_SECS: u64 = 30;
-const EMBEDDING_CACHE_LIMIT: usize = 64;
-const EMBEDDING_CONCURRENCY_LIMIT: usize = 4;
-
 #[derive(Default)]
 struct EmbeddingCache {
     order: VecDeque<String>,
@@ -51,11 +47,15 @@ pub struct EmbeddingRuntimeState {
 
 impl Default for EmbeddingRuntimeState {
     fn default() -> Self {
+        let concurrency_limit = sealed_kernel::ai_embedding_concurrency_limit()
+            .expect("kernel AI embedding concurrency limit should be available");
+        let request_timeout_secs = sealed_kernel::ai_embedding_request_timeout_secs()
+            .expect("kernel AI embedding request timeout should be available");
         Self {
-            semaphore: Arc::new(Semaphore::new(EMBEDDING_CONCURRENCY_LIMIT)),
+            semaphore: Arc::new(Semaphore::new(concurrency_limit)),
             cache: Arc::new(Mutex::new(EmbeddingCache::default())),
             client: Client::builder()
-                .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+                .timeout(Duration::from_secs(request_timeout_secs))
                 .build()
                 .expect("failed to create reqwest::Client"),
             note_versions: Arc::new(Mutex::new(HashMap::new())),
@@ -121,6 +121,7 @@ fn cache_embedding(
     key: String,
     embedding: Vec<f32>,
 ) -> Result<(), String> {
+    let cache_limit = sealed_kernel::ai_embedding_cache_limit().map_err(|err| err.to_string())?;
     let mut cache = runtime
         .cache
         .lock()
@@ -133,7 +134,7 @@ fn cache_embedding(
     cache.order.push_back(key.clone());
     cache.entries.insert(key, embedding);
 
-    while cache.order.len() > EMBEDDING_CACHE_LIMIT {
+    while cache.order.len() > cache_limit {
         if let Some(oldest) = cache.order.pop_front() {
             cache.entries.remove(&oldest);
         }

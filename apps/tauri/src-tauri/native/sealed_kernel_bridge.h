@@ -220,6 +220,26 @@ int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
     uint64_t* out_chars,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_ai_chat_timeout_secs(
+    uint64_t* out_secs,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_ai_ponder_timeout_secs(
+    uint64_t* out_secs,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_ai_embedding_request_timeout_secs(
+    uint64_t* out_secs,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_ai_embedding_cache_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_compute_truth_state_json(
     const char* const* note_ids_utf8,
     const int64_t* active_secs,

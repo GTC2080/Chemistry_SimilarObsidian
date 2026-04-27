@@ -220,6 +220,46 @@ void test_product_text_limits_are_kernel_owned() {
       "embedding text char limit should reject null output");
 }
 
+void test_ai_host_runtime_defaults_are_kernel_owned() {
+  size_t value = 0;
+
+  require_ok_status(kernel_get_ai_chat_timeout_secs(&value), "AI chat timeout seconds");
+  require_true(value == 120, "AI chat timeout should come from kernel");
+  require_true(
+      kernel_get_ai_chat_timeout_secs(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "AI chat timeout should reject null output");
+
+  require_ok_status(kernel_get_ai_ponder_timeout_secs(&value), "AI ponder timeout seconds");
+  require_true(value == 60, "AI ponder timeout should come from kernel");
+  require_true(
+      kernel_get_ai_ponder_timeout_secs(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "AI ponder timeout should reject null output");
+
+  require_ok_status(
+      kernel_get_ai_embedding_request_timeout_secs(&value),
+      "AI embedding request timeout seconds");
+  require_true(value == 30, "AI embedding request timeout should come from kernel");
+  require_true(
+      kernel_get_ai_embedding_request_timeout_secs(nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "AI embedding request timeout should reject null output");
+
+  require_ok_status(kernel_get_ai_embedding_cache_limit(&value), "AI embedding cache limit");
+  require_true(value == 64, "AI embedding cache limit should come from kernel");
+  require_true(
+      kernel_get_ai_embedding_cache_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "AI embedding cache limit should reject null output");
+
+  require_ok_status(
+      kernel_get_ai_embedding_concurrency_limit(&value),
+      "AI embedding concurrency limit");
+  require_true(value == 4, "AI embedding concurrency limit should come from kernel");
+  require_true(
+      kernel_get_ai_embedding_concurrency_limit(nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "AI embedding concurrency limit should reject null output");
+}
+
 void test_truth_state_routes_activity_and_levels() {
   const kernel_study_note_activity activities[] = {
       {"lab.csv", 120},
@@ -395,6 +435,7 @@ void run_product_compute_tests() {
   test_semantic_context_extracts_headings_and_recent_blocks();
   test_semantic_context_validates_arguments();
   test_product_text_limits_are_kernel_owned();
+  test_ai_host_runtime_defaults_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();
   test_truth_state_validates_arguments();
   test_study_stats_window_computes_legacy_boundaries();

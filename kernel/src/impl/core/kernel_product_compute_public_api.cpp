@@ -28,6 +28,11 @@ constexpr std::size_t kMinContextChars = 24;
 constexpr std::size_t kMaxContextChars = 2200;
 constexpr std::size_t kRagContextPerNoteChars = 1500;
 constexpr std::size_t kEmbeddingTextCharLimit = 2000;
+constexpr std::size_t kAiChatTimeoutSecs = 120;
+constexpr std::size_t kAiPonderTimeoutSecs = 60;
+constexpr std::size_t kAiEmbeddingRequestTimeoutSecs = 30;
+constexpr std::size_t kAiEmbeddingCacheLimit = 64;
+constexpr std::size_t kAiEmbeddingConcurrencyLimit = 4;
 constexpr double kStudySecsPerExp = 60.0;
 constexpr double kStudyBaseExp = 100.0;
 constexpr double kStudyGrowthRate = 1.5;
@@ -581,6 +586,26 @@ extern "C" kernel_status kernel_get_rag_context_per_note_char_limit(std::size_t*
 
 extern "C" kernel_status kernel_get_embedding_text_char_limit(std::size_t* out_chars) {
   return write_size_limit(kEmbeddingTextCharLimit, out_chars);
+}
+
+extern "C" kernel_status kernel_get_ai_chat_timeout_secs(std::size_t* out_secs) {
+  return write_size_limit(kAiChatTimeoutSecs, out_secs);
+}
+
+extern "C" kernel_status kernel_get_ai_ponder_timeout_secs(std::size_t* out_secs) {
+  return write_size_limit(kAiPonderTimeoutSecs, out_secs);
+}
+
+extern "C" kernel_status kernel_get_ai_embedding_request_timeout_secs(std::size_t* out_secs) {
+  return write_size_limit(kAiEmbeddingRequestTimeoutSecs, out_secs);
+}
+
+extern "C" kernel_status kernel_get_ai_embedding_cache_limit(std::size_t* out_limit) {
+  return write_size_limit(kAiEmbeddingCacheLimit, out_limit);
+}
+
+extern "C" kernel_status kernel_get_ai_embedding_concurrency_limit(std::size_t* out_limit) {
+  return write_size_limit(kAiEmbeddingConcurrencyLimit, out_limit);
 }
 
 extern "C" kernel_status kernel_compute_truth_state_from_activity(
