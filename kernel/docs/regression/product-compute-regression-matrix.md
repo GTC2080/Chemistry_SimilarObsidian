@@ -110,13 +110,17 @@ The repository must retain regression coverage for:
 
 - `kernel_compute_study_streak_days(...)` counts contiguous active days through
   the current day bucket
+- `kernel_compute_study_streak_days_from_timestamps(...)` owns timestamp to day
+  bucket conversion before contiguous-day counting
 - missing current-day activity returns `0`
 - duplicate input day buckets are counted once
+- duplicate timestamp bucket days are counted once
+- negative epoch seconds use floor-division day bucketing
 - input order does not affect the result
 - empty bucket input returns `0`
-- null non-empty buffers and null output pointers are rejected
-- Tauri Rust study stats code reads SQLite day buckets and delegates streak
-  continuity rules to the sealed kernel bridge
+- null non-empty bucket/timestamp buffers and null output pointers are rejected
+- Tauri Rust study stats code reads SQLite timestamps and delegates day
+  bucketing plus streak continuity rules to the sealed kernel bridge
 
 ## Study Heatmap Grid
 

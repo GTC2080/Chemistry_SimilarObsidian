@@ -416,6 +416,21 @@ std::int64_t total_exp(const kernel_truth_attribute_values& exp) {
   return exp.science + exp.engineering + exp.creation + exp.finance;
 }
 
+std::int64_t count_contiguous_study_streak(
+    const std::set<std::int64_t>& active_days,
+    const std::int64_t today_bucket) {
+  std::int64_t streak_days = 0;
+  std::int64_t expected = today_bucket;
+  while (active_days.contains(expected)) {
+    ++streak_days;
+    if (expected == std::numeric_limits<std::int64_t>::min()) {
+      break;
+    }
+    --expected;
+  }
+  return streak_days;
+}
+
 std::int64_t floor_div(const std::int64_t value, const std::int64_t divisor) {
   std::int64_t quotient = value / divisor;
   const std::int64_t remainder = value % divisor;
@@ -700,15 +715,26 @@ extern "C" kernel_status kernel_compute_study_streak_days(
     active_days.insert(day_buckets[index]);
   }
 
-  std::int64_t expected = today_bucket;
-  while (active_days.contains(expected)) {
-    ++(*out_streak_days);
-    if (expected == std::numeric_limits<std::int64_t>::min()) {
-      break;
-    }
-    --expected;
+  *out_streak_days = count_contiguous_study_streak(active_days, today_bucket);
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_compute_study_streak_days_from_timestamps(
+    const std::int64_t* started_at_epoch_secs,
+    const std::size_t timestamp_count,
+    const std::int64_t today_bucket,
+    std::int64_t* out_streak_days) {
+  if (out_streak_days == nullptr || (timestamp_count > 0 && started_at_epoch_secs == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_streak_days = 0;
+
+  std::set<std::int64_t> active_days;
+  for (std::size_t index = 0; index < timestamp_count; ++index) {
+    active_days.insert(floor_div(started_at_epoch_secs[index], kSecsPerDay));
   }
 
+  *out_streak_days = count_contiguous_study_streak(active_days, today_bucket);
   return kernel::core::make_status(KERNEL_OK);
 }
 

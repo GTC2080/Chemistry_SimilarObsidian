@@ -254,6 +254,13 @@ int32_t sealed_kernel_bridge_compute_study_streak_days(
     int64_t* out_streak_days,
     char** out_error);
 
+int32_t sealed_kernel_bridge_compute_study_streak_days_from_timestamps(
+    const int64_t* started_at_epoch_secs,
+    uint64_t timestamp_count,
+    int64_t today_bucket,
+    int64_t* out_streak_days,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_compute_study_stats_window(
     int64_t now_epoch_secs,
     int64_t days_back,

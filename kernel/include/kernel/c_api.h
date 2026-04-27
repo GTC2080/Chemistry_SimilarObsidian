@@ -212,6 +212,11 @@ kernel_status kernel_compute_study_streak_days(
     size_t day_count,
     int64_t today_bucket,
     int64_t* out_streak_days);
+kernel_status kernel_compute_study_streak_days_from_timestamps(
+    const int64_t* started_at_epoch_secs,
+    size_t timestamp_count,
+    int64_t today_bucket,
+    int64_t* out_streak_days);
 kernel_status kernel_build_study_heatmap_grid(
     const kernel_heatmap_day_activity* days,
     size_t day_count,

@@ -25,6 +25,7 @@ Current surface:
 - `kernel_compute_truth_state_from_activity(activities, activity_count, out_state)`
 - `kernel_compute_study_stats_window(now_epoch_secs, days_back, out_window)`
 - `kernel_compute_study_streak_days(day_buckets, day_count, today_bucket, out_streak_days)`
+- `kernel_compute_study_streak_days_from_timestamps(started_at_epoch_secs, timestamp_count, today_bucket, out_streak_days)`
 - `kernel_build_study_heatmap_grid(days, day_count, now_epoch_secs, out_grid)`
 - `kernel_free_study_heatmap_grid(out_grid)`
 
@@ -53,8 +54,8 @@ Frozen rules:
   conversion, level progression, and attribute level progression
 - the kernel owns study stats UTC day boundary calculation, week/daily/legacy
   heatmap window starts, current day bucket, and folder ranking limit
-- the kernel owns study streak duplicate-day handling and contiguous-day
-  counting
+- the kernel owns study streak timestamp bucketing, duplicate-day handling, and
+  contiguous-day counting
 - the kernel owns study heatmap grid dimensions, UTC day bucketing, Monday
   alignment, date formatting, cell coordinates, and max-second calculation
 - returned awards and strings are kernel-owned until released with
@@ -112,7 +113,8 @@ Frozen rules:
 - hosts must not reimplement study truth EXP curves or note-extension to
   attribute routing
 - hosts must not reimplement study stats window or folder ranking limit rules
-- hosts must not reimplement study streak contiguous-day rules
+- hosts must not reimplement study streak timestamp bucketing or contiguous-day
+  rules
 - hosts must not reimplement study heatmap grid calendar or layout rules
 - Rust hosts must not retain product compute C ABI mirror structs or unsafe
   result-copy loops for truth diff awards or semantic context buffers
@@ -192,11 +194,14 @@ Frozen rules:
 
 - study streak input is a handle-free list of day buckets plus the current day
   bucket
+- hosts may alternatively pass raw `started_at` epoch seconds through
+  `kernel_compute_study_streak_days_from_timestamps(...)`
+- timestamp inputs are bucketed with floor division by `86400`
 - input order is not significant
 - duplicate day buckets are counted once
 - streak starts at the current day bucket and walks backward one day at a time
 - missing current-day activity returns `0`
-- null non-empty bucket buffers and null output pointers are invalid
+- null non-empty bucket/timestamp buffers and null output pointers are invalid
 
 ## Study Heatmap Grid
 

@@ -353,6 +353,28 @@ void test_study_streak_counts_contiguous_active_days() {
   require_true(streak == 0, "streak should be zero when today has no activity");
 }
 
+void test_study_streak_buckets_timestamps_in_kernel() {
+  const int64_t timestamps[] = {
+      10 * 86400 + 5,
+      9 * 86400 + 120,
+      8 * 86400,
+      10 * 86400 + 400,
+      12 * 86400,
+      -1,
+  };
+  int64_t streak = 0;
+
+  require_ok_status(
+      kernel_compute_study_streak_days_from_timestamps(timestamps, 6, 10, &streak),
+      "study streak from timestamps");
+  require_true(streak == 3, "timestamp streak should bucket and dedupe active days");
+
+  require_ok_status(
+      kernel_compute_study_streak_days_from_timestamps(timestamps, 6, -1, &streak),
+      "study streak from negative timestamp");
+  require_true(streak == 1, "timestamp bucketing should floor negative epoch seconds");
+}
+
 void test_study_streak_validates_arguments() {
   int64_t streak = 0;
 
@@ -368,6 +390,14 @@ void test_study_streak_validates_arguments() {
       kernel_compute_study_streak_days(nullptr, 0, 10, nullptr).code ==
           KERNEL_ERROR_INVALID_ARGUMENT,
       "streak should reject null output");
+  require_true(
+      kernel_compute_study_streak_days_from_timestamps(nullptr, 1, 10, &streak).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "timestamp streak should reject null non-empty timestamp buffer");
+  require_true(
+      kernel_compute_study_streak_days_from_timestamps(nullptr, 0, 10, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "timestamp streak should reject null output");
 }
 
 std::string heatmap_date_at(const kernel_heatmap_grid& grid, const size_t index) {
@@ -441,6 +471,7 @@ void run_product_compute_tests() {
   test_study_stats_window_computes_legacy_boundaries();
   test_study_stats_window_validates_arguments();
   test_study_streak_counts_contiguous_active_days();
+  test_study_streak_buckets_timestamps_in_kernel();
   test_study_streak_validates_arguments();
   test_study_heatmap_grid_builds_fixed_monday_aligned_grid();
   test_study_heatmap_grid_validates_arguments();

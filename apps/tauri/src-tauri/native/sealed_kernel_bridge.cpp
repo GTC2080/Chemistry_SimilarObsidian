@@ -2145,6 +2145,32 @@ int32_t sealed_kernel_bridge_compute_study_streak_days(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_compute_study_streak_days_from_timestamps(
+    const int64_t* started_at_epoch_secs,
+    uint64_t timestamp_count,
+    int64_t today_bucket,
+    int64_t* out_streak_days,
+    char** out_error) {
+  if (out_streak_days == nullptr ||
+      (timestamp_count > 0 && started_at_epoch_secs == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_compute_study_streak_days_from_timestamps(
+      started_at_epoch_secs,
+      static_cast<size_t>(timestamp_count),
+      today_bucket,
+      out_streak_days);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(
+        status,
+        "kernel_compute_study_streak_days_from_timestamps",
+        out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_compute_study_stats_window(
     int64_t now_epoch_secs,
     int64_t days_back,

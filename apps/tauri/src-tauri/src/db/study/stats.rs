@@ -74,20 +74,20 @@ fn query_week(conn: &Connection, week_start: i64) -> AppResult<i64> {
     .map_err(Into::into)
 }
 
-fn query_streak_buckets(conn: &Connection) -> AppResult<Vec<i64>> {
+fn query_streak_timestamps(conn: &Connection) -> AppResult<Vec<i64>> {
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT (started_at / 86400) AS day_bucket
+        "SELECT started_at
              FROM study_sessions
              WHERE active_secs > 0
-             ORDER BY day_bucket DESC",
+             ORDER BY started_at DESC",
     )?;
 
-    let buckets: Vec<i64> = stmt
+    let timestamps: Vec<i64> = stmt
         .query_map([], |row| row.get(0))?
         .filter_map(|r| r.ok())
         .collect();
 
-    Ok(buckets)
+    Ok(timestamps)
 }
 
 fn query_daily_summary(conn: &Connection, window_start: i64) -> AppResult<Vec<DailySummary>> {
@@ -260,8 +260,8 @@ pub fn query_heatmap_cells(conn: &Connection) -> AppResult<HeatmapGrid> {
     build_heatmap_grid_from_raw(query_all_heatmap(conn)?, now_secs)
 }
 
-fn build_streak_from_buckets(day_buckets: Vec<i64>, today_bucket: i64) -> AppResult<i64> {
-    sealed_kernel::compute_study_streak_days(&day_buckets, today_bucket)
+fn build_streak_from_timestamps(timestamps: Vec<i64>, today_bucket: i64) -> AppResult<i64> {
+    sealed_kernel::compute_study_streak_days_from_timestamps(&timestamps, today_bucket)
 }
 
 // ──────────────────────────────────────────
@@ -275,7 +275,8 @@ pub fn query_stats(conn: &Connection, days_back: i64) -> AppResult<StudyStats> {
 
     let (today_active_secs, today_files) = query_today(conn, window.today_start_epoch_secs)?;
     let week_active_secs = query_week(conn, window.week_start_epoch_secs)?;
-    let streak_days = build_streak_from_buckets(query_streak_buckets(conn)?, window.today_bucket)?;
+    let streak_days =
+        build_streak_from_timestamps(query_streak_timestamps(conn)?, window.today_bucket)?;
 
     let daily_summary = query_daily_summary(conn, window.daily_window_start_epoch_secs)?;
     let daily_details = query_daily_details(conn, window.daily_window_start_epoch_secs)?;
@@ -342,11 +343,15 @@ mod tests {
     #[test]
     fn build_streak_delegates_contiguous_day_rules_to_kernel() {
         assert_eq!(
-            build_streak_from_buckets(vec![12, 10, 9, 10, 8, 2], 10).unwrap(),
+            build_streak_from_timestamps(
+                vec![1900800, 1728005, 1641720, 1728400, 1555200, 1036800],
+                20
+            )
+            .unwrap(),
             3
         );
         assert_eq!(
-            build_streak_from_buckets(vec![12, 10, 9, 10, 8, 2], 11).unwrap(),
+            build_streak_from_timestamps(vec![1900800, 1728000], 21).unwrap(),
             0
         );
     }
