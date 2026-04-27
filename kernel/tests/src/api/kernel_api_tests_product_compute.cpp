@@ -220,6 +220,55 @@ void test_product_text_limits_are_kernel_owned() {
       "embedding text char limit should reject null output");
 }
 
+void test_truth_state_routes_activity_and_levels() {
+  const kernel_study_note_activity activities[] = {
+      {"lab.csv", 120},
+      {"code.rs", 3600},
+      {"molecule.mol", 3000},
+      {"ledger.base", 6000},
+  };
+  kernel_truth_state_snapshot state{};
+
+  require_ok_status(
+      kernel_compute_truth_state_from_activity(activities, 4, &state),
+      "truth state from activity");
+
+  require_true(state.level == 2, "truth state should compute overall level");
+  require_true(state.total_exp == 112, "truth state should carry remaining level exp");
+  require_true(state.next_level_exp == 150, "truth state should compute next level requirement");
+  require_true(state.attribute_exp.science == 2, "csv activity routes to science exp");
+  require_true(state.attribute_exp.engineering == 60, "rs activity routes to engineering exp");
+  require_true(state.attribute_exp.creation == 50, "mol activity routes to creation exp");
+  require_true(state.attribute_exp.finance == 100, "base activity routes to finance exp");
+  require_true(state.attributes.science == 1, "science attribute level should use kernel curve");
+  require_true(state.attributes.engineering == 2, "engineering attribute level should use kernel curve");
+  require_true(state.attributes.creation == 2, "creation attribute level should use kernel curve");
+  require_true(state.attributes.finance == 3, "finance attribute level should use kernel curve");
+}
+
+void test_truth_state_validates_arguments() {
+  kernel_truth_state_snapshot state{};
+  const kernel_study_note_activity invalid[] = {{nullptr, 60}};
+
+  require_ok_status(
+      kernel_compute_truth_state_from_activity(nullptr, 0, &state),
+      "truth state should accept empty activity");
+  require_true(state.level == 1, "empty truth state should start at level one");
+  require_true(state.next_level_exp == 100, "empty truth state should keep level one requirement");
+  require_true(
+      kernel_compute_truth_state_from_activity(nullptr, 1, &state).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "truth state should reject null non-empty activity buffer");
+  require_true(
+      kernel_compute_truth_state_from_activity(invalid, 1, &state).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "truth state should reject null note ids");
+  require_true(
+      kernel_compute_truth_state_from_activity(nullptr, 0, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "truth state should reject null output");
+}
+
 }  // namespace
 
 void run_product_compute_tests() {
@@ -231,4 +280,6 @@ void run_product_compute_tests() {
   test_semantic_context_extracts_headings_and_recent_blocks();
   test_semantic_context_validates_arguments();
   test_product_text_limits_are_kernel_owned();
+  test_truth_state_routes_activity_and_levels();
+  test_truth_state_validates_arguments();
 }

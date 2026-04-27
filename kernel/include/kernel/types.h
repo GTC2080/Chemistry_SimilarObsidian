@@ -514,6 +514,26 @@ typedef struct kernel_truth_diff_result {
   size_t count;
 } kernel_truth_diff_result;
 
+typedef struct kernel_study_note_activity {
+  const char* note_id;
+  int64_t active_secs;
+} kernel_study_note_activity;
+
+typedef struct kernel_truth_attribute_values {
+  int64_t science;
+  int64_t engineering;
+  int64_t creation;
+  int64_t finance;
+} kernel_truth_attribute_values;
+
+typedef struct kernel_truth_state_snapshot {
+  int64_t level;
+  int64_t total_exp;
+  int64_t next_level_exp;
+  kernel_truth_attribute_values attributes;
+  kernel_truth_attribute_values attribute_exp;
+} kernel_truth_state_snapshot;
+
 typedef struct kernel_retro_precursor {
   char* id;
   char* smiles;

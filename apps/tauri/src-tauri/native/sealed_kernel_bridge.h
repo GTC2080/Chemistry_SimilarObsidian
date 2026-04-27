@@ -220,6 +220,13 @@ int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
     uint64_t* out_chars,
     char** out_error);
 
+int32_t sealed_kernel_bridge_compute_truth_state_json(
+    const char* const* note_ids_utf8,
+    const int64_t* active_secs,
+    uint64_t activity_count,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
     const char* target_smiles_utf8,
     uint8_t depth,

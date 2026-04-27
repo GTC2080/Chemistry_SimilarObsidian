@@ -647,6 +647,24 @@ void AppendTruthDiffJson(std::string& json, const kernel_truth_diff_result& resu
   json += "]}";
 }
 
+void AppendTruthAttributesJson(std::string& json, const kernel_truth_attribute_values& values) {
+  json += "{\"science\":" + std::to_string(values.science);
+  json += ",\"engineering\":" + std::to_string(values.engineering);
+  json += ",\"creation\":" + std::to_string(values.creation);
+  json += ",\"finance\":" + std::to_string(values.finance) + "}";
+}
+
+void AppendTruthStateJson(std::string& json, const kernel_truth_state_snapshot& state) {
+  json += "{\"level\":" + std::to_string(state.level);
+  json += ",\"totalExp\":" + std::to_string(state.total_exp);
+  json += ",\"nextLevelExp\":" + std::to_string(state.next_level_exp);
+  json += ",\"attributes\":";
+  AppendTruthAttributesJson(json, state.attributes);
+  json += ",\"attributeExp\":";
+  AppendTruthAttributesJson(json, state.attribute_exp);
+  json += "}";
+}
+
 void AppendRetroPrecursorJson(std::string& json, const kernel_retro_precursor& precursor) {
   json += "{\"id\":\"" + JsonEscape(precursor.id) + "\",";
   json += "\"smiles\":\"" + JsonEscape(precursor.smiles) + "\",";
@@ -1989,6 +2007,54 @@ int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
       "kernel_get_embedding_text_char_limit",
       out_chars,
       out_error);
+}
+
+int32_t sealed_kernel_bridge_compute_truth_state_json(
+    const char* const* note_ids_utf8,
+    const int64_t* active_secs,
+    uint64_t activity_count,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (
+      out_json == nullptr || (activity_count > 0 && note_ids_utf8 == nullptr) ||
+      (activity_count > 0 && active_secs == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<std::string> note_ids;
+  note_ids.reserve(static_cast<std::size_t>(activity_count));
+  std::vector<kernel_study_note_activity> activities;
+  activities.reserve(static_cast<std::size_t>(activity_count));
+  for (uint64_t index = 0; index < activity_count; ++index) {
+    if (note_ids_utf8[index] == nullptr) {
+      SetError(out_error, "invalid_argument");
+      return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+    note_ids.push_back(Utf8ToActiveCodePage(note_ids_utf8[index]));
+    activities.push_back(kernel_study_note_activity{note_ids.back().c_str(), active_secs[index]});
+  }
+
+  kernel_truth_state_snapshot state{};
+  const kernel_status status = kernel_compute_truth_state_from_activity(
+      activities.empty() ? nullptr : activities.data(),
+      static_cast<size_t>(activities.size()),
+      &state);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_compute_truth_state_from_activity", out_error);
+  }
+
+  std::string json;
+  AppendTruthStateJson(json, state);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
 }
 
 int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(

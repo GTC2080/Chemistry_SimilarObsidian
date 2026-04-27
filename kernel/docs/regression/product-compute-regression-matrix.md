@@ -66,3 +66,17 @@ The repository must retain regression coverage for:
 - all product text limit getters reject null output pointers
 - Tauri Rust queries these limits through the sealed bridge instead of keeping
   duplicate product text constants
+
+## Study Truth State
+
+The repository must retain regression coverage for:
+
+- `kernel_compute_truth_state_from_activity(...)` routes science, engineering,
+  creation, and finance extensions through the kernel
+- active seconds convert to EXP with the `60` second rule
+- overall level progression uses the `100 * 1.5^(level - 1)` curve
+- attribute levels use the `50` EXP per level rule capped at `99`
+- empty activity starts at level `1` with next level requirement `100`
+- null non-empty buffers, null note ids, and null output pointers are rejected
+- Tauri Rust study DB code aggregates SQLite rows and delegates truth rules to
+  the sealed kernel bridge

@@ -1,8 +1,7 @@
 use rusqlite::Connection;
 use serde::Serialize;
-use std::cmp;
 
-use crate::AppResult;
+use crate::{sealed_kernel, AppResult};
 
 // ──────────────────────────────────────────
 // 数据结构
@@ -28,44 +27,6 @@ pub struct TruthStateDto {
 }
 
 // ──────────────────────────────────────────
-// 常量与辅助
-// ──────────────────────────────────────────
-
-/// 1 EXP = 60 秒有效学习时长
-const SECS_PER_EXP: f64 = 60.0;
-const BASE_EXP: f64 = 100.0;
-const GROWTH_RATE: f64 = 1.5;
-const ATTR_EXP_PER_LEVEL: i64 = 50;
-
-/// 根据 note_id 的文件扩展名路由到四个属性之一
-fn route_note_to_attr(note_id: &str) -> &'static str {
-    let ext = note_id
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    match ext.as_str() {
-        "jdx" | "csv" => "science",
-        "py" | "js" | "ts" | "tsx" | "jsx" | "rs" | "go" | "c" | "cpp" | "java" => "engineering",
-        "mol" | "chemdraw" => "creation",
-        "dashboard" | "base" => "finance",
-        _ => "creation",
-    }
-}
-
-fn calc_next_level_exp(level: i64) -> i64 {
-    (BASE_EXP * GROWTH_RATE.powi((level - 1) as i32)).floor() as i64
-}
-
-fn attr_level(exp: i64) -> i64 {
-    cmp::min(99, 1 + exp / ATTR_EXP_PER_LEVEL)
-}
-
-fn secs_to_exp(secs: i64) -> i64 {
-    (secs as f64 / SECS_PER_EXP).floor() as i64
-}
-
-// ──────────────────────────────────────────
 // 查询
 // ──────────────────────────────────────────
 
@@ -77,53 +38,62 @@ pub fn query_truth_state(conn: &Connection) -> AppResult<TruthStateDto> {
              GROUP BY note_id",
     )?;
 
-    let mut secs = [0i64; 4]; // [science, engineering, creation, finance]
-
     let rows = stmt.query_map([], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
     })?;
 
-    for row in rows.flatten() {
-        let (note_id, s) = row;
-        let idx = match route_note_to_attr(&note_id) {
-            "science" => 0,
-            "engineering" => 1,
-            "finance" => 3,
-            _ => 2, // creation
-        };
-        secs[idx] += s;
-    }
-
-    let exp: [i64; 4] = std::array::from_fn(|i| secs_to_exp(secs[i]));
-    let grand_total: i64 = exp.iter().sum();
-
-    // 等级计算
-    let mut level: i64 = 1;
-    let mut remaining = grand_total;
-    let mut next_level_exp = calc_next_level_exp(level);
-
-    while remaining >= next_level_exp {
-        remaining -= next_level_exp;
-        level += 1;
-        next_level_exp = calc_next_level_exp(level);
-    }
+    let activities: Vec<(String, i64)> = rows.flatten().collect();
+    let state = sealed_kernel::compute_truth_state_from_activity(&activities)?;
 
     Ok(TruthStateDto {
-        level,
-        total_exp: remaining,
-        next_level_exp,
+        level: state.level,
+        total_exp: state.total_exp,
+        next_level_exp: state.next_level_exp,
         attributes: TruthAttributes {
-            science: attr_level(exp[0]),
-            engineering: attr_level(exp[1]),
-            creation: attr_level(exp[2]),
-            finance: attr_level(exp[3]),
+            science: state.attributes.science,
+            engineering: state.attributes.engineering,
+            creation: state.attributes.creation,
+            finance: state.attributes.finance,
         },
         attribute_exp: TruthAttributes {
-            science: exp[0],
-            engineering: exp[1],
-            creation: exp[2],
-            finance: exp[3],
+            science: state.attribute_exp.science,
+            engineering: state.attribute_exp.engineering,
+            creation: state.attribute_exp.creation,
+            finance: state.attribute_exp.finance,
         },
         last_settlement: super::unix_now_ms()?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_truth_state_delegates_rules_to_kernel() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE study_sessions (note_id TEXT NOT NULL, active_secs INTEGER NOT NULL);
+             INSERT INTO study_sessions (note_id, active_secs) VALUES
+             ('lab.csv', 120),
+             ('code.rs', 3600),
+             ('molecule.mol', 3000),
+             ('ledger.base', 6000);",
+        )
+        .unwrap();
+
+        let state = query_truth_state(&conn).unwrap();
+
+        assert_eq!(state.level, 2);
+        assert_eq!(state.total_exp, 112);
+        assert_eq!(state.next_level_exp, 150);
+        assert_eq!(state.attribute_exp.science, 2);
+        assert_eq!(state.attribute_exp.engineering, 60);
+        assert_eq!(state.attribute_exp.creation, 50);
+        assert_eq!(state.attribute_exp.finance, 100);
+        assert_eq!(state.attributes.science, 1);
+        assert_eq!(state.attributes.engineering, 2);
+        assert_eq!(state.attributes.creation, 2);
+        assert_eq!(state.attributes.finance, 3);
+    }
 }

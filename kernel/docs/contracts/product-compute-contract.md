@@ -17,6 +17,7 @@ Current surface:
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
+- `kernel_compute_truth_state_from_activity(activities, activity_count, out_state)`
 
 Current exclusions:
 
@@ -37,6 +38,8 @@ Frozen rules:
   selection, and context length limits
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
+- the kernel owns study truth attribute routing, active-seconds to EXP
+  conversion, level progression, and attribute level progression
 - returned awards and strings are kernel-owned until released with
   `kernel_free_truth_diff_result(...)`
 - returned semantic context bytes are kernel-owned until released with
@@ -87,6 +90,8 @@ Frozen rules:
 - hosts must not reimplement semantic context extraction rules
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
+- hosts must not reimplement study truth EXP curves or note-extension to
+  attribute routing
 - Rust hosts must not retain product compute C ABI mirror structs or unsafe
   result-copy loops for truth diff awards or semantic context buffers
 - hosts may map `KERNEL_TRUTH_AWARD_REASON_*` to localized reason strings
@@ -117,3 +122,24 @@ Frozen rules:
 - `kernel_get_rag_context_per_note_char_limit(...) = 1500`
 - `kernel_get_embedding_text_char_limit(...) = 2000`
 - null output pointers are invalid
+
+## Study Truth State
+
+Frozen rules:
+
+- study truth input is a handle-free list of `(note_id, active_secs)` activity
+  rows
+- note extension routing matches truth diff extension routing:
+  - `jdx`, `csv` -> `science`
+  - engineering source extensions -> `engineering`
+  - `mol`, `chemdraw` -> `creation`
+  - `dashboard`, `base` -> `finance`
+  - everything else -> `creation`
+- `1 EXP = floor(active_secs / 60)`
+- total level starts at `1`
+- next-level EXP requirement is `floor(100 * 1.5^(level - 1))`
+- attribute level is `min(99, 1 + attribute_exp / 50)`
+- hosts may aggregate activity rows from SQLite and add localized timestamps,
+  but must call `kernel_compute_truth_state_from_activity(...)` for the rules
+- null non-empty activity buffers, null note ids, and null output pointers are
+  invalid

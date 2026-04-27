@@ -238,6 +238,13 @@ extern "C" {
         out_chars: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_compute_truth_state_json(
+        note_ids_utf8: *const *const c_char,
+        active_secs: *const i64,
+        activity_count: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_generate_mock_retrosynthesis_json(
         target_smiles_utf8: *const c_char,
         depth: u8,
@@ -442,6 +449,24 @@ pub struct SealedKernelTruthAward {
 #[derive(Deserialize)]
 struct SealedKernelTruthDiffResult {
     awards: Vec<SealedKernelTruthAward>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SealedKernelTruthAttributes {
+    pub science: i64,
+    pub engineering: i64,
+    pub creation: i64,
+    pub finance: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SealedKernelTruthState {
+    pub level: i64,
+    pub total_exp: i64,
+    pub next_level_exp: i64,
+    pub attributes: SealedKernelTruthAttributes,
+    pub attribute_exp: SealedKernelTruthAttributes,
 }
 
 #[derive(Debug, Clone)]
@@ -1624,6 +1649,45 @@ pub fn embedding_text_char_limit() -> AppResult<usize> {
     )
 }
 
+pub fn compute_truth_state_from_activity(
+    activities: &[(String, i64)],
+) -> AppResult<SealedKernelTruthState> {
+    let note_ids: Vec<CString> = activities
+        .iter()
+        .map(|(note_id, _)| {
+            CString::new(note_id.as_str()).map_err(|_| {
+                AppError::Custom("Truth state note id contains an invalid NUL byte.".to_string())
+            })
+        })
+        .collect::<AppResult<Vec<_>>>()?;
+    let note_ptrs: Vec<*const c_char> = note_ids.iter().map(|value| value.as_ptr()).collect();
+    let active_secs: Vec<i64> = activities.iter().map(|(_, secs)| *secs).collect();
+
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_compute_truth_state_json(
+            note_ptrs.as_ptr(),
+            active_secs.as_ptr(),
+            activities.len() as u64,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_compute_truth_state",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!("sealed kernel truth state JSON is invalid: {err}"))
+    })
+}
+
 pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
     let extension_c = cstring_arg(extension.to_string(), "extension")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
@@ -2502,6 +2566,29 @@ mod tests {
         assert_eq!(semantic_context_min_bytes().unwrap(), 24);
         assert_eq!(rag_context_per_note_char_limit().unwrap(), 1500);
         assert_eq!(embedding_text_char_limit().unwrap(), 2000);
+    }
+
+    #[test]
+    fn compute_truth_state_uses_kernel_activity_rules() {
+        let state = compute_truth_state_from_activity(&[
+            ("lab.csv".to_string(), 120),
+            ("code.rs".to_string(), 3600),
+            ("molecule.mol".to_string(), 3000),
+            ("ledger.base".to_string(), 6000),
+        ])
+        .unwrap();
+
+        assert_eq!(state.level, 2);
+        assert_eq!(state.total_exp, 112);
+        assert_eq!(state.next_level_exp, 150);
+        assert_eq!(state.attribute_exp.science, 2);
+        assert_eq!(state.attribute_exp.engineering, 60);
+        assert_eq!(state.attribute_exp.creation, 50);
+        assert_eq!(state.attribute_exp.finance, 100);
+        assert_eq!(state.attributes.science, 1);
+        assert_eq!(state.attributes.engineering, 2);
+        assert_eq!(state.attributes.creation, 2);
+        assert_eq!(state.attributes.finance, 3);
     }
 
     #[test]
