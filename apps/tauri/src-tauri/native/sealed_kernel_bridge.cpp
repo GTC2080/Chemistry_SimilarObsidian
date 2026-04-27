@@ -527,6 +527,23 @@ bool ValidateRetroTreeJsonInput(const kernel_retro_tree& tree, std::string& erro
   return true;
 }
 
+bool ValidateKineticsJsonInput(
+    const kernel_polymerization_kinetics_result& result,
+    std::string& error) {
+  if (result.count == 0) {
+    error = "empty_result";
+    return false;
+  }
+  if (result.time == nullptr ||
+      result.conversion == nullptr ||
+      result.mn == nullptr ||
+      result.pdi == nullptr) {
+    error = "invalid_payload";
+    return false;
+  }
+  return true;
+}
+
 void AppendDoubleArrayJson(std::string& json, const double* values, const size_t count) {
   json += "[";
   for (size_t index = 0; index < count; ++index) {
@@ -595,6 +612,20 @@ void AppendRetroTreeJson(std::string& json, const kernel_retro_tree& tree) {
     AppendRetroPathwayJson(json, tree.pathways[index]);
   }
   json += "]}";
+}
+
+void AppendKineticsJson(
+    std::string& json,
+    const kernel_polymerization_kinetics_result& result) {
+  json += "{\"time\":";
+  AppendDoubleArrayJson(json, result.time, result.count);
+  json += ",\"conversion\":";
+  AppendDoubleArrayJson(json, result.conversion, result.count);
+  json += ",\"mn\":";
+  AppendDoubleArrayJson(json, result.mn, result.count);
+  json += ",\"pdi\":";
+  AppendDoubleArrayJson(json, result.pdi, result.count);
+  json += "}";
 }
 
 void AppendVec3Json(std::string& json, const double values[3]) {
@@ -1575,6 +1606,64 @@ int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
   std::string json;
   AppendRetroTreeJson(json, tree);
   kernel_free_retro_tree(&tree);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_simulate_polymerization_kinetics_json(
+    double m0,
+    double i0,
+    double cta0,
+    double kd,
+    double kp,
+    double kt,
+    double ktr,
+    double time_max,
+    uint64_t steps,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_polymerization_kinetics_params params{
+      m0,
+      i0,
+      cta0,
+      kd,
+      kp,
+      kt,
+      ktr,
+      time_max,
+      static_cast<size_t>(steps)};
+  kernel_polymerization_kinetics_result result{};
+  const kernel_status status = kernel_simulate_polymerization_kinetics(&params, &result);
+  if (status.code != KERNEL_OK) {
+    SetError(
+        out_error,
+        status.code == KERNEL_ERROR_INVALID_ARGUMENT ? "invalid_argument" : "kinetics_failed");
+    kernel_free_polymerization_kinetics_result(&result);
+    return static_cast<int32_t>(status.code);
+  }
+
+  std::string validation_error;
+  if (!ValidateKineticsJsonInput(result, validation_error)) {
+    SetError(out_error, validation_error);
+    kernel_free_polymerization_kinetics_result(&result);
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  std::string json;
+  AppendKineticsJson(json, result);
+  kernel_free_polymerization_kinetics_result(&result);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

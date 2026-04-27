@@ -146,6 +146,19 @@ int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_simulate_polymerization_kinetics_json(
+    double m0,
+    double i0,
+    double cta0,
+    double kd,
+    double kp,
+    double kt,
+    double ktr,
+    double time_max,
+    uint64_t steps,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_build_molecular_preview_json(
     const char* raw_utf8,
     uint64_t raw_size,

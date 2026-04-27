@@ -33,6 +33,8 @@ The repository must retain regression coverage for:
 - invalid physical parameters return `KERNEL_ERROR_INVALID_ARGUMENT`
 - invalid calls clear stale kernel-owned output before returning
 - `kernel_free_polymerization_kinetics_result(...)` is idempotent and leaves the result empty
+- Tauri sealed bridge serializes polymerization-kinetics kernel results to JSON
+  without retaining Rust-owned kinetics C ABI structs or result-copy loops
 - `kernel_recalculate_stoichiometry(...)` uses the first marked reference row
 - `kernel_recalculate_stoichiometry(...)` defaults row `0` as reference when no
   row is marked

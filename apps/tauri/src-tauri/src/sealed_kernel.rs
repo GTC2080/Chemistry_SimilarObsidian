@@ -11,6 +11,7 @@ use tauri::State;
 
 use crate::chem_api::RetroTreeData;
 use crate::crystal::{LatticeData, MillerPlaneData};
+use crate::kinetics::{KineticsParams, KineticsResult};
 use crate::models::{
     EnrichedGraphData, FileTreeNode, GraphData, MolecularPreview, NoteInfo, SpectroscopyData,
     TagInfo, TagTreeNode,
@@ -162,6 +163,19 @@ extern "C" {
     fn sealed_kernel_bridge_generate_mock_retrosynthesis_json(
         target_smiles_utf8: *const c_char,
         depth: u8,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_simulate_polymerization_kinetics_json(
+        m0: f64,
+        i0: f64,
+        cta0: f64,
+        kd: f64,
+        kp: f64,
+        kt: f64,
+        ktr: f64,
+        time_max: f64,
+        steps: u64,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -1090,6 +1104,18 @@ fn retrosynthesis_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError 
     AppError::Custom(message)
 }
 
+fn kinetics_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "invalid_argument" => "聚合动力学参数无效".to_string(),
+        "empty_result" | "invalid_payload" | "kinetics_failed" => {
+            "聚合动力学内核计算失败".to_string()
+        }
+        _ => format!("sealed bridge kinetics failed with kernel status {code}."),
+    };
+    AppError::Custom(message)
+}
+
 fn symmetry_bridge_error(
     format: &str,
     max_atoms: usize,
@@ -1214,6 +1240,33 @@ pub fn generate_mock_retrosynthesis(target_smiles: &str, depth: u8) -> AppResult
             "sealed kernel retrosynthesis JSON is invalid: {err}"
         ))
     })
+}
+
+pub fn simulate_polymerization_kinetics(params: KineticsParams) -> AppResult<KineticsResult> {
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_simulate_polymerization_kinetics_json(
+            params.m0,
+            params.i0,
+            params.cta0,
+            params.kd,
+            params.kp,
+            params.kt,
+            params.ktr,
+            params.time_max,
+            params.steps as u64,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(kinetics_bridge_error(code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value)
+        .map_err(|err| AppError::Custom(format!("sealed kernel kinetics JSON is invalid: {err}")))
 }
 
 pub fn build_molecular_preview_from_text(
@@ -1729,6 +1782,48 @@ mod tests {
         let err = generate_mock_retrosynthesis("   ", 2).expect_err("empty target");
 
         assert_eq!(err.to_string(), "请输入目标分子 SMILES");
+    }
+
+    fn default_kinetics_params() -> KineticsParams {
+        KineticsParams {
+            m0: 1.0,
+            i0: 0.01,
+            cta0: 0.001,
+            kd: 0.001,
+            kp: 100.0,
+            kt: 1000.0,
+            ktr: 0.1,
+            time_max: 3600.0,
+            steps: 120,
+        }
+    }
+
+    #[test]
+    fn simulate_polymerization_kinetics_uses_sealed_bridge_series() {
+        let params = default_kinetics_params();
+        let result =
+            simulate_polymerization_kinetics(params.clone()).expect("sealed bridge kinetics");
+
+        assert_eq!(result.time.len(), params.steps + 1);
+        assert_eq!(result.conversion.len(), result.time.len());
+        assert_eq!(result.mn.len(), result.time.len());
+        assert_eq!(result.pdi.len(), result.time.len());
+        assert_eq!(result.time[0], 0.0);
+        assert!((result.time[result.time.len() - 1] - params.time_max).abs() < 1.0e-9);
+        assert!(result
+            .pdi
+            .iter()
+            .all(|value| value.is_finite() && *value >= 1.0));
+    }
+
+    #[test]
+    fn simulate_polymerization_kinetics_maps_invalid_argument() {
+        let mut params = default_kinetics_params();
+        params.m0 = 0.0;
+
+        let err = simulate_polymerization_kinetics(params).expect_err("invalid kinetics params");
+
+        assert_eq!(err.to_string(), "聚合动力学参数无效");
     }
 
     #[test]
