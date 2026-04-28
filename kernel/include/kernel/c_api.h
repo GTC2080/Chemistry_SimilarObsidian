@@ -206,6 +206,14 @@ kernel_status kernel_normalize_ai_embedding_text(
     const char* text,
     size_t text_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_compute_ai_embedding_cache_key(
+    const char* base_url,
+    size_t base_url_size,
+    const char* model,
+    size_t model_size,
+    const char* text,
+    size_t text_size,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_build_ai_rag_context(
     const char* const* note_names,
     const size_t* note_name_sizes,

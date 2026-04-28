@@ -94,8 +94,16 @@ The repository must retain regression coverage for:
   input after truncation
 - `kernel_normalize_ai_embedding_text(...)` rejects null non-empty input
   buffers and null output pointers
+- `kernel_compute_ai_embedding_cache_key(...)` returns a stable 16-hex key for
+  `(base_url, model, normalized text)`
+- `kernel_compute_ai_embedding_cache_key(...)` changes when normalized text
+  changes
+- `kernel_compute_ai_embedding_cache_key(...)` rejects null non-empty input
+  buffers and null output pointers
 - Tauri Rust AI code delegates embedding input normalization to the sealed
   bridge instead of calling `chars().take(...)` locally
+- Tauri Rust AI code delegates embedding cache-key derivation to the sealed
+  bridge instead of using Rust `DefaultHasher`
 
 ## AI Prompt Shape
 

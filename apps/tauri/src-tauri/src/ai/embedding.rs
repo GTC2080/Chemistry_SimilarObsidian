@@ -84,19 +84,14 @@ fn normalize_embedding_text(text: &str) -> Result<String, String> {
     sealed_kernel::normalize_ai_embedding_text(text).map_err(|err| err.to_string())
 }
 
-fn embedding_cache_key(text: &str, config: &AiConfig) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
+fn embedding_cache_key(text: &str, config: &AiConfig) -> Result<String, String> {
     let base_url = if config.embedding_base_url.is_empty() {
         &config.base_url
     } else {
         &config.embedding_base_url
     };
-    let mut h = DefaultHasher::new();
-    base_url.hash(&mut h);
-    config.embedding_model.hash(&mut h);
-    text.hash(&mut h);
-    format!("{:016x}", h.finish())
+    sealed_kernel::compute_ai_embedding_cache_key(base_url, &config.embedding_model, text)
+        .map_err(|err| err.to_string())
 }
 
 fn get_cached_embedding(
@@ -204,7 +199,7 @@ pub async fn fetch_embedding_cached(
     runtime: &EmbeddingRuntimeState,
 ) -> Result<Vec<f32>, String> {
     let normalized = normalize_embedding_text(text)?;
-    let cache_key = embedding_cache_key(&normalized, config);
+    let cache_key = embedding_cache_key(&normalized, config)?;
 
     if let Some(cached) = get_cached_embedding(runtime, &cache_key)? {
         return Ok(cached);

@@ -256,6 +256,16 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_compute_ai_embedding_cache_key(
+        base_url_utf8: *const c_char,
+        base_url_size: u64,
+        model_utf8: *const c_char,
+        model_size: u64,
+        text_utf8: *const c_char,
+        text_size: u64,
+        out_key: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_build_ai_rag_system_content_text(
         context_utf8: *const c_char,
         context_size: u64,
@@ -1817,6 +1827,35 @@ pub fn normalize_ai_embedding_text(text: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
+pub fn compute_ai_embedding_cache_key(
+    base_url: &str,
+    model: &str,
+    text: &str,
+) -> AppResult<String> {
+    let mut raw_key: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_compute_ai_embedding_cache_key(
+            base_url.as_ptr() as *const c_char,
+            base_url.len() as u64,
+            model.as_ptr() as *const c_char,
+            model.len() as u64,
+            text.as_ptr() as *const c_char,
+            text.len() as u64,
+            &mut raw_key,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_compute_ai_embedding_cache_key",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_key))
+}
+
 pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -2989,6 +3028,22 @@ mod tests {
 
         let err = normalize_ai_embedding_text(" \t\n").expect_err("empty embedding input");
         assert_eq!(err.to_string(), "文本内容为空，跳过向量化");
+    }
+
+    #[test]
+    fn ai_embedding_cache_key_comes_from_kernel() {
+        let key = compute_ai_embedding_cache_key(
+            "https://api.example.test",
+            "embed-small",
+            "normalized text",
+        )
+        .unwrap();
+        assert_eq!(key, "098c1904d3c511cf");
+        assert_ne!(
+            key,
+            compute_ai_embedding_cache_key("https://api.example.test", "embed-small", "other text")
+                .unwrap()
+        );
     }
 
     #[test]

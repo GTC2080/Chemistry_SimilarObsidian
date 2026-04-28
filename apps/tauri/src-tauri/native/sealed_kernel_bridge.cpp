@@ -2130,6 +2130,43 @@ int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
   return CopyKernelOwnedText(buffer, out_text, out_error);
 }
 
+int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
+    const char* base_url_utf8,
+    uint64_t base_url_size,
+    const char* model_utf8,
+    uint64_t model_size,
+    const char* text_utf8,
+    uint64_t text_size,
+    char** out_key,
+    char** out_error) {
+  if (out_key != nullptr) {
+    *out_key = nullptr;
+  }
+  if (
+      out_key == nullptr || (base_url_size > 0 && base_url_utf8 == nullptr) ||
+      (model_size > 0 && model_utf8 == nullptr) ||
+      (text_size > 0 && text_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_compute_ai_embedding_cache_key(
+      base_url_utf8,
+      static_cast<size_t>(base_url_size),
+      model_utf8,
+      static_cast<size_t>(model_size),
+      text_utf8,
+      static_cast<size_t>(text_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_compute_ai_embedding_cache_key", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_key, out_error);
+}
+
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
     const char* context_utf8,
     uint64_t context_size,

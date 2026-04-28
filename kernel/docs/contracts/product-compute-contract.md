@@ -24,6 +24,7 @@ Current surface:
 - `kernel_get_ai_embedding_cache_limit(out_limit)`
 - `kernel_get_ai_embedding_concurrency_limit(out_limit)`
 - `kernel_normalize_ai_embedding_text(text, text_size, out_buffer)`
+- `kernel_compute_ai_embedding_cache_key(base_url, base_url_size, model, model_size, text, text_size, out_buffer)`
 - `kernel_build_ai_rag_context(note_names, note_name_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
 - `kernel_build_ai_rag_system_content(context, context_size, out_buffer)`
 - `kernel_get_ai_ponder_system_prompt(out_buffer)`
@@ -58,7 +59,7 @@ Frozen rules:
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
   request timeout, embedding cache size, and embedding concurrency
 - the kernel owns AI embedding input normalization, Unicode character
-  truncation, and empty-after-truncation rejection
+  truncation, empty-after-truncation rejection, and cache-key derivation
 - the kernel owns AI RAG note context formatting, note numbering, note
   separators, and per-note Unicode character truncation
 - the kernel owns AI RAG system prompt composition, Ponder system prompt,
@@ -123,7 +124,8 @@ Frozen rules:
 - hosts must not reimplement semantic context extraction rules
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
-- hosts must not reimplement embedding input truncation or empty-text checks
+- hosts must not reimplement embedding input truncation, empty-text checks, or
+  embedding cache-key derivation
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache, or
   concurrency defaults
 - hosts must not hard-code AI RAG note context headers, note numbering,
@@ -183,6 +185,11 @@ Frozen rules:
   shape after truncation; it does not trim returned text
 - `kernel_normalize_ai_embedding_text(...)` rejects input that is empty or only
   Unicode whitespace after truncation
+- `kernel_compute_ai_embedding_cache_key(...)` returns a stable
+  16-hex-character key for `(base_url, model, normalized text)`
+- `kernel_compute_ai_embedding_cache_key(...)` field-separates base URL, model,
+  and normalized text before hashing so adjacent field concatenation cannot
+  collide
 - null non-empty input buffers and null output pointers are invalid
 
 ## AI Prompt Shape

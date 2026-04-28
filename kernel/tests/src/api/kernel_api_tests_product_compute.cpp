@@ -339,6 +339,67 @@ void test_ai_embedding_text_normalization_is_kernel_owned() {
       "embedding text normalization should reject null output");
 }
 
+void test_ai_embedding_cache_key_is_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string base_url = "https://api.example.test";
+  const std::string model = "embed-small";
+  const std::string text = "normalized text";
+  require_ok_status(
+      kernel_compute_ai_embedding_cache_key(
+          base_url.data(),
+          base_url.size(),
+          model.data(),
+          model.size(),
+          text.data(),
+          text.size(),
+          &buffer),
+      "AI embedding cache key");
+  const std::string key = buffer_to_string(buffer);
+  require_true(key.size() == 16, "embedding cache key should be a 64-bit hex string");
+  require_true(key == "098c1904d3c511cf", "embedding cache key should be stable");
+  kernel_free_buffer(&buffer);
+
+  const std::string other_text = "other text";
+  require_ok_status(
+      kernel_compute_ai_embedding_cache_key(
+          base_url.data(),
+          base_url.size(),
+          model.data(),
+          model.size(),
+          other_text.data(),
+          other_text.size(),
+          &buffer),
+      "AI embedding cache key changed text");
+  require_true(
+      buffer_to_string(buffer) != key,
+      "embedding cache key should change when normalized text changes");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_compute_ai_embedding_cache_key(
+          nullptr,
+          1,
+          model.data(),
+          model.size(),
+          text.data(),
+          text.size(),
+          &buffer)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding cache key should reject null non-empty base URL");
+  require_true(
+      kernel_compute_ai_embedding_cache_key(
+          base_url.data(),
+          base_url.size(),
+          model.data(),
+          model.size(),
+          text.data(),
+          text.size(),
+          nullptr)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding cache key should reject null output");
+}
+
 void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -699,6 +760,7 @@ void run_product_compute_tests() {
   test_product_text_limits_are_kernel_owned();
   test_ai_host_runtime_defaults_are_kernel_owned();
   test_ai_embedding_text_normalization_is_kernel_owned();
+  test_ai_embedding_cache_key_is_kernel_owned();
   test_ai_rag_context_shape_and_truncation_are_kernel_owned();
   test_ai_prompt_shapes_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();

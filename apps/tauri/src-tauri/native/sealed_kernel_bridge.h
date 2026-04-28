@@ -238,6 +238,16 @@ int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
     char** out_text,
     char** out_error);
 
+int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
+    const char* base_url_utf8,
+    uint64_t base_url_size,
+    const char* model_utf8,
+    uint64_t model_size,
+    const char* text_utf8,
+    uint64_t text_size,
+    char** out_key,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
     const char* context_utf8,
     uint64_t context_size,

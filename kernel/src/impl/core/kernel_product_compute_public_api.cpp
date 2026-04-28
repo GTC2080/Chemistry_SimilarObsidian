@@ -33,6 +33,8 @@ constexpr std::size_t kAiPonderTimeoutSecs = 60;
 constexpr std::size_t kAiEmbeddingRequestTimeoutSecs = 30;
 constexpr std::size_t kAiEmbeddingCacheLimit = 64;
 constexpr std::size_t kAiEmbeddingConcurrencyLimit = 4;
+constexpr std::uint64_t kFnv1a64Offset = 14695981039346656037ull;
+constexpr std::uint64_t kFnv1a64Prime = 1099511628211ull;
 constexpr float kAiPonderTemperature = 0.7F;
 constexpr double kStudySecsPerExp = 60.0;
 constexpr double kStudyBaseExp = 100.0;
@@ -525,6 +527,41 @@ std::string normalize_ai_embedding_text(std::string_view text) {
   return std::string(text.substr(0, truncated_size));
 }
 
+void fnv1a_append(std::uint64_t& hash, std::string_view value) {
+  for (const unsigned char ch : value) {
+    hash ^= static_cast<std::uint64_t>(ch);
+    hash *= kFnv1a64Prime;
+  }
+}
+
+void fnv1a_append_separator(std::uint64_t& hash) {
+  hash ^= 0xFFU;
+  hash *= kFnv1a64Prime;
+}
+
+std::string hex_u64(std::uint64_t value) {
+  char buffer[17]{};
+  std::snprintf(
+      buffer,
+      sizeof(buffer),
+      "%016llx",
+      static_cast<unsigned long long>(value));
+  return std::string(buffer);
+}
+
+std::string compute_ai_embedding_cache_key(
+    std::string_view base_url,
+    std::string_view model,
+    std::string_view text) {
+  std::uint64_t hash = kFnv1a64Offset;
+  fnv1a_append(hash, base_url);
+  fnv1a_append_separator(hash);
+  fnv1a_append(hash, model);
+  fnv1a_append_separator(hash);
+  fnv1a_append(hash, text);
+  return hex_u64(hash);
+}
+
 std::string build_ai_rag_context(
     const char* const* note_names,
     const std::size_t* note_name_sizes,
@@ -852,6 +889,35 @@ extern "C" kernel_status kernel_normalize_ai_embedding_text(
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
   if (!fill_owned_buffer(normalized, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_compute_ai_embedding_cache_key(
+    const char* base_url,
+    const std::size_t base_url_size,
+    const char* model,
+    const std::size_t model_size,
+    const char* text,
+    const std::size_t text_size,
+    kernel_owned_buffer* out_buffer) {
+  if (
+      out_buffer == nullptr || (base_url_size > 0 && base_url == nullptr) ||
+      (model_size > 0 && model == nullptr) || (text_size > 0 && text == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view base_url_view(base_url == nullptr ? "" : base_url, base_url_size);
+  const std::string_view model_view(model == nullptr ? "" : model, model_size);
+  const std::string_view text_view(text == nullptr ? "" : text, text_size);
+  const std::string key = compute_ai_embedding_cache_key(
+      base_url_view,
+      model_view,
+      text_view);
+  if (!fill_owned_buffer(key, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);
