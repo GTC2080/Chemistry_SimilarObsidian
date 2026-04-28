@@ -23,6 +23,7 @@ Current surface:
 - `kernel_get_ai_embedding_request_timeout_secs(out_secs)`
 - `kernel_get_ai_embedding_cache_limit(out_limit)`
 - `kernel_get_ai_embedding_concurrency_limit(out_limit)`
+- `kernel_get_ai_rag_top_note_limit(out_limit)`
 - `kernel_normalize_ai_embedding_text(text, text_size, out_buffer)`
 - `kernel_compute_ai_embedding_cache_key(base_url, base_url_size, model, model_size, text, text_size, out_buffer)`
 - `kernel_build_ai_rag_context(note_names, note_name_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
@@ -57,7 +58,8 @@ Frozen rules:
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
-  request timeout, embedding cache size, and embedding concurrency
+  request timeout, embedding cache size, embedding concurrency, and RAG top-note
+  count
 - the kernel owns AI embedding input normalization, Unicode character
   truncation, empty-after-truncation rejection, and cache-key derivation
 - the kernel owns AI RAG note context formatting, note numbering, note
@@ -126,8 +128,8 @@ Frozen rules:
   embedding input text limits
 - hosts must not reimplement embedding input truncation, empty-text checks, or
   embedding cache-key derivation
-- hosts must not hard-code AI chat, ponder, embedding timeout, cache, or
-  concurrency defaults
+- hosts must not hard-code AI chat, ponder, embedding timeout, cache,
+  concurrency, or RAG top-note defaults
 - hosts must not hard-code AI RAG note context headers, note numbering,
   separators, or per-note truncation behavior
 - hosts must not hard-code AI RAG/Ponder prompt text, Ponder user prompt shape,
@@ -173,6 +175,7 @@ Frozen rules:
 - `kernel_get_ai_embedding_request_timeout_secs(...) = 30`
 - `kernel_get_ai_embedding_cache_limit(...) = 64`
 - `kernel_get_ai_embedding_concurrency_limit(...) = 4`
+- `kernel_get_ai_rag_top_note_limit(...) = 5`
 - null output pointers are invalid
 
 ## AI Embedding Input

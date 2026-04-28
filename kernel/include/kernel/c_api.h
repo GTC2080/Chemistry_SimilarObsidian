@@ -202,6 +202,7 @@ kernel_status kernel_get_ai_ponder_timeout_secs(size_t* out_secs);
 kernel_status kernel_get_ai_embedding_request_timeout_secs(size_t* out_secs);
 kernel_status kernel_get_ai_embedding_cache_limit(size_t* out_limit);
 kernel_status kernel_get_ai_embedding_concurrency_limit(size_t* out_limit);
+kernel_status kernel_get_ai_rag_top_note_limit(size_t* out_limit);
 kernel_status kernel_normalize_ai_embedding_text(
     const char* text,
     size_t text_size,

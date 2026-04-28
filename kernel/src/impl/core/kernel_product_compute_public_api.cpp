@@ -33,6 +33,7 @@ constexpr std::size_t kAiPonderTimeoutSecs = 60;
 constexpr std::size_t kAiEmbeddingRequestTimeoutSecs = 30;
 constexpr std::size_t kAiEmbeddingCacheLimit = 64;
 constexpr std::size_t kAiEmbeddingConcurrencyLimit = 4;
+constexpr std::size_t kAiRagTopNoteLimit = 5;
 constexpr std::uint64_t kFnv1a64Offset = 14695981039346656037ull;
 constexpr std::uint64_t kFnv1a64Prime = 1099511628211ull;
 constexpr float kAiPonderTemperature = 0.7F;
@@ -871,6 +872,10 @@ extern "C" kernel_status kernel_get_ai_embedding_cache_limit(std::size_t* out_li
 
 extern "C" kernel_status kernel_get_ai_embedding_concurrency_limit(std::size_t* out_limit) {
   return write_size_limit(kAiEmbeddingConcurrencyLimit, out_limit);
+}
+
+extern "C" kernel_status kernel_get_ai_rag_top_note_limit(std::size_t* out_limit) {
+  return write_size_limit(kAiRagTopNoteLimit, out_limit);
 }
 
 extern "C" kernel_status kernel_normalize_ai_embedding_text(

@@ -232,6 +232,10 @@ int32_t sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
     uint64_t* out_limit,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_ai_rag_top_note_limit(
+    uint64_t* out_limit,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
     const char* text_utf8,
     uint64_t text_size,

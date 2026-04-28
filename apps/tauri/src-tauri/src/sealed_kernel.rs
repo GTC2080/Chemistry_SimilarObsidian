@@ -250,6 +250,10 @@ extern "C" {
         out_limit: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_rag_top_note_limit(
+        out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_normalize_ai_embedding_text(
         text_utf8: *const c_char,
         text_size: u64,
@@ -1810,6 +1814,13 @@ pub fn ai_embedding_concurrency_limit() -> AppResult<usize> {
     )
 }
 
+pub fn ai_rag_top_note_limit() -> AppResult<usize> {
+    kernel_default_usize_limit(
+        "sealed_kernel_get_ai_rag_top_note_limit",
+        sealed_kernel_bridge_get_ai_rag_top_note_limit,
+    )
+}
+
 pub fn normalize_ai_embedding_text(text: &str) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -2994,6 +3005,7 @@ mod tests {
         assert_eq!(ai_embedding_request_timeout_secs().unwrap(), 30);
         assert_eq!(ai_embedding_cache_limit().unwrap(), 64);
         assert_eq!(ai_embedding_concurrency_limit().unwrap(), 4);
+        assert_eq!(ai_rag_top_note_limit().unwrap(), 5);
     }
 
     #[test]

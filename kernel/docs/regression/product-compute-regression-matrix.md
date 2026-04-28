@@ -73,14 +73,15 @@ The repository must retain regression coverage for:
 - `kernel_get_ai_embedding_request_timeout_secs(...)` returns `30`
 - `kernel_get_ai_embedding_cache_limit(...)` returns `64`
 - `kernel_get_ai_embedding_concurrency_limit(...)` returns `4`
+- `kernel_get_ai_rag_top_note_limit(...)` returns `5`
 - all product text limit getters reject null output pointers
 - Tauri Rust queries semantic text limits through the sealed bridge and relies
   on `kernel_normalize_ai_embedding_text(...)` /
   `kernel_build_ai_rag_context(...)` for embedding and RAG text limits instead
   of keeping duplicate product text constants
-- Tauri Rust AI code queries chat, ponder, embedding timeout, cache, and
-  concurrency defaults through the sealed bridge instead of keeping duplicate
-  runtime constants
+- Tauri Rust AI code queries chat, ponder, embedding timeout, cache,
+  concurrency, and RAG top-note defaults through the sealed bridge instead of
+  keeping duplicate runtime constants
 
 ## AI Embedding Input
 

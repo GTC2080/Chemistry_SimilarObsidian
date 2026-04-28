@@ -292,6 +292,12 @@ void test_ai_host_runtime_defaults_are_kernel_owned() {
       kernel_get_ai_embedding_concurrency_limit(nullptr).code ==
           KERNEL_ERROR_INVALID_ARGUMENT,
       "AI embedding concurrency limit should reject null output");
+
+  require_ok_status(kernel_get_ai_rag_top_note_limit(&value), "AI RAG top note limit");
+  require_true(value == 5, "AI RAG top note limit should come from kernel");
+  require_true(
+      kernel_get_ai_rag_top_note_limit(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "AI RAG top note limit should reject null output");
 }
 
 void test_ai_embedding_text_normalization_is_kernel_owned() {

@@ -80,7 +80,12 @@ pub async fn ask_vault(
 
     let top_notes = {
         let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        vector_cache.top_k(&query_embedding, 5, active_note_id.as_deref(), &conn)?
+        vector_cache.top_k(
+            &query_embedding,
+            sealed_kernel::ai_rag_top_note_limit()?,
+            active_note_id.as_deref(),
+            &conn,
+        )?
     };
 
     let related_ids = top_notes.iter().map(|note| note.id.clone());
