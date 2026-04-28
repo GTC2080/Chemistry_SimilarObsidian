@@ -1422,6 +1422,42 @@ static int32_t KernelDefaultLimit(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+static int32_t CopyKernelOwnedText(
+    kernel_owned_buffer& buffer,
+    char** out_text,
+    char** out_error) {
+  const std::string text = buffer.data == nullptr || buffer.size == 0
+                               ? std::string()
+                               : std::string(buffer.data, buffer.size);
+  kernel_free_buffer(&buffer);
+  *out_text = CopyString(text);
+  if (*out_text == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+static int32_t KernelDefaultFloat(
+    kernel_status (*getter)(float*),
+    const char* operation,
+    float* out_value,
+    char** out_error) {
+  if (out_value == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  float value = 0.0F;
+  const kernel_status status = getter(&value);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, operation, out_error);
+  }
+
+  *out_value = value;
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_get_search_note_default_limit(
     uint64_t* out_limit,
     char** out_error) {
@@ -2080,6 +2116,95 @@ int32_t sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
       kernel_get_ai_embedding_concurrency_limit,
       "kernel_get_ai_embedding_concurrency_limit",
       out_limit,
+      out_error);
+}
+
+int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
+    const char* context_utf8,
+    uint64_t context_size,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (out_text == nullptr || (context_size > 0 && context_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_build_ai_rag_system_content(
+      context_utf8,
+      static_cast<size_t>(context_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_build_ai_rag_system_content", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
+int32_t sealed_kernel_bridge_get_ai_ponder_system_prompt_text(
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (out_text == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_get_ai_ponder_system_prompt(&buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_get_ai_ponder_system_prompt", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
+int32_t sealed_kernel_bridge_build_ai_ponder_user_prompt_text(
+    const char* topic_utf8,
+    uint64_t topic_size,
+    const char* context_utf8,
+    uint64_t context_size,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (
+      out_text == nullptr || (topic_size > 0 && topic_utf8 == nullptr) ||
+      (context_size > 0 && context_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_build_ai_ponder_user_prompt(
+      topic_utf8,
+      static_cast<size_t>(topic_size),
+      context_utf8,
+      static_cast<size_t>(context_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_build_ai_ponder_user_prompt", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
+int32_t sealed_kernel_bridge_get_ai_ponder_temperature(
+    float* out_temperature,
+    char** out_error) {
+  return KernelDefaultFloat(
+      kernel_get_ai_ponder_temperature,
+      "kernel_get_ai_ponder_temperature",
+      out_temperature,
       out_error);
 }
 

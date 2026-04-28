@@ -23,6 +23,10 @@ Current surface:
 - `kernel_get_ai_embedding_request_timeout_secs(out_secs)`
 - `kernel_get_ai_embedding_cache_limit(out_limit)`
 - `kernel_get_ai_embedding_concurrency_limit(out_limit)`
+- `kernel_build_ai_rag_system_content(context, context_size, out_buffer)`
+- `kernel_get_ai_ponder_system_prompt(out_buffer)`
+- `kernel_build_ai_ponder_user_prompt(topic, topic_size, context, context_size, out_buffer)`
+- `kernel_get_ai_ponder_temperature(out_temperature)`
 - `kernel_compute_truth_state_from_activity(activities, activity_count, out_state)`
 - `kernel_compute_study_stats_window(now_epoch_secs, days_back, out_window)`
 - `kernel_compute_study_streak_days(day_buckets, day_count, today_bucket, out_streak_days)`
@@ -51,6 +55,8 @@ Frozen rules:
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
   request timeout, embedding cache size, and embedding concurrency
+- the kernel owns AI RAG system prompt composition, Ponder system prompt,
+  Ponder user prompt shape, and Ponder temperature
 - the kernel owns study truth attribute routing, active-seconds to EXP
   conversion, level progression, and attribute level progression
 - the kernel owns study stats UTC day boundary calculation, week/daily/legacy
@@ -113,6 +119,8 @@ Frozen rules:
   embedding input text limits
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache, or
   concurrency defaults
+- hosts must not hard-code AI RAG/Ponder prompt text, Ponder user prompt shape,
+  or Ponder temperature
 - hosts must not reimplement study truth EXP curves or note-extension to
   attribute routing
 - hosts must not reimplement study stats window or folder ranking limit rules
@@ -155,6 +163,20 @@ Frozen rules:
 - `kernel_get_ai_embedding_cache_limit(...) = 64`
 - `kernel_get_ai_embedding_concurrency_limit(...) = 4`
 - null output pointers are invalid
+
+## AI Prompt Shape
+
+Frozen rules:
+
+- `kernel_build_ai_rag_system_content(...)` prepends the private knowledge-base
+  RAG system prompt, a blank line, the related-note context header, another
+  blank line, then the caller-provided context
+- `kernel_get_ai_ponder_system_prompt(...)` returns the strict JSON-array
+  Ponder system prompt
+- `kernel_build_ai_ponder_user_prompt(...)` returns exactly the topic line,
+  context line, and 3-to-5-node instruction used by the Ponder workflow
+- `kernel_get_ai_ponder_temperature(...) = 0.7`
+- null non-empty prompt buffers and null output pointers are invalid
 
 ## Study Truth State
 

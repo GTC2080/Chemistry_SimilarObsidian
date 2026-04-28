@@ -5,6 +5,7 @@
 
 #include "support/test_support.h"
 
+#include <cmath>
 #include <string>
 #include <string_view>
 
@@ -26,6 +27,11 @@ std::string buffer_to_string(const kernel_owned_buffer& buffer) {
     return {};
   }
   return std::string(buffer.data, buffer.size);
+}
+
+template <std::size_t N>
+std::string utf8_string(const char8_t (&value)[N]) {
+  return std::string(reinterpret_cast<const char*>(value), N - 1);
 }
 
 void test_truth_diff_text_delta_routes_by_extension() {
@@ -288,6 +294,82 @@ void test_ai_host_runtime_defaults_are_kernel_owned() {
       "AI embedding concurrency limit should reject null output");
 }
 
+void test_ai_prompt_shapes_are_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string rag_context = "CTX";
+  require_ok_status(
+      kernel_build_ai_rag_system_content(
+          rag_context.data(),
+          rag_context.size(),
+          &buffer),
+      "AI RAG system content");
+  const std::string rag_system_content = buffer_to_string(buffer);
+  require_true(
+      rag_system_content.find(rag_context) != std::string::npos,
+      "RAG system content should include caller context");
+  require_true(
+      rag_system_content.find(utf8_string(u8"\u4EE5\u4E0B\u662F\u76F8\u5173\u7B14\u8BB0")) !=
+          std::string::npos,
+      "RAG system content should include the kernel-owned context header");
+  kernel_free_buffer(&buffer);
+
+  require_ok_status(kernel_get_ai_ponder_system_prompt(&buffer), "AI ponder system prompt");
+  const std::string ponder_system = buffer_to_string(buffer);
+  require_true(
+      ponder_system.find("JSON") != std::string::npos,
+      "ponder system prompt should preserve strict JSON instruction");
+  require_true(
+      ponder_system.find("Markdown") != std::string::npos,
+      "ponder system prompt should preserve no-Markdown instruction");
+  kernel_free_buffer(&buffer);
+
+  const std::string topic = "Atom";
+  const std::string context = "Bond";
+  require_ok_status(
+      kernel_build_ai_ponder_user_prompt(
+          topic.data(),
+          topic.size(),
+          context.data(),
+          context.size(),
+          &buffer),
+      "AI ponder user prompt");
+  const std::string expected_user_prompt =
+      utf8_string(u8"\u6838\u5FC3\u6982\u5FF5: ") + topic + "\n" +
+      utf8_string(u8"\u4E0A\u4E0B\u6587: ") + context + "\n" +
+      utf8_string(
+          u8"\u8BF7\u751F\u6210 3 \u5230 5 \u4E2A\u5177\u5907\u903B\u8F91"
+          u8"\u9012\u8FDB\u6216\u8865\u5145\u5173\u7CFB\u7684\u5B50\u8282"
+          u8"\u70B9\u3002");
+  require_true(
+      buffer_to_string(buffer) == expected_user_prompt,
+      "ponder user prompt should preserve kernel-owned prompt shape");
+  kernel_free_buffer(&buffer);
+
+  float temperature = 0.0F;
+  require_ok_status(kernel_get_ai_ponder_temperature(&temperature), "AI ponder temperature");
+  require_true(std::fabs(temperature - 0.7F) < 0.0001F, "ponder temperature should come from kernel");
+
+  require_true(
+      kernel_build_ai_rag_system_content(nullptr, 1, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "RAG system content should reject null non-empty context");
+  require_true(
+      kernel_get_ai_ponder_system_prompt(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "ponder system prompt should reject null output");
+  require_true(
+      kernel_build_ai_ponder_user_prompt(nullptr, 1, context.data(), context.size(), &buffer)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "ponder user prompt should reject null non-empty topic");
+  require_true(
+      kernel_build_ai_ponder_user_prompt(topic.data(), topic.size(), nullptr, 1, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "ponder user prompt should reject null non-empty context");
+  require_true(
+      kernel_get_ai_ponder_temperature(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "ponder temperature should reject null output");
+}
+
 void test_truth_state_routes_activity_and_levels() {
   const kernel_study_note_activity activities[] = {
       {"lab.csv", 120},
@@ -495,6 +577,7 @@ void run_product_compute_tests() {
   test_semantic_context_validates_arguments();
   test_product_text_limits_are_kernel_owned();
   test_ai_host_runtime_defaults_are_kernel_owned();
+  test_ai_prompt_shapes_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();
   test_truth_state_validates_arguments();
   test_study_stats_window_computes_legacy_boundaries();

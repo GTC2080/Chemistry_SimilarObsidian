@@ -60,10 +60,6 @@ struct ChatCompletionMessage {
     content: String,
 }
 
-const RAG_SYSTEM_PROMPT: &str =
-    "你是一个私人知识库的极客助手。请严格基于以下提供的上下文回答用户问题。\
-如果上下文中没有答案，请诚实地说明。请在引用相关内容时，在句末使用 [[笔记名称]] 的格式标注出处。";
-
 pub fn build_rag_context(notes: &[(String, String)]) -> Result<String, String> {
     let per_note_chars =
         sealed_kernel::rag_context_per_note_char_limit().map_err(|err| err.to_string())?;
@@ -93,10 +89,8 @@ where
         return Err("未配置 AI API Key，请在设置中填写".to_string());
     }
 
-    let system_content = format!(
-        "{}\n\n以下是相关笔记上下文：\n\n{}",
-        RAG_SYSTEM_PROMPT, context
-    );
+    let system_content =
+        sealed_kernel::build_ai_rag_system_content(context).map_err(|err| err.to_string())?;
 
     let messages = vec![
         ChatMessage {
@@ -184,20 +178,17 @@ pub async fn ponder_node(topic: &str, context: &str, config: &AiConfig) -> Resul
         return Err("未配置 AI API Key，请在设置中填写".to_string());
     }
 
-    let system_prompt = "你是一个逻辑发散引擎。你的任务是围绕核心概念生成可拓展知识图谱的子节点。\
-你必须输出严格 JSON 数组，且数组元素结构固定为 {\"title\":\"...\",\"relation\":\"...\"}。\
-禁止输出 Markdown、代码块、解释性文本、前后缀。";
-    let user_prompt = format!(
-        "核心概念: {}\n上下文: {}\n请生成 3 到 5 个具备逻辑递进或补充关系的子节点。",
-        topic, context
-    );
+    let system_prompt = sealed_kernel::ai_ponder_system_prompt().map_err(|err| err.to_string())?;
+    let user_prompt = sealed_kernel::build_ai_ponder_user_prompt(topic, context)
+        .map_err(|err| err.to_string())?;
+    let temperature = sealed_kernel::ai_ponder_temperature().map_err(|err| err.to_string())?;
 
     let request_body = ChatCompletionRequest {
         model: config.chat_model.clone(),
         messages: vec![
             ChatMessage {
                 role: "system".to_string(),
-                content: system_prompt.to_string(),
+                content: system_prompt,
             },
             ChatMessage {
                 role: "user".to_string(),
@@ -205,7 +196,7 @@ pub async fn ponder_node(topic: &str, context: &str, config: &AiConfig) -> Resul
             },
         ],
         stream: false,
-        temperature: 0.7,
+        temperature,
     };
 
     let timeout_secs = sealed_kernel::ai_ponder_timeout_secs().map_err(|err| err.to_string())?;

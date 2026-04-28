@@ -80,6 +80,22 @@ The repository must retain regression coverage for:
   concurrency defaults through the sealed bridge instead of keeping duplicate
   runtime constants
 
+## AI Prompt Shape
+
+The repository must retain regression coverage for:
+
+- `kernel_build_ai_rag_system_content(...)` preserves the private
+  knowledge-base system prompt plus related-note context header
+- `kernel_get_ai_ponder_system_prompt(...)` preserves the strict JSON-array and
+  no-Markdown instructions
+- `kernel_build_ai_ponder_user_prompt(...)` preserves the topic/context lines
+  and the 3-to-5-node instruction
+- `kernel_get_ai_ponder_temperature(...)` returns `0.7`
+- prompt builders reject null non-empty buffers and null output pointers
+- Tauri Rust AI code queries prompt shapes and Ponder temperature through the
+  sealed bridge instead of keeping duplicate prompt strings or temperature
+  constants
+
 ## Study Truth State
 
 The repository must retain regression coverage for:

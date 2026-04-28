@@ -258,6 +258,28 @@ extern "C" {
         out_limit: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_build_ai_rag_system_content_text(
+        context_utf8: *const c_char,
+        context_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_ponder_system_prompt_text(
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_build_ai_ponder_user_prompt_text(
+        topic_utf8: *const c_char,
+        topic_size: u64,
+        context_utf8: *const c_char,
+        context_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_ai_ponder_temperature(
+        out_temperature: *mut f32,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_compute_truth_state_json(
         note_ids_utf8: *const *const c_char,
         active_secs: *const i64,
@@ -635,6 +657,10 @@ fn semantic_context_bridge_error(code: c_int, raw_error: *mut c_char) -> AppErro
     AppError::Custom(message)
 }
 
+fn product_text_bridge_error(operation: &str, code: c_int, raw_error: *mut c_char) -> AppError {
+    bridge_error(operation, code, raw_error)
+}
+
 fn snapshot_from_raw(raw: SealedKernelBridgeStateSnapshot) -> SealedKernelStateSnapshot {
     SealedKernelStateSnapshot {
         session_state: raw.session_state,
@@ -774,6 +800,19 @@ fn kernel_default_usize_limit(
 ) -> AppResult<usize> {
     let value = kernel_default_limit(operation, getter)?;
     usize::try_from(value).map_err(|_| AppError::Custom(format!("{operation} exceeds host usize.")))
+}
+
+fn kernel_default_f32(
+    operation: &str,
+    getter: unsafe extern "C" fn(*mut f32, *mut *mut c_char) -> c_int,
+) -> AppResult<f32> {
+    let mut value = 0.0f32;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe { getter(&mut value, &mut error) };
+    if code != 0 {
+        return Err(bridge_error(operation, code, error));
+    }
+    Ok(value)
 }
 
 pub fn note_catalog_default_limit() -> AppResult<u64> {
@@ -1753,6 +1792,72 @@ pub fn ai_embedding_concurrency_limit() -> AppResult<usize> {
     kernel_default_usize_limit(
         "sealed_kernel_get_ai_embedding_concurrency_limit",
         sealed_kernel_bridge_get_ai_embedding_concurrency_limit,
+    )
+}
+
+pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_ai_rag_system_content_text(
+            context.as_ptr() as *const c_char,
+            context.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_build_ai_rag_system_content",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
+pub fn ai_ponder_system_prompt() -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code =
+        unsafe { sealed_kernel_bridge_get_ai_ponder_system_prompt_text(&mut raw_text, &mut error) };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_get_ai_ponder_system_prompt",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
+pub fn build_ai_ponder_user_prompt(topic: &str, context: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_ai_ponder_user_prompt_text(
+            topic.as_ptr() as *const c_char,
+            topic.len() as u64,
+            context.as_ptr() as *const c_char,
+            context.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_build_ai_ponder_user_prompt",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
+pub fn ai_ponder_temperature() -> AppResult<f32> {
+    kernel_default_f32(
+        "sealed_kernel_get_ai_ponder_temperature",
+        sealed_kernel_bridge_get_ai_ponder_temperature,
     )
 }
 
@@ -2792,6 +2897,24 @@ mod tests {
         assert_eq!(ai_embedding_request_timeout_secs().unwrap(), 30);
         assert_eq!(ai_embedding_cache_limit().unwrap(), 64);
         assert_eq!(ai_embedding_concurrency_limit().unwrap(), 4);
+    }
+
+    #[test]
+    fn ai_prompt_shapes_come_from_kernel() {
+        let rag_system = build_ai_rag_system_content("上下文").unwrap();
+        assert!(rag_system.contains("你是一个私人知识库的极客助手"));
+        assert!(rag_system.contains("以下是相关笔记上下文"));
+        assert!(rag_system.ends_with("上下文"));
+
+        let ponder_system = ai_ponder_system_prompt().unwrap();
+        assert!(ponder_system.contains("严格 JSON 数组"));
+        assert!(ponder_system.contains("禁止输出 Markdown"));
+
+        assert_eq!(
+            build_ai_ponder_user_prompt("核心", "上下文").unwrap(),
+            "核心概念: 核心\n上下文: 上下文\n请生成 3 到 5 个具备逻辑递进或补充关系的子节点。"
+        );
+        assert!((ai_ponder_temperature().unwrap() - 0.7).abs() < f32::EPSILON);
     }
 
     #[test]

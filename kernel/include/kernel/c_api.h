@@ -202,6 +202,18 @@ kernel_status kernel_get_ai_ponder_timeout_secs(size_t* out_secs);
 kernel_status kernel_get_ai_embedding_request_timeout_secs(size_t* out_secs);
 kernel_status kernel_get_ai_embedding_cache_limit(size_t* out_limit);
 kernel_status kernel_get_ai_embedding_concurrency_limit(size_t* out_limit);
+kernel_status kernel_build_ai_rag_system_content(
+    const char* context,
+    size_t context_size,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_get_ai_ponder_system_prompt(kernel_owned_buffer* out_buffer);
+kernel_status kernel_build_ai_ponder_user_prompt(
+    const char* topic,
+    size_t topic_size,
+    const char* context,
+    size_t context_size,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_get_ai_ponder_temperature(float* out_temperature);
 kernel_status kernel_compute_truth_state_from_activity(
     const kernel_study_note_activity* activities,
     size_t activity_count,

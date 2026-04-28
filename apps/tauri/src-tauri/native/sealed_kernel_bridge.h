@@ -240,6 +240,28 @@ int32_t sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
     uint64_t* out_limit,
     char** out_error);
 
+int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
+    const char* context_utf8,
+    uint64_t context_size,
+    char** out_text,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_ai_ponder_system_prompt_text(
+    char** out_text,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_build_ai_ponder_user_prompt_text(
+    const char* topic_utf8,
+    uint64_t topic_size,
+    const char* context_utf8,
+    uint64_t context_size,
+    char** out_text,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_get_ai_ponder_temperature(
+    float* out_temperature,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_compute_truth_state_json(
     const char* const* note_ids_utf8,
     const int64_t* active_secs,

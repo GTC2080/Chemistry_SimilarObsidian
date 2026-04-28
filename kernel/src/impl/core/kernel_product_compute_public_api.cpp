@@ -33,6 +33,7 @@ constexpr std::size_t kAiPonderTimeoutSecs = 60;
 constexpr std::size_t kAiEmbeddingRequestTimeoutSecs = 30;
 constexpr std::size_t kAiEmbeddingCacheLimit = 64;
 constexpr std::size_t kAiEmbeddingConcurrencyLimit = 4;
+constexpr float kAiPonderTemperature = 0.7F;
 constexpr double kStudySecsPerExp = 60.0;
 constexpr double kStudyBaseExp = 100.0;
 constexpr double kStudyGrowthRate = 1.5;
@@ -43,6 +44,36 @@ constexpr std::size_t kStudyHeatmapDaysPerWeek = 7;
 constexpr std::int64_t kStudyWeekLookbackDays = 6;
 constexpr std::int64_t kStudyLegacyHeatmapLookbackDays = 179;
 constexpr std::size_t kStudyFolderRankLimit = 5;
+constexpr char8_t kAiRagSystemPrompt[] =
+    u8"\u4F60\u662F\u4E00\u4E2A\u79C1\u4EBA\u77E5\u8BC6\u5E93\u7684"
+    u8"\u6781\u5BA2\u52A9\u624B\u3002\u8BF7\u4E25\u683C\u57FA\u4E8E"
+    u8"\u4EE5\u4E0B\u63D0\u4F9B\u7684\u4E0A\u4E0B\u6587\u56DE\u7B54"
+    u8"\u7528\u6237\u95EE\u9898\u3002\u5982\u679C\u4E0A\u4E0B\u6587"
+    u8"\u4E2D\u6CA1\u6709\u7B54\u6848\uFF0C\u8BF7\u8BDA\u5B9E\u5730"
+    u8"\u8BF4\u660E\u3002\u8BF7\u5728\u5F15\u7528\u76F8\u5173\u5185"
+    u8"\u5BB9\u65F6\uFF0C\u5728\u53E5\u672B\u4F7F\u7528 [[\u7B14"
+    u8"\u8BB0\u540D\u79F0]] \u7684\u683C\u5F0F\u6807\u6CE8\u51FA"
+    u8"\u5904\u3002";
+constexpr char8_t kAiRagContextHeader[] =
+    u8"\u4EE5\u4E0B\u662F\u76F8\u5173\u7B14\u8BB0\u4E0A\u4E0B"
+    u8"\u6587\uFF1A";
+constexpr char8_t kAiPonderSystemPrompt[] =
+    u8"\u4F60\u662F\u4E00\u4E2A\u903B\u8F91\u53D1\u6563\u5F15"
+    u8"\u64CE\u3002\u4F60\u7684\u4EFB\u52A1\u662F\u56F4\u7ED5"
+    u8"\u6838\u5FC3\u6982\u5FF5\u751F\u6210\u53EF\u62D3\u5C55"
+    u8"\u77E5\u8BC6\u56FE\u8C31\u7684\u5B50\u8282\u70B9\u3002"
+    u8"\u4F60\u5FC5\u987B\u8F93\u51FA\u4E25\u683C JSON \u6570"
+    u8"\u7EC4\uFF0C\u4E14\u6570\u7EC4\u5143\u7D20\u7ED3\u6784"
+    u8"\u56FA\u5B9A\u4E3A {\"title\":\"...\",\"relation\":\"...\"}"
+    u8"\u3002\u7981\u6B62\u8F93\u51FA Markdown\u3001\u4EE3\u7801"
+    u8"\u5757\u3001\u89E3\u91CA\u6027\u6587\u672C\u3001\u524D"
+    u8"\u540E\u7F00\u3002";
+constexpr char8_t kAiPonderTopicLabel[] = u8"\u6838\u5FC3\u6982\u5FF5: ";
+constexpr char8_t kAiPonderContextLabel[] = u8"\u4E0A\u4E0B\u6587: ";
+constexpr char8_t kAiPonderInstruction[] =
+    u8"\u8BF7\u751F\u6210 3 \u5230 5 \u4E2A\u5177\u5907\u903B\u8F91"
+    u8"\u9012\u8FDB\u6216\u8865\u5145\u5173\u7CFB\u7684\u5B50\u8282"
+    u8"\u70B9\u3002";
 
 struct TruthAwardDraft {
   std::string attr;
@@ -362,7 +393,20 @@ bool fill_owned_buffer(std::string_view value, kernel_owned_buffer* out_buffer) 
   return true;
 }
 
+template <std::size_t N>
+std::string_view utf8_literal(const char8_t (&value)[N]) {
+  return std::string_view(reinterpret_cast<const char*>(value), N - 1);
+}
+
 kernel_status write_size_limit(std::size_t value, std::size_t* out_value) {
+  if (out_value == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_value = value;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+kernel_status write_float_value(float value, float* out_value) {
   if (out_value == nullptr) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
@@ -399,6 +443,37 @@ std::int64_t study_attr_level(const std::int64_t exp) {
 std::int64_t study_secs_to_exp(const std::int64_t secs) {
   return static_cast<std::int64_t>(
       std::floor(static_cast<double>(secs) / kStudySecsPerExp));
+}
+
+std::string build_ai_rag_system_content(std::string_view context) {
+  std::string content;
+  content.reserve(
+      utf8_literal(kAiRagSystemPrompt).size() +
+      utf8_literal(kAiRagContextHeader).size() + context.size() + 4);
+  content.append(utf8_literal(kAiRagSystemPrompt));
+  content.append("\n\n");
+  content.append(utf8_literal(kAiRagContextHeader));
+  content.append("\n\n");
+  content.append(context);
+  return content;
+}
+
+std::string build_ai_ponder_user_prompt(
+    std::string_view topic,
+    std::string_view context) {
+  std::string prompt;
+  prompt.reserve(
+      utf8_literal(kAiPonderTopicLabel).size() + topic.size() +
+      utf8_literal(kAiPonderContextLabel).size() + context.size() +
+      utf8_literal(kAiPonderInstruction).size() + 2);
+  prompt.append(utf8_literal(kAiPonderTopicLabel));
+  prompt.append(topic);
+  prompt.push_back('\n');
+  prompt.append(utf8_literal(kAiPonderContextLabel));
+  prompt.append(context);
+  prompt.push_back('\n');
+  prompt.append(utf8_literal(kAiPonderInstruction));
+  return prompt;
 }
 
 void add_value_for_attr(
@@ -651,6 +726,64 @@ extern "C" kernel_status kernel_get_ai_embedding_cache_limit(std::size_t* out_li
 
 extern "C" kernel_status kernel_get_ai_embedding_concurrency_limit(std::size_t* out_limit) {
   return write_size_limit(kAiEmbeddingConcurrencyLimit, out_limit);
+}
+
+extern "C" kernel_status kernel_build_ai_rag_system_content(
+    const char* context,
+    const std::size_t context_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (context_size > 0 && context == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view context_view(context == nullptr ? "" : context, context_size);
+  const std::string content = build_ai_rag_system_content(context_view);
+  if (!fill_owned_buffer(content, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_ai_ponder_system_prompt(kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  if (!fill_owned_buffer(utf8_literal(kAiPonderSystemPrompt), out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_build_ai_ponder_user_prompt(
+    const char* topic,
+    const std::size_t topic_size,
+    const char* context,
+    const std::size_t context_size,
+    kernel_owned_buffer* out_buffer) {
+  if (
+      out_buffer == nullptr || (topic_size > 0 && topic == nullptr) ||
+      (context_size > 0 && context == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view topic_view(topic == nullptr ? "" : topic, topic_size);
+  const std::string_view context_view(context == nullptr ? "" : context, context_size);
+  const std::string prompt = build_ai_ponder_user_prompt(topic_view, context_view);
+  if (!fill_owned_buffer(prompt, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_ai_ponder_temperature(float* out_temperature) {
+  return write_float_value(kAiPonderTemperature, out_temperature);
 }
 
 extern "C" kernel_status kernel_compute_truth_state_from_activity(
