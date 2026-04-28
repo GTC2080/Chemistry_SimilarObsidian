@@ -25,10 +25,15 @@ The repository must retain regression coverage for:
 - code-language award detail preserves the normalized language
 - `mol` and `chemdraw` line growth receives a molecular edit award
 - molecular edit awards scale by `added_lines * 5`
+- `kernel_get_truth_award_reason_key(...)` returns `textDelta`,
+  `codeLanguage`, and `molecularEdit`
+- `kernel_get_truth_award_reason_key(...)` rejects null outputs and unknown
+  enum values
 - `kernel_free_truth_diff_result(...)` releases all owned strings and leaves the
   result empty
 - Tauri sealed bridge serializes truth diff kernel results to JSON without
-  Rust-owned truth diff C ABI structs or unsafe result-copy loops
+  Rust-owned truth diff C ABI structs, mirrored reason enum integers, or unsafe
+  result-copy loops
 - Tauri Rust bridge tests continue to cover the existing command-facing
   localized reason strings for code-language and molecular awards
 

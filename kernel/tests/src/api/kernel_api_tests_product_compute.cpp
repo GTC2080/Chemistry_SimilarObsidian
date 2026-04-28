@@ -137,6 +137,34 @@ void test_truth_diff_empty_and_invalid_args() {
       "truth diff should reject null extension");
 }
 
+void test_truth_award_reason_keys_are_kernel_owned() {
+  const char* key = nullptr;
+
+  require_ok_status(
+      kernel_get_truth_award_reason_key(KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA, &key),
+      "truth reason text delta key");
+  require_true(nullable_string(key) == "textDelta", "text delta reason key should come from kernel");
+
+  require_ok_status(
+      kernel_get_truth_award_reason_key(KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE, &key),
+      "truth reason code language key");
+  require_true(nullable_string(key) == "codeLanguage", "code language reason key should come from kernel");
+
+  require_ok_status(
+      kernel_get_truth_award_reason_key(KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT, &key),
+      "truth reason molecular edit key");
+  require_true(nullable_string(key) == "molecularEdit", "molecular edit reason key should come from kernel");
+
+  require_true(
+      kernel_get_truth_award_reason_key(KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "truth reason key should reject null output");
+  require_true(
+      kernel_get_truth_award_reason_key(static_cast<kernel_truth_award_reason>(0), &key).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "truth reason key should reject unknown enum values");
+}
+
 void test_semantic_context_trims_short_content() {
   const std::string content = "  short note  \n";
   kernel_owned_buffer buffer{};
@@ -461,6 +489,7 @@ void run_product_compute_tests() {
   test_truth_diff_code_language_award();
   test_truth_diff_molecular_line_award();
   test_truth_diff_empty_and_invalid_args();
+  test_truth_award_reason_keys_are_kernel_owned();
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();
   test_semantic_context_validates_arguments();

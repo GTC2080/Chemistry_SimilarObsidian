@@ -12,6 +12,7 @@ crystal, symmetry, search, or vault persistence surfaces.
 Current surface:
 
 - `kernel_compute_truth_diff(prev_content, prev_size, curr_content, curr_size, file_extension, out_result)`
+- `kernel_get_truth_award_reason_key(reason, out_key)`
 - `kernel_free_truth_diff_result(out_result)`
 - `kernel_build_semantic_context(content, content_size, out_buffer)`
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
@@ -42,8 +43,8 @@ Frozen rules:
 
 - the surface is handle-free and must not read or write vault state
 - Tauri Rust owns serde command marshalling and localized reason text
-- the kernel owns award attribute routing, award amounts, code-fence language
-  detection, and molecular line-growth detection
+- the kernel owns award attribute routing, award amounts, reason keys,
+  code-fence language detection, and molecular line-growth detection
 - the kernel owns semantic context trimming, heading extraction, recent-block
   selection, and context length limits
 - the kernel owns host-facing AI/product text limits used for semantic context
@@ -64,7 +65,8 @@ Frozen rules:
   `kernel_free_buffer(...)`
 - host sealed bridges may serialize truth awards and semantic context into
   host-owned JSON/text before crossing into higher-level runtimes
-- `reason` is a typed enum; hosts map it to localized text
+- `reason` is a typed enum; hosts must request a stable reason key from
+  `kernel_get_truth_award_reason_key(...)` before mapping it to localized text
 - `detail` is only populated for code-language awards and contains the detected
   language
 - empty previous or current content returns an empty award list
@@ -105,6 +107,7 @@ Frozen rules:
 - hosts must preserve the existing Tauri command shape for
   `build_semantic_context`
 - hosts must not reimplement truth diff award routing or scoring rules
+- hosts must not hard-code truth award enum integer values
 - hosts must not reimplement semantic context extraction rules
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
@@ -118,7 +121,8 @@ Frozen rules:
 - hosts must not reimplement study heatmap grid calendar or layout rules
 - Rust hosts must not retain product compute C ABI mirror structs or unsafe
   result-copy loops for truth diff awards or semantic context buffers
-- hosts may map `KERNEL_TRUTH_AWARD_REASON_*` to localized reason strings
+- hosts may map kernel-provided truth award reason keys to localized reason
+  strings
 - frontends continue to consume host commands rather than kernel ABI directly
 
 ## Semantic Context Rules

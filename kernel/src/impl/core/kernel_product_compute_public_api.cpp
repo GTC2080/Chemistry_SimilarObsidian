@@ -370,6 +370,19 @@ kernel_status write_size_limit(std::size_t value, std::size_t* out_value) {
   return kernel::core::make_status(KERNEL_OK);
 }
 
+const char* truth_award_reason_key(const kernel_truth_award_reason reason) {
+  switch (reason) {
+    case KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA:
+      return "textDelta";
+    case KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE:
+      return "codeLanguage";
+    case KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT:
+      return "molecularEdit";
+    default:
+      return nullptr;
+  }
+}
+
 std::int64_t calc_study_next_level_exp(const std::int64_t level) {
   const double value =
       kStudyBaseExp * std::pow(kStudyGrowthRate, static_cast<double>(level - 1));
@@ -571,6 +584,23 @@ extern "C" kernel_status kernel_compute_truth_diff(
 
 extern "C" void kernel_free_truth_diff_result(kernel_truth_diff_result* result) {
   reset_truth_diff_result_impl(result);
+}
+
+extern "C" kernel_status kernel_get_truth_award_reason_key(
+    const kernel_truth_award_reason reason,
+    const char** out_key) {
+  if (out_key == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_key = nullptr;
+
+  const char* key = truth_award_reason_key(reason);
+  if (key == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  *out_key = key;
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" kernel_status kernel_build_semantic_context(

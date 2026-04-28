@@ -588,6 +588,12 @@ bool ValidateTruthDiffJsonInput(
       error = "invalid_payload";
       return false;
     }
+    const char* reason_key = nullptr;
+    if (kernel_get_truth_award_reason_key(award.reason, &reason_key).code != KERNEL_OK ||
+        reason_key == nullptr) {
+      error = "invalid_payload";
+      return false;
+    }
   }
   return true;
 }
@@ -639,9 +645,11 @@ void AppendTruthDiffJson(std::string& json, const kernel_truth_diff_result& resu
       json += ",";
     }
     const kernel_truth_award& award = result.awards[index];
+    const char* reason_key = nullptr;
+    kernel_get_truth_award_reason_key(award.reason, &reason_key);
     json += "{\"attr\":\"" + JsonEscape(award.attr) + "\",";
     json += "\"amount\":" + std::to_string(award.amount) + ",";
-    json += "\"reason\":" + std::to_string(static_cast<int32_t>(award.reason)) + ",";
+    json += "\"reasonKey\":\"" + JsonEscape(reason_key) + "\",";
     json += "\"detail\":\"" + JsonEscape(award.detail) + "\"}";
   }
   json += "]}";

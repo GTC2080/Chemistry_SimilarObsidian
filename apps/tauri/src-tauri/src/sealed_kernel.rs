@@ -484,10 +484,11 @@ struct SealedKernelPathCatalog {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SealedKernelTruthAward {
     pub attr: String,
     pub amount: i32,
-    pub reason: i32,
+    pub reason_key: String,
     #[serde(default)]
     pub detail: String,
 }
@@ -2697,7 +2698,7 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].attr, "engineering");
         assert_eq!(result[0].amount, 8);
-        assert_eq!(result[0].reason, 2);
+        assert_eq!(result[0].reason_key, "codeLanguage");
         assert_eq!(result[0].detail, "rust");
     }
 

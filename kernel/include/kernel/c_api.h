@@ -187,6 +187,9 @@ kernel_status kernel_compute_truth_diff(
     size_t curr_size,
     const char* file_extension,
     kernel_truth_diff_result* out_result);
+kernel_status kernel_get_truth_award_reason_key(
+    kernel_truth_award_reason reason,
+    const char** out_key);
 kernel_status kernel_build_semantic_context(
     const char* content,
     size_t content_size,

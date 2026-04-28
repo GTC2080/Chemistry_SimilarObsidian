@@ -2,10 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppError;
 
-const KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA: i32 = 1;
-const KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE: i32 = 2;
-const KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT: i32 = 3;
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TruthExpAwardDto {
@@ -20,11 +16,11 @@ pub struct TruthDiffResultDto {
     pub awards: Vec<TruthExpAwardDto>,
 }
 
-fn truth_reason_message(reason: i32, detail: &str) -> String {
-    match reason {
-        KERNEL_TRUTH_AWARD_REASON_TEXT_DELTA => "文本净增量经验".to_string(),
-        KERNEL_TRUTH_AWARD_REASON_CODE_LANGUAGE => format!("新增代码块语言: {detail}"),
-        KERNEL_TRUTH_AWARD_REASON_MOLECULAR_EDIT => "分子编辑变更".to_string(),
+fn truth_reason_message(reason_key: &str, detail: &str) -> String {
+    match reason_key {
+        "textDelta" => "文本净增量经验".to_string(),
+        "codeLanguage" => format!("新增代码块语言: {detail}"),
+        "molecularEdit" => "分子编辑变更".to_string(),
         _ => "内容变更".to_string(),
     }
 }
@@ -35,7 +31,7 @@ fn truth_award_from_kernel(
     TruthExpAwardDto {
         attr: award.attr,
         amount: award.amount,
-        reason: truth_reason_message(award.reason, &award.detail),
+        reason: truth_reason_message(&award.reason_key, &award.detail),
     }
 }
 
