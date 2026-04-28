@@ -23,6 +23,7 @@ Current surface:
 - `kernel_get_ai_embedding_request_timeout_secs(out_secs)`
 - `kernel_get_ai_embedding_cache_limit(out_limit)`
 - `kernel_get_ai_embedding_concurrency_limit(out_limit)`
+- `kernel_normalize_ai_embedding_text(text, text_size, out_buffer)`
 - `kernel_build_ai_rag_context(note_names, note_name_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
 - `kernel_build_ai_rag_system_content(context, context_size, out_buffer)`
 - `kernel_get_ai_ponder_system_prompt(out_buffer)`
@@ -56,6 +57,8 @@ Frozen rules:
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
   request timeout, embedding cache size, and embedding concurrency
+- the kernel owns AI embedding input normalization, Unicode character
+  truncation, and empty-after-truncation rejection
 - the kernel owns AI RAG note context formatting, note numbering, note
   separators, and per-note Unicode character truncation
 - the kernel owns AI RAG system prompt composition, Ponder system prompt,
@@ -120,6 +123,7 @@ Frozen rules:
 - hosts must not reimplement semantic context extraction rules
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
+- hosts must not reimplement embedding input truncation or empty-text checks
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache, or
   concurrency defaults
 - hosts must not hard-code AI RAG note context headers, note numbering,
@@ -168,6 +172,18 @@ Frozen rules:
 - `kernel_get_ai_embedding_cache_limit(...) = 64`
 - `kernel_get_ai_embedding_concurrency_limit(...) = 4`
 - null output pointers are invalid
+
+## AI Embedding Input
+
+Frozen rules:
+
+- `kernel_normalize_ai_embedding_text(...)` truncates input to `2000` Unicode
+  characters
+- `kernel_normalize_ai_embedding_text(...)` preserves the caller-provided text
+  shape after truncation; it does not trim returned text
+- `kernel_normalize_ai_embedding_text(...)` rejects input that is empty or only
+  Unicode whitespace after truncation
+- null non-empty input buffers and null output pointers are invalid
 
 ## AI Prompt Shape
 

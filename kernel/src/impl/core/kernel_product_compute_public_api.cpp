@@ -448,6 +448,39 @@ std::int64_t study_secs_to_exp(const std::int64_t secs) {
       std::floor(static_cast<double>(secs) / kStudySecsPerExp));
 }
 
+std::uint32_t utf8_codepoint_at(
+    std::string_view value,
+    const std::size_t index,
+    std::size_t* out_width) {
+  const auto lead = static_cast<unsigned char>(value[index]);
+  std::size_t width = 1;
+  std::uint32_t codepoint = lead;
+  if ((lead & 0x80U) == 0U) {
+    width = 1;
+  } else if ((lead & 0xE0U) == 0xC0U && index + 1 < value.size()) {
+    width = 2;
+    codepoint =
+        static_cast<std::uint32_t>(lead & 0x1FU) << 6 |
+        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 1]) & 0x3FU);
+  } else if ((lead & 0xF0U) == 0xE0U && index + 2 < value.size()) {
+    width = 3;
+    codepoint =
+        static_cast<std::uint32_t>(lead & 0x0FU) << 12 |
+        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 1]) & 0x3FU) << 6 |
+        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 2]) & 0x3FU);
+  } else if ((lead & 0xF8U) == 0xF0U && index + 3 < value.size()) {
+    width = 4;
+    codepoint =
+        static_cast<std::uint32_t>(lead & 0x07U) << 18 |
+        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 1]) & 0x3FU) << 12 |
+        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 2]) & 0x3FU) << 6 |
+        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 3]) & 0x3FU);
+  }
+
+  *out_width = width;
+  return codepoint;
+}
+
 std::size_t utf8_prefix_bytes_by_chars(std::string_view value, const std::size_t char_limit) {
   if (char_limit == 0) {
     return 0;
@@ -456,21 +489,40 @@ std::size_t utf8_prefix_bytes_by_chars(std::string_view value, const std::size_t
   std::size_t index = 0;
   std::size_t chars = 0;
   while (index < value.size() && chars < char_limit) {
-    const auto lead = static_cast<unsigned char>(value[index]);
     std::size_t width = 1;
-    if ((lead & 0x80U) == 0U) {
-      width = 1;
-    } else if ((lead & 0xE0U) == 0xC0U && index + 1 < value.size()) {
-      width = 2;
-    } else if ((lead & 0xF0U) == 0xE0U && index + 2 < value.size()) {
-      width = 3;
-    } else if ((lead & 0xF8U) == 0xF0U && index + 3 < value.size()) {
-      width = 4;
-    }
+    static_cast<void>(utf8_codepoint_at(value, index, &width));
     index += width;
     ++chars;
   }
   return index;
+}
+
+bool is_unicode_whitespace(const std::uint32_t codepoint) {
+  return (
+      (codepoint >= 0x0009U && codepoint <= 0x000DU) || codepoint == 0x0020U ||
+      codepoint == 0x0085U || codepoint == 0x00A0U || codepoint == 0x1680U ||
+      (codepoint >= 0x2000U && codepoint <= 0x200AU) || codepoint == 0x2028U ||
+      codepoint == 0x2029U || codepoint == 0x202FU || codepoint == 0x205FU ||
+      codepoint == 0x3000U);
+}
+
+bool has_non_whitespace_utf8(std::string_view value) {
+  std::size_t index = 0;
+  while (index < value.size()) {
+    std::size_t width = 1;
+    const std::uint32_t codepoint = utf8_codepoint_at(value, index, &width);
+    if (!is_unicode_whitespace(codepoint)) {
+      return true;
+    }
+    index += width;
+  }
+  return false;
+}
+
+std::string normalize_ai_embedding_text(std::string_view text) {
+  const std::size_t truncated_size =
+      utf8_prefix_bytes_by_chars(text, kEmbeddingTextCharLimit);
+  return std::string(text.substr(0, truncated_size));
 }
 
 std::string build_ai_rag_context(
@@ -782,6 +834,27 @@ extern "C" kernel_status kernel_get_ai_embedding_cache_limit(std::size_t* out_li
 
 extern "C" kernel_status kernel_get_ai_embedding_concurrency_limit(std::size_t* out_limit) {
   return write_size_limit(kAiEmbeddingConcurrencyLimit, out_limit);
+}
+
+extern "C" kernel_status kernel_normalize_ai_embedding_text(
+    const char* text,
+    const std::size_t text_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (text_size > 0 && text == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view raw(text == nullptr ? "" : text, text_size);
+  const std::string normalized = normalize_ai_embedding_text(raw);
+  if (!has_non_whitespace_utf8(normalized)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  if (!fill_owned_buffer(normalized, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" kernel_status kernel_build_ai_rag_context(

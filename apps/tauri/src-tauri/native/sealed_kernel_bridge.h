@@ -212,10 +212,6 @@ int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error);
 
-int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
-    uint64_t* out_chars,
-    char** out_error);
-
 int32_t sealed_kernel_bridge_get_ai_chat_timeout_secs(
     uint64_t* out_secs,
     char** out_error);
@@ -234,6 +230,12 @@ int32_t sealed_kernel_bridge_get_ai_embedding_cache_limit(
 
 int32_t sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
     uint64_t* out_limit,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
+    const char* text_utf8,
+    uint64_t text_size,
+    char** out_text,
     char** out_error);
 
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(

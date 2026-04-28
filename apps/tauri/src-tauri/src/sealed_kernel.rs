@@ -230,10 +230,6 @@ extern "C" {
         out_bytes: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_get_embedding_text_char_limit(
-        out_chars: *mut u64,
-        out_error: *mut *mut c_char,
-    ) -> c_int;
     fn sealed_kernel_bridge_get_ai_chat_timeout_secs(
         out_secs: *mut u64,
         out_error: *mut *mut c_char,
@@ -252,6 +248,12 @@ extern "C" {
     ) -> c_int;
     fn sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
         out_limit: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_normalize_ai_embedding_text(
+        text_utf8: *const c_char,
+        text_size: u64,
+        out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_build_ai_rag_system_content_text(
@@ -664,6 +666,18 @@ fn semantic_context_bridge_error(code: c_int, raw_error: *mut c_char) -> AppErro
 
 fn product_text_bridge_error(operation: &str, code: c_int, raw_error: *mut c_char) -> AppError {
     bridge_error(operation, code, raw_error)
+}
+
+fn embedding_text_bridge_error(code: c_int, raw_error: *mut c_char) -> AppError {
+    let token = take_bridge_string(raw_error);
+    let message = match token.as_str() {
+        "empty_text" => "文本内容为空，跳过向量化".to_string(),
+        "invalid_argument" => "Embedding 输入内核参数无效".to_string(),
+        "allocation_failed" => "Embedding 输入内核结果分配失败".to_string(),
+        "normalize_embedding_text_failed" | "" => "Embedding 输入内核归一化失败".to_string(),
+        other => format!("Embedding 输入内核归一化失败 ({other}, status {code})"),
+    };
+    AppError::Custom(message)
 }
 
 fn snapshot_from_raw(raw: SealedKernelBridgeStateSnapshot) -> SealedKernelStateSnapshot {
@@ -1751,13 +1765,6 @@ pub fn semantic_context_min_bytes() -> AppResult<usize> {
     )
 }
 
-pub fn embedding_text_char_limit() -> AppResult<usize> {
-    kernel_default_usize_limit(
-        "sealed_kernel_get_embedding_text_char_limit",
-        sealed_kernel_bridge_get_embedding_text_char_limit,
-    )
-}
-
 pub fn ai_chat_timeout_secs() -> AppResult<u64> {
     kernel_default_limit(
         "sealed_kernel_get_ai_chat_timeout_secs",
@@ -1791,6 +1798,23 @@ pub fn ai_embedding_concurrency_limit() -> AppResult<usize> {
         "sealed_kernel_get_ai_embedding_concurrency_limit",
         sealed_kernel_bridge_get_ai_embedding_concurrency_limit,
     )
+}
+
+pub fn normalize_ai_embedding_text(text: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_normalize_ai_embedding_text(
+            text.as_ptr() as *const c_char,
+            text.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(embedding_text_bridge_error(code, error));
+    }
+    Ok(take_bridge_string(raw_text))
 }
 
 pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {
@@ -2922,7 +2946,6 @@ mod tests {
     #[test]
     fn product_text_limits_come_from_kernel() {
         assert_eq!(semantic_context_min_bytes().unwrap(), 24);
-        assert_eq!(embedding_text_char_limit().unwrap(), 2000);
     }
 
     #[test]
@@ -2950,6 +2973,22 @@ mod tests {
             "核心概念: 核心\n上下文: 上下文\n请生成 3 到 5 个具备逻辑递进或补充关系的子节点。"
         );
         assert!((ai_ponder_temperature().unwrap() - 0.7).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn ai_embedding_text_normalization_comes_from_kernel() {
+        assert_eq!(
+            normalize_ai_embedding_text("  useful text  ").unwrap(),
+            "  useful text  "
+        );
+
+        let long_content = format!("{}Z", "你".repeat(2000));
+        let normalized = normalize_ai_embedding_text(&long_content).unwrap();
+        assert!(!normalized.contains('Z'));
+        assert!(normalized.contains(&"你".repeat(2000)));
+
+        let err = normalize_ai_embedding_text(" \t\n").expect_err("empty embedding input");
+        assert_eq!(err.to_string(), "文本内容为空，跳过向量化");
     }
 
     #[test]

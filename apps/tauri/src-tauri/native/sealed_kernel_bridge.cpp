@@ -2049,16 +2049,6 @@ int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
       out_error);
 }
 
-int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
-    uint64_t* out_chars,
-    char** out_error) {
-  return KernelDefaultLimit(
-      kernel_get_embedding_text_char_limit,
-      "kernel_get_embedding_text_char_limit",
-      out_chars,
-      out_error);
-}
-
 int32_t sealed_kernel_bridge_get_ai_chat_timeout_secs(
     uint64_t* out_secs,
     char** out_error) {
@@ -2107,6 +2097,37 @@ int32_t sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
       "kernel_get_ai_embedding_concurrency_limit",
       out_limit,
       out_error);
+}
+
+int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
+    const char* text_utf8,
+    uint64_t text_size,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (out_text == nullptr || (text_size > 0 && text_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_normalize_ai_embedding_text(
+      text_utf8,
+      static_cast<size_t>(text_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    SetError(
+        out_error,
+        status.code == KERNEL_ERROR_INVALID_ARGUMENT
+            ? "empty_text"
+            : "normalize_embedding_text_failed");
+    return static_cast<int32_t>(status.code);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
 }
 
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(

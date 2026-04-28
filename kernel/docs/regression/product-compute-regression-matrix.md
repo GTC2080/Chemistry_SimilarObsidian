@@ -74,12 +74,28 @@ The repository must retain regression coverage for:
 - `kernel_get_ai_embedding_cache_limit(...)` returns `64`
 - `kernel_get_ai_embedding_concurrency_limit(...)` returns `4`
 - all product text limit getters reject null output pointers
-- Tauri Rust queries semantic/embedding text limits through the sealed bridge
-  and relies on `kernel_build_ai_rag_context(...)` for the RAG per-note limit
-  instead of keeping duplicate product text constants
+- Tauri Rust queries semantic text limits through the sealed bridge and relies
+  on `kernel_normalize_ai_embedding_text(...)` /
+  `kernel_build_ai_rag_context(...)` for embedding and RAG text limits instead
+  of keeping duplicate product text constants
 - Tauri Rust AI code queries chat, ponder, embedding timeout, cache, and
   concurrency defaults through the sealed bridge instead of keeping duplicate
   runtime constants
+
+## AI Embedding Input
+
+The repository must retain regression coverage for:
+
+- `kernel_normalize_ai_embedding_text(...)` preserves non-empty caller text
+  shape after truncation
+- `kernel_normalize_ai_embedding_text(...)` truncates input at the kernel-owned
+  `2000` Unicode character limit rather than at raw bytes
+- `kernel_normalize_ai_embedding_text(...)` rejects empty or all-whitespace
+  input after truncation
+- `kernel_normalize_ai_embedding_text(...)` rejects null non-empty input
+  buffers and null output pointers
+- Tauri Rust AI code delegates embedding input normalization to the sealed
+  bridge instead of calling `chars().take(...)` locally
 
 ## AI Prompt Shape
 

@@ -294,6 +294,51 @@ void test_ai_host_runtime_defaults_are_kernel_owned() {
       "AI embedding concurrency limit should reject null output");
 }
 
+void test_ai_embedding_text_normalization_is_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string text = "  useful text  ";
+  require_ok_status(
+      kernel_normalize_ai_embedding_text(text.data(), text.size(), &buffer),
+      "AI embedding text normalization");
+  require_true(
+      buffer_to_string(buffer) == text,
+      "embedding text normalization should preserve non-empty caller text shape");
+  kernel_free_buffer(&buffer);
+
+  const std::string han = utf8_string(u8"\u4F60");
+  std::string long_content;
+  for (std::size_t index = 0; index < 2000; ++index) {
+    long_content.append(han);
+  }
+  long_content.push_back('Z');
+  require_ok_status(
+      kernel_normalize_ai_embedding_text(long_content.data(), long_content.size(), &buffer),
+      "AI embedding text truncation");
+  const std::string normalized = buffer_to_string(buffer);
+  require_true(
+      normalized.find("Z") == std::string::npos,
+      "embedding text normalization should truncate at the kernel-owned Unicode char limit");
+  require_true(
+      normalized.size() == 2000 * han.size(),
+      "embedding text normalization should preserve exactly 2000 three-byte characters");
+  kernel_free_buffer(&buffer);
+
+  const std::string whitespace = " \t\n" + utf8_string(u8"\u3000");
+  require_true(
+      kernel_normalize_ai_embedding_text(whitespace.data(), whitespace.size(), &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding text normalization should reject all-whitespace input");
+  require_true(
+      kernel_normalize_ai_embedding_text(nullptr, 1, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding text normalization should reject null non-empty text");
+  require_true(
+      kernel_normalize_ai_embedding_text(text.data(), text.size(), nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding text normalization should reject null output");
+}
+
 void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -653,6 +698,7 @@ void run_product_compute_tests() {
   test_semantic_context_validates_arguments();
   test_product_text_limits_are_kernel_owned();
   test_ai_host_runtime_defaults_are_kernel_owned();
+  test_ai_embedding_text_normalization_is_kernel_owned();
   test_ai_rag_context_shape_and_truncation_are_kernel_owned();
   test_ai_prompt_shapes_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();

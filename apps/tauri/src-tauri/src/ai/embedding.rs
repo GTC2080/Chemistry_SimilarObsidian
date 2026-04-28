@@ -81,13 +81,7 @@ impl EmbeddingRuntimeState {
 }
 
 fn normalize_embedding_text(text: &str) -> Result<String, String> {
-    let max_text_chars =
-        sealed_kernel::embedding_text_char_limit().map_err(|err| err.to_string())?;
-    let truncated: String = text.chars().take(max_text_chars).collect();
-    if truncated.trim().is_empty() {
-        return Err("文本内容为空，跳过向量化".to_string());
-    }
-    Ok(truncated)
+    sealed_kernel::normalize_ai_embedding_text(text).map_err(|err| err.to_string())
 }
 
 fn embedding_cache_key(text: &str, config: &AiConfig) -> String {
