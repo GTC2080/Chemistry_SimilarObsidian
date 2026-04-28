@@ -61,19 +61,7 @@ struct ChatCompletionMessage {
 }
 
 pub fn build_rag_context(notes: &[(String, String)]) -> Result<String, String> {
-    let per_note_chars =
-        sealed_kernel::rag_context_per_note_char_limit().map_err(|err| err.to_string())?;
-    let mut context = String::new();
-    for (i, (name, content)) in notes.iter().enumerate() {
-        let truncated: String = content.chars().take(per_note_chars).collect();
-        context.push_str(&format!(
-            "--- 笔记 {} 《{}》 ---\n{}\n\n",
-            i + 1,
-            name,
-            truncated
-        ));
-    }
-    Ok(context)
+    sealed_kernel::build_ai_rag_context(notes).map_err(|err| err.to_string())
 }
 
 pub async fn stream_chat_with_context<F>(

@@ -2049,16 +2049,6 @@ int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
       out_error);
 }
 
-int32_t sealed_kernel_bridge_get_rag_context_per_note_char_limit(
-    uint64_t* out_chars,
-    char** out_error) {
-  return KernelDefaultLimit(
-      kernel_get_rag_context_per_note_char_limit,
-      "kernel_get_rag_context_per_note_char_limit",
-      out_chars,
-      out_error);
-}
-
 int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
     uint64_t* out_chars,
     char** out_error) {
@@ -2140,6 +2130,57 @@ int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
   if (status.code != KERNEL_OK) {
     kernel_free_buffer(&buffer);
     return ReturnKernelError(status, "kernel_build_ai_rag_system_content", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
+int32_t sealed_kernel_bridge_build_ai_rag_context_text(
+    const char* const* note_names_utf8,
+    const uint64_t* note_name_sizes,
+    const char* const* note_contents_utf8,
+    const uint64_t* note_content_sizes,
+    uint64_t note_count,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (
+      out_text == nullptr ||
+      (note_count > 0 &&
+       (note_names_utf8 == nullptr || note_name_sizes == nullptr ||
+        note_contents_utf8 == nullptr || note_content_sizes == nullptr))) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<size_t> name_sizes;
+  std::vector<size_t> content_sizes;
+  name_sizes.reserve(static_cast<size_t>(note_count));
+  content_sizes.reserve(static_cast<size_t>(note_count));
+  for (uint64_t index = 0; index < note_count; ++index) {
+    if (
+        (note_name_sizes[index] > 0 && note_names_utf8[index] == nullptr) ||
+        (note_content_sizes[index] > 0 && note_contents_utf8[index] == nullptr)) {
+      SetError(out_error, "invalid_argument");
+      return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+    name_sizes.push_back(static_cast<size_t>(note_name_sizes[index]));
+    content_sizes.push_back(static_cast<size_t>(note_content_sizes[index]));
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_build_ai_rag_context(
+      note_names_utf8,
+      name_sizes.data(),
+      note_contents_utf8,
+      content_sizes.data(),
+      static_cast<size_t>(note_count),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_build_ai_rag_context", out_error);
   }
 
   return CopyKernelOwnedText(buffer, out_text, out_error);

@@ -23,6 +23,7 @@ Current surface:
 - `kernel_get_ai_embedding_request_timeout_secs(out_secs)`
 - `kernel_get_ai_embedding_cache_limit(out_limit)`
 - `kernel_get_ai_embedding_concurrency_limit(out_limit)`
+- `kernel_build_ai_rag_context(note_names, note_name_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
 - `kernel_build_ai_rag_system_content(context, context_size, out_buffer)`
 - `kernel_get_ai_ponder_system_prompt(out_buffer)`
 - `kernel_build_ai_ponder_user_prompt(topic, topic_size, context, context_size, out_buffer)`
@@ -55,6 +56,8 @@ Frozen rules:
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
   request timeout, embedding cache size, and embedding concurrency
+- the kernel owns AI RAG note context formatting, note numbering, note
+  separators, and per-note Unicode character truncation
 - the kernel owns AI RAG system prompt composition, Ponder system prompt,
   Ponder user prompt shape, and Ponder temperature
 - the kernel owns study truth attribute routing, active-seconds to EXP
@@ -119,6 +122,8 @@ Frozen rules:
   embedding input text limits
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache, or
   concurrency defaults
+- hosts must not hard-code AI RAG note context headers, note numbering,
+  separators, or per-note truncation behavior
 - hosts must not hard-code AI RAG/Ponder prompt text, Ponder user prompt shape,
   or Ponder temperature
 - hosts must not reimplement study truth EXP curves or note-extension to
@@ -168,6 +173,11 @@ Frozen rules:
 
 Frozen rules:
 
+- `kernel_build_ai_rag_context(...)` returns one block per note shaped as
+  `--- 笔记 {1-based index} 《{note name}》 ---`, followed by a newline, the
+  note content truncated to `1500` Unicode characters, and a blank-line
+  separator
+- `kernel_build_ai_rag_context(...)` returns empty text for an empty note list
 - `kernel_build_ai_rag_system_content(...)` prepends the private knowledge-base
   RAG system prompt, a blank line, the related-note context header, another
   blank line, then the caller-provided context
@@ -176,7 +186,8 @@ Frozen rules:
 - `kernel_build_ai_ponder_user_prompt(...)` returns exactly the topic line,
   context line, and 3-to-5-node instruction used by the Ponder workflow
 - `kernel_get_ai_ponder_temperature(...) = 0.7`
-- null non-empty prompt buffers and null output pointers are invalid
+- null non-empty note arrays, null non-empty prompt buffers, and null output
+  pointers are invalid
 
 ## Study Truth State
 

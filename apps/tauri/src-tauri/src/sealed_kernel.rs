@@ -230,10 +230,6 @@ extern "C" {
         out_bytes: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_get_rag_context_per_note_char_limit(
-        out_chars: *mut u64,
-        out_error: *mut *mut c_char,
-    ) -> c_int;
     fn sealed_kernel_bridge_get_embedding_text_char_limit(
         out_chars: *mut u64,
         out_error: *mut *mut c_char,
@@ -261,6 +257,15 @@ extern "C" {
     fn sealed_kernel_bridge_build_ai_rag_system_content_text(
         context_utf8: *const c_char,
         context_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_build_ai_rag_context_text(
+        note_names_utf8: *const *const c_char,
+        note_name_sizes: *const u64,
+        note_contents_utf8: *const *const c_char,
+        note_content_sizes: *const u64,
+        note_count: u64,
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -1746,13 +1751,6 @@ pub fn semantic_context_min_bytes() -> AppResult<usize> {
     )
 }
 
-pub fn rag_context_per_note_char_limit() -> AppResult<usize> {
-    kernel_default_usize_limit(
-        "sealed_kernel_get_rag_context_per_note_char_limit",
-        sealed_kernel_bridge_get_rag_context_per_note_char_limit,
-    )
-}
-
 pub fn embedding_text_char_limit() -> AppResult<usize> {
     kernel_default_usize_limit(
         "sealed_kernel_get_embedding_text_char_limit",
@@ -1809,6 +1807,44 @@ pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {
     if code != 0 {
         return Err(product_text_bridge_error(
             "sealed_kernel_build_ai_rag_system_content",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
+pub fn build_ai_rag_context(notes: &[(String, String)]) -> AppResult<String> {
+    let note_name_ptrs: Vec<*const c_char> = notes
+        .iter()
+        .map(|(name, _)| name.as_ptr() as *const c_char)
+        .collect();
+    let note_name_sizes: Vec<u64> = notes.iter().map(|(name, _)| name.len() as u64).collect();
+    let note_content_ptrs: Vec<*const c_char> = notes
+        .iter()
+        .map(|(_, content)| content.as_ptr() as *const c_char)
+        .collect();
+    let note_content_sizes: Vec<u64> = notes
+        .iter()
+        .map(|(_, content)| content.len() as u64)
+        .collect();
+
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_ai_rag_context_text(
+            note_name_ptrs.as_ptr(),
+            note_name_sizes.as_ptr(),
+            note_content_ptrs.as_ptr(),
+            note_content_sizes.as_ptr(),
+            notes.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_build_ai_rag_context",
             code,
             error,
         ));
@@ -2886,7 +2922,6 @@ mod tests {
     #[test]
     fn product_text_limits_come_from_kernel() {
         assert_eq!(semantic_context_min_bytes().unwrap(), 24);
-        assert_eq!(rag_context_per_note_char_limit().unwrap(), 1500);
         assert_eq!(embedding_text_char_limit().unwrap(), 2000);
     }
 
@@ -2915,6 +2950,25 @@ mod tests {
             "核心概念: 核心\n上下文: 上下文\n请生成 3 到 5 个具备逻辑递进或补充关系的子节点。"
         );
         assert!((ai_ponder_temperature().unwrap() - 0.7).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn ai_rag_context_shape_comes_from_kernel() {
+        let context = build_ai_rag_context(&[
+            ("Alpha".to_string(), "first".to_string()),
+            ("Beta".to_string(), "second".to_string()),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            context,
+            "--- 笔记 1 《Alpha》 ---\nfirst\n\n--- 笔记 2 《Beta》 ---\nsecond\n\n"
+        );
+
+        let long_content = format!("{}Z", "你".repeat(1500));
+        let context = build_ai_rag_context(&[("Long".to_string(), long_content)]).unwrap();
+        assert!(!context.contains('Z'));
+        assert!(context.contains(&"你".repeat(1500)));
     }
 
     #[test]

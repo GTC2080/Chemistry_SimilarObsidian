@@ -212,10 +212,6 @@ int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error);
 
-int32_t sealed_kernel_bridge_get_rag_context_per_note_char_limit(
-    uint64_t* out_chars,
-    char** out_error);
-
 int32_t sealed_kernel_bridge_get_embedding_text_char_limit(
     uint64_t* out_chars,
     char** out_error);
@@ -243,6 +239,15 @@ int32_t sealed_kernel_bridge_get_ai_embedding_concurrency_limit(
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
     const char* context_utf8,
     uint64_t context_size,
+    char** out_text,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_build_ai_rag_context_text(
+    const char* const* note_names_utf8,
+    const uint64_t* note_name_sizes,
+    const char* const* note_contents_utf8,
+    const uint64_t* note_content_sizes,
+    uint64_t note_count,
     char** out_text,
     char** out_error);
 

@@ -57,6 +57,9 @@ constexpr char8_t kAiRagSystemPrompt[] =
 constexpr char8_t kAiRagContextHeader[] =
     u8"\u4EE5\u4E0B\u662F\u76F8\u5173\u7B14\u8BB0\u4E0A\u4E0B"
     u8"\u6587\uFF1A";
+constexpr char8_t kAiRagNotePrefix[] = u8"--- \u7B14\u8BB0 ";
+constexpr char8_t kAiRagNoteNameOpen[] = u8" \u300A";
+constexpr char8_t kAiRagNoteNameClose[] = u8"\u300B ---\n";
 constexpr char8_t kAiPonderSystemPrompt[] =
     u8"\u4F60\u662F\u4E00\u4E2A\u903B\u8F91\u53D1\u6563\u5F15"
     u8"\u64CE\u3002\u4F60\u7684\u4EFB\u52A1\u662F\u56F4\u7ED5"
@@ -445,6 +448,59 @@ std::int64_t study_secs_to_exp(const std::int64_t secs) {
       std::floor(static_cast<double>(secs) / kStudySecsPerExp));
 }
 
+std::size_t utf8_prefix_bytes_by_chars(std::string_view value, const std::size_t char_limit) {
+  if (char_limit == 0) {
+    return 0;
+  }
+
+  std::size_t index = 0;
+  std::size_t chars = 0;
+  while (index < value.size() && chars < char_limit) {
+    const auto lead = static_cast<unsigned char>(value[index]);
+    std::size_t width = 1;
+    if ((lead & 0x80U) == 0U) {
+      width = 1;
+    } else if ((lead & 0xE0U) == 0xC0U && index + 1 < value.size()) {
+      width = 2;
+    } else if ((lead & 0xF0U) == 0xE0U && index + 2 < value.size()) {
+      width = 3;
+    } else if ((lead & 0xF8U) == 0xF0U && index + 3 < value.size()) {
+      width = 4;
+    }
+    index += width;
+    ++chars;
+  }
+  return index;
+}
+
+std::string build_ai_rag_context(
+    const char* const* note_names,
+    const std::size_t* note_name_sizes,
+    const char* const* note_contents,
+    const std::size_t* note_content_sizes,
+    const std::size_t note_count) {
+  std::string context;
+  for (std::size_t index = 0; index < note_count; ++index) {
+    const std::string_view name(
+        note_names[index] == nullptr ? "" : note_names[index],
+        note_name_sizes[index]);
+    const std::string_view content(
+        note_contents[index] == nullptr ? "" : note_contents[index],
+        note_content_sizes[index]);
+    const std::size_t truncated_size =
+        utf8_prefix_bytes_by_chars(content, kRagContextPerNoteChars);
+
+    context.append(utf8_literal(kAiRagNotePrefix));
+    context.append(std::to_string(index + 1));
+    context.append(utf8_literal(kAiRagNoteNameOpen));
+    context.append(name);
+    context.append(utf8_literal(kAiRagNoteNameClose));
+    context.append(content.substr(0, truncated_size));
+    context.append("\n\n");
+  }
+  return context;
+}
+
 std::string build_ai_rag_system_content(std::string_view context) {
   std::string content;
   content.reserve(
@@ -726,6 +782,43 @@ extern "C" kernel_status kernel_get_ai_embedding_cache_limit(std::size_t* out_li
 
 extern "C" kernel_status kernel_get_ai_embedding_concurrency_limit(std::size_t* out_limit) {
   return write_size_limit(kAiEmbeddingConcurrencyLimit, out_limit);
+}
+
+extern "C" kernel_status kernel_build_ai_rag_context(
+    const char* const* note_names,
+    const std::size_t* note_name_sizes,
+    const char* const* note_contents,
+    const std::size_t* note_content_sizes,
+    const std::size_t note_count,
+    kernel_owned_buffer* out_buffer) {
+  if (
+      out_buffer == nullptr ||
+      (note_count > 0 &&
+       (note_names == nullptr || note_name_sizes == nullptr || note_contents == nullptr ||
+        note_content_sizes == nullptr))) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  for (std::size_t index = 0; index < note_count; ++index) {
+    if (
+        (note_name_sizes[index] > 0 && note_names[index] == nullptr) ||
+        (note_content_sizes[index] > 0 && note_contents[index] == nullptr)) {
+      return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+  }
+
+  const std::string context = build_ai_rag_context(
+      note_names,
+      note_name_sizes,
+      note_contents,
+      note_content_sizes,
+      note_count);
+  if (!fill_owned_buffer(context, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" kernel_status kernel_build_ai_rag_system_content(

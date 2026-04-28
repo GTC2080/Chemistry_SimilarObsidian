@@ -74,8 +74,9 @@ The repository must retain regression coverage for:
 - `kernel_get_ai_embedding_cache_limit(...)` returns `64`
 - `kernel_get_ai_embedding_concurrency_limit(...)` returns `4`
 - all product text limit getters reject null output pointers
-- Tauri Rust queries these limits through the sealed bridge instead of keeping
-  duplicate product text constants
+- Tauri Rust queries semantic/embedding text limits through the sealed bridge
+  and relies on `kernel_build_ai_rag_context(...)` for the RAG per-note limit
+  instead of keeping duplicate product text constants
 - Tauri Rust AI code queries chat, ponder, embedding timeout, cache, and
   concurrency defaults through the sealed bridge instead of keeping duplicate
   runtime constants
@@ -84,6 +85,13 @@ The repository must retain regression coverage for:
 
 The repository must retain regression coverage for:
 
+- `kernel_build_ai_rag_context(...)` preserves note headers, 1-based note
+  numbering, note names, note content, and blank-line separators
+- `kernel_build_ai_rag_context(...)` truncates note content at the kernel-owned
+  `1500` Unicode character limit rather than at raw bytes
+- `kernel_build_ai_rag_context(...)` returns empty text for an empty note list
+- `kernel_build_ai_rag_context(...)` rejects null non-empty note buffers and
+  null output pointers
 - `kernel_build_ai_rag_system_content(...)` preserves the private
   knowledge-base system prompt plus related-note context header
 - `kernel_get_ai_ponder_system_prompt(...)` preserves the strict JSON-array and
@@ -95,6 +103,8 @@ The repository must retain regression coverage for:
 - Tauri Rust AI code queries prompt shapes and Ponder temperature through the
   sealed bridge instead of keeping duplicate prompt strings or temperature
   constants
+- Tauri Rust AI code delegates RAG note context formatting and truncation to
+  the sealed bridge instead of stitching note headers locally
 
 ## Study Truth State
 

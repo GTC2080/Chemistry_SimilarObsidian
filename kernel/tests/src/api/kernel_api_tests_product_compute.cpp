@@ -294,6 +294,82 @@ void test_ai_host_runtime_defaults_are_kernel_owned() {
       "AI embedding concurrency limit should reject null output");
 }
 
+void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const char* names[] = {"Alpha", "Beta"};
+  const size_t name_sizes[] = {5, 4};
+  const char* contents[] = {"first", "second"};
+  const size_t content_sizes[] = {5, 6};
+  require_ok_status(
+      kernel_build_ai_rag_context(names, name_sizes, contents, content_sizes, 2, &buffer),
+      "AI RAG note context");
+  const std::string expected =
+      utf8_string(
+          u8"--- \u7B14\u8BB0 1 \u300AAlpha\u300B ---\nfirst\n\n"
+          u8"--- \u7B14\u8BB0 2 \u300ABeta\u300B ---\nsecond\n\n");
+  require_true(
+      buffer_to_string(buffer) == expected,
+      "RAG note context should preserve kernel-owned note headers and separators");
+  kernel_free_buffer(&buffer);
+
+  require_ok_status(
+      kernel_build_ai_rag_context(nullptr, nullptr, nullptr, nullptr, 0, &buffer),
+      "empty AI RAG note context");
+  require_true(buffer_to_string(buffer).empty(), "empty RAG note context should return empty text");
+  kernel_free_buffer(&buffer);
+
+  const std::string han = utf8_string(u8"\u4F60");
+  std::string long_content;
+  for (std::size_t index = 0; index < 1500; ++index) {
+    long_content.append(han);
+  }
+  long_content.push_back('Z');
+  const char* long_names[] = {"Long"};
+  const size_t long_name_sizes[] = {4};
+  const char* long_contents[] = {long_content.data()};
+  const size_t long_content_sizes[] = {long_content.size()};
+  require_ok_status(
+      kernel_build_ai_rag_context(
+          long_names,
+          long_name_sizes,
+          long_contents,
+          long_content_sizes,
+          1,
+          &buffer),
+      "AI RAG note context truncation");
+  const std::string truncated = buffer_to_string(buffer);
+  require_true(
+      truncated.find("Z") == std::string::npos,
+      "RAG note context should truncate after the kernel-owned per-note char limit");
+  require_true(
+      truncated.rfind("\n\n") == truncated.size() - 2,
+      "RAG note context should preserve the trailing note separator");
+  require_true(
+      truncated.find(utf8_string(u8"--- \u7B14\u8BB0 1 \u300ALong\u300B ---\n")) == 0,
+      "RAG note context should preserve the Long note header");
+  kernel_free_buffer(&buffer);
+
+  const char* invalid_names[] = {nullptr};
+  const size_t invalid_name_sizes[] = {1};
+  const char* empty_contents[] = {""};
+  const size_t empty_content_sizes[] = {0};
+  require_true(
+      kernel_build_ai_rag_context(
+          invalid_names,
+          invalid_name_sizes,
+          empty_contents,
+          empty_content_sizes,
+          1,
+          &buffer)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "RAG note context should reject null non-empty names");
+  require_true(
+      kernel_build_ai_rag_context(names, name_sizes, contents, content_sizes, 1, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "RAG note context should reject null output");
+}
+
 void test_ai_prompt_shapes_are_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -577,6 +653,7 @@ void run_product_compute_tests() {
   test_semantic_context_validates_arguments();
   test_product_text_limits_are_kernel_owned();
   test_ai_host_runtime_defaults_are_kernel_owned();
+  test_ai_rag_context_shape_and_truncation_are_kernel_owned();
   test_ai_prompt_shapes_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();
   test_truth_state_validates_arguments();
