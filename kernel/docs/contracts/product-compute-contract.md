@@ -27,6 +27,7 @@ Current surface:
 - `kernel_normalize_ai_embedding_text(text, text_size, out_buffer)`
 - `kernel_compute_ai_embedding_cache_key(base_url, base_url_size, model, model_size, text, text_size, out_buffer)`
 - `kernel_build_ai_rag_context(note_names, note_name_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
+- `kernel_build_ai_rag_context_from_note_paths(note_paths, note_path_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
 - `kernel_build_ai_rag_system_content(context, context_size, out_buffer)`
 - `kernel_get_ai_ponder_system_prompt(out_buffer)`
 - `kernel_build_ai_ponder_user_prompt(topic, topic_size, context, context_size, out_buffer)`
@@ -62,8 +63,9 @@ Frozen rules:
   count
 - the kernel owns AI embedding input normalization, Unicode character
   truncation, empty-after-truncation rejection, and cache-key derivation
-- the kernel owns AI RAG note context formatting, note numbering, note
-  separators, and per-note Unicode character truncation
+- the kernel owns AI RAG note context formatting, note display-name derivation
+  from note paths, note numbering, note separators, and per-note Unicode
+  character truncation
 - the kernel owns AI RAG system prompt composition, Ponder system prompt,
   Ponder user prompt shape, and Ponder temperature
 - the kernel owns study truth attribute routing, active-seconds to EXP
@@ -130,8 +132,8 @@ Frozen rules:
   embedding cache-key derivation
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache,
   concurrency, or RAG top-note defaults
-- hosts must not hard-code AI RAG note context headers, note numbering,
-  separators, or per-note truncation behavior
+- hosts must not hard-code AI RAG note context headers, note display-name
+  derivation, note numbering, separators, or per-note truncation behavior
 - hosts must not hard-code AI RAG/Ponder prompt text, Ponder user prompt shape,
   or Ponder temperature
 - hosts must not reimplement study truth EXP curves or note-extension to
@@ -204,6 +206,9 @@ Frozen rules:
   note content truncated to `1500` Unicode characters, and a blank-line
   separator
 - `kernel_build_ai_rag_context(...)` returns empty text for an empty note list
+- `kernel_build_ai_rag_context_from_note_paths(...)` derives the note display
+  name from the final path segment, strips the final extension, and preserves
+  extensionless names
 - `kernel_build_ai_rag_system_content(...)` prepends the private knowledge-base
   RAG system prompt, a blank line, the related-note context header, another
   blank line, then the caller-provided context

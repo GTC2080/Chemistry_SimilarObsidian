@@ -6,15 +6,6 @@ use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::read_ai_config;
 use crate::AppError;
 
-fn note_display_name(note_id: &str) -> String {
-    std::path::Path::new(note_id)
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .filter(|value| !value.is_empty())
-        .unwrap_or(note_id)
-        .to_string()
-}
-
 fn collect_rag_note_contents(
     note_ids: impl IntoIterator<Item = String>,
     kernel_state: &SealedKernelState,
@@ -24,7 +15,7 @@ fn collect_rag_note_contents(
     for rel_path in rag_note_rel_paths(note_ids)? {
         match sealed_kernel::read_note_by_rel_path(&rel_path, kernel_state) {
             Ok(content) if !content.trim().is_empty() => {
-                contents.push((note_display_name(&rel_path), content));
+                contents.push((rel_path, content));
             }
             Ok(_) => {}
             Err(err) => eprintln!("[ask_vault] 跳过 RAG 笔记 [{}]: {}", rel_path, err),
@@ -94,7 +85,7 @@ pub async fn ask_vault(
         sealed_kernel.inner(),
     )?;
 
-    let context = ai::build_rag_context(&note_contents)?;
+    let context = ai::build_rag_context_from_note_paths(&note_contents)?;
     ai::stream_chat_with_context(&question, &context, &config, |chunk| {
         on_event
             .send(chunk)

@@ -222,6 +222,13 @@ kernel_status kernel_build_ai_rag_context(
     const size_t* note_content_sizes,
     size_t note_count,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_build_ai_rag_context_from_note_paths(
+    const char* const* note_paths,
+    const size_t* note_path_sizes,
+    const char* const* note_contents,
+    const size_t* note_content_sizes,
+    size_t note_count,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_build_ai_rag_system_content(
     const char* context,
     size_t context_size,

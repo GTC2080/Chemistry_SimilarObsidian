@@ -258,9 +258,9 @@ int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
     char** out_text,
     char** out_error);
 
-int32_t sealed_kernel_bridge_build_ai_rag_context_text(
-    const char* const* note_names_utf8,
-    const uint64_t* note_name_sizes,
+int32_t sealed_kernel_bridge_build_ai_rag_context_from_note_paths_text(
+    const char* const* note_paths_utf8,
+    const uint64_t* note_path_sizes,
     const char* const* note_contents_utf8,
     const uint64_t* note_content_sizes,
     uint64_t note_count,

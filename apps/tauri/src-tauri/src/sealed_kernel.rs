@@ -276,9 +276,9 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_build_ai_rag_context_text(
-        note_names_utf8: *const *const c_char,
-        note_name_sizes: *const u64,
+    fn sealed_kernel_bridge_build_ai_rag_context_from_note_paths_text(
+        note_paths_utf8: *const *const c_char,
+        note_path_sizes: *const u64,
         note_contents_utf8: *const *const c_char,
         note_content_sizes: *const u64,
         note_count: u64,
@@ -1888,12 +1888,12 @@ pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
-pub fn build_ai_rag_context(notes: &[(String, String)]) -> AppResult<String> {
-    let note_name_ptrs: Vec<*const c_char> = notes
+pub fn build_ai_rag_context_from_note_paths(notes: &[(String, String)]) -> AppResult<String> {
+    let note_path_ptrs: Vec<*const c_char> = notes
         .iter()
-        .map(|(name, _)| name.as_ptr() as *const c_char)
+        .map(|(path, _)| path.as_ptr() as *const c_char)
         .collect();
-    let note_name_sizes: Vec<u64> = notes.iter().map(|(name, _)| name.len() as u64).collect();
+    let note_path_sizes: Vec<u64> = notes.iter().map(|(path, _)| path.len() as u64).collect();
     let note_content_ptrs: Vec<*const c_char> = notes
         .iter()
         .map(|(_, content)| content.as_ptr() as *const c_char)
@@ -1906,9 +1906,9 @@ pub fn build_ai_rag_context(notes: &[(String, String)]) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
     let code = unsafe {
-        sealed_kernel_bridge_build_ai_rag_context_text(
-            note_name_ptrs.as_ptr(),
-            note_name_sizes.as_ptr(),
+        sealed_kernel_bridge_build_ai_rag_context_from_note_paths_text(
+            note_path_ptrs.as_ptr(),
+            note_path_sizes.as_ptr(),
             note_content_ptrs.as_ptr(),
             note_content_sizes.as_ptr(),
             notes.len() as u64,
@@ -1918,7 +1918,7 @@ pub fn build_ai_rag_context(notes: &[(String, String)]) -> AppResult<String> {
     };
     if code != 0 {
         return Err(product_text_bridge_error(
-            "sealed_kernel_build_ai_rag_context",
+            "sealed_kernel_build_ai_rag_context_from_note_paths",
             code,
             error,
         ));
@@ -3060,9 +3060,9 @@ mod tests {
 
     #[test]
     fn ai_rag_context_shape_comes_from_kernel() {
-        let context = build_ai_rag_context(&[
-            ("Alpha".to_string(), "first".to_string()),
-            ("Beta".to_string(), "second".to_string()),
+        let context = build_ai_rag_context_from_note_paths(&[
+            ("Alpha.md".to_string(), "first".to_string()),
+            ("Beta.md".to_string(), "second".to_string()),
         ])
         .unwrap();
 
@@ -3072,9 +3072,25 @@ mod tests {
         );
 
         let long_content = format!("{}Z", "你".repeat(1500));
-        let context = build_ai_rag_context(&[("Long".to_string(), long_content)]).unwrap();
+        let context =
+            build_ai_rag_context_from_note_paths(&[("Long.md".to_string(), long_content)]).unwrap();
         assert!(!context.contains('Z'));
         assert!(context.contains(&"你".repeat(1500)));
+    }
+
+    #[test]
+    fn ai_rag_context_display_names_come_from_kernel_paths() {
+        let context = build_ai_rag_context_from_note_paths(&[
+            ("Folder/Alpha.md".to_string(), "first".to_string()),
+            ("Lab\\Beta.MD".to_string(), "second".to_string()),
+            ("README".to_string(), "third".to_string()),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            context,
+            "--- 笔记 1 《Alpha》 ---\nfirst\n\n--- 笔记 2 《Beta》 ---\nsecond\n\n--- 笔记 3 《README》 ---\nthird\n\n"
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@ mod embedding;
 mod similarity;
 pub mod vector_cache;
 
-pub use chat::{build_rag_context, ponder_node, stream_chat_with_context};
+pub use chat::{build_rag_context_from_note_paths, ponder_node, stream_chat_with_context};
 pub use embedding::{fetch_embedding_cached, EmbeddingRuntimeState};
 pub use vector_cache::VectorCacheState;
 

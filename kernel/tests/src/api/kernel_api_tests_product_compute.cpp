@@ -425,6 +425,29 @@ void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
       "RAG note context should preserve kernel-owned note headers and separators");
   kernel_free_buffer(&buffer);
 
+  const char* note_paths[] = {"Folder/Alpha.md", "Lab\\Beta.MD", "README"};
+  const size_t note_path_sizes[] = {15, 11, 6};
+  const char* path_contents[] = {"first", "second", "third"};
+  const size_t path_content_sizes[] = {5, 6, 5};
+  require_ok_status(
+      kernel_build_ai_rag_context_from_note_paths(
+          note_paths,
+          note_path_sizes,
+          path_contents,
+          path_content_sizes,
+          3,
+          &buffer),
+      "AI RAG context from note paths");
+  const std::string expected_from_paths =
+      utf8_string(
+          u8"--- \u7B14\u8BB0 1 \u300AAlpha\u300B ---\nfirst\n\n"
+          u8"--- \u7B14\u8BB0 2 \u300ABeta\u300B ---\nsecond\n\n"
+          u8"--- \u7B14\u8BB0 3 \u300AREADME\u300B ---\nthird\n\n");
+  require_true(
+      buffer_to_string(buffer) == expected_from_paths,
+      "RAG note context should derive display names from note paths in kernel");
+  kernel_free_buffer(&buffer);
+
   require_ok_status(
       kernel_build_ai_rag_context(nullptr, nullptr, nullptr, nullptr, 0, &buffer),
       "empty AI RAG note context");
@@ -480,6 +503,16 @@ void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
       kernel_build_ai_rag_context(names, name_sizes, contents, content_sizes, 1, nullptr).code ==
           KERNEL_ERROR_INVALID_ARGUMENT,
       "RAG note context should reject null output");
+  require_true(
+      kernel_build_ai_rag_context_from_note_paths(
+          invalid_names,
+          invalid_name_sizes,
+          empty_contents,
+          empty_content_sizes,
+          1,
+          &buffer)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "RAG note context from paths should reject null non-empty paths");
 }
 
 void test_ai_prompt_shapes_are_kernel_owned() {

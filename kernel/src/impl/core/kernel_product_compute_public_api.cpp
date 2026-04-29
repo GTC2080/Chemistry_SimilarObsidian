@@ -165,6 +165,21 @@ std::string_view extension_from_note_id(std::string_view note_id) {
   return note_id.substr(dot + 1);
 }
 
+std::string_view rag_display_name_from_note_path(std::string_view note_path) {
+  const std::size_t slash = note_path.find_last_of("/\\");
+  const std::size_t name_start = slash == std::string_view::npos ? 0 : slash + 1;
+  if (name_start >= note_path.size()) {
+    return note_path;
+  }
+
+  const std::string_view file_name = note_path.substr(name_start);
+  const std::size_t dot = file_name.find_last_of('.');
+  if (dot == std::string_view::npos || dot == 0) {
+    return file_name;
+  }
+  return file_name.substr(0, dot);
+}
+
 std::string route_by_code_language(std::string_view lang) {
   const std::string lower = to_lower_ascii(lang);
   if (
@@ -591,6 +606,35 @@ std::string build_ai_rag_context(
   return context;
 }
 
+std::string build_ai_rag_context_from_note_paths(
+    const char* const* note_paths,
+    const std::size_t* note_path_sizes,
+    const char* const* note_contents,
+    const std::size_t* note_content_sizes,
+    const std::size_t note_count) {
+  std::string context;
+  for (std::size_t index = 0; index < note_count; ++index) {
+    const std::string_view path(
+        note_paths[index] == nullptr ? "" : note_paths[index],
+        note_path_sizes[index]);
+    const std::string_view name = rag_display_name_from_note_path(path);
+    const std::string_view content(
+        note_contents[index] == nullptr ? "" : note_contents[index],
+        note_content_sizes[index]);
+    const std::size_t truncated_size =
+        utf8_prefix_bytes_by_chars(content, kRagContextPerNoteChars);
+
+    context.append(utf8_literal(kAiRagNotePrefix));
+    context.append(std::to_string(index + 1));
+    context.append(utf8_literal(kAiRagNoteNameOpen));
+    context.append(name);
+    context.append(utf8_literal(kAiRagNoteNameClose));
+    context.append(content.substr(0, truncated_size));
+    context.append("\n\n");
+  }
+  return context;
+}
+
 std::string build_ai_rag_system_content(std::string_view context) {
   std::string content;
   content.reserve(
@@ -956,6 +1000,43 @@ extern "C" kernel_status kernel_build_ai_rag_context(
   const std::string context = build_ai_rag_context(
       note_names,
       note_name_sizes,
+      note_contents,
+      note_content_sizes,
+      note_count);
+  if (!fill_owned_buffer(context, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_build_ai_rag_context_from_note_paths(
+    const char* const* note_paths,
+    const std::size_t* note_path_sizes,
+    const char* const* note_contents,
+    const std::size_t* note_content_sizes,
+    const std::size_t note_count,
+    kernel_owned_buffer* out_buffer) {
+  if (
+      out_buffer == nullptr ||
+      (note_count > 0 &&
+       (note_paths == nullptr || note_path_sizes == nullptr || note_contents == nullptr ||
+        note_content_sizes == nullptr))) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  for (std::size_t index = 0; index < note_count; ++index) {
+    if (
+        (note_path_sizes[index] > 0 && note_paths[index] == nullptr) ||
+        (note_content_sizes[index] > 0 && note_contents[index] == nullptr)) {
+      return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+  }
+
+  const std::string context = build_ai_rag_context_from_note_paths(
+      note_paths,
+      note_path_sizes,
       note_contents,
       note_content_sizes,
       note_count);

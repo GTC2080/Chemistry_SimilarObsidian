@@ -60,8 +60,8 @@ struct ChatCompletionMessage {
     content: String,
 }
 
-pub fn build_rag_context(notes: &[(String, String)]) -> Result<String, String> {
-    sealed_kernel::build_ai_rag_context(notes).map_err(|err| err.to_string())
+pub fn build_rag_context_from_note_paths(notes: &[(String, String)]) -> Result<String, String> {
+    sealed_kernel::build_ai_rag_context_from_note_paths(notes).map_err(|err| err.to_string())
 }
 
 pub async fn stream_chat_with_context<F>(

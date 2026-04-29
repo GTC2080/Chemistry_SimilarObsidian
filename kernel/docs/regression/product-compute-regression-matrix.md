@@ -117,6 +117,9 @@ The repository must retain regression coverage for:
 - `kernel_build_ai_rag_context(...)` returns empty text for an empty note list
 - `kernel_build_ai_rag_context(...)` rejects null non-empty note buffers and
   null output pointers
+- `kernel_build_ai_rag_context_from_note_paths(...)` derives display names from
+  final path segments, strips final extensions, and preserves extensionless
+  names
 - `kernel_build_ai_rag_system_content(...)` preserves the private
   knowledge-base system prompt plus related-note context header
 - `kernel_get_ai_ponder_system_prompt(...)` preserves the strict JSON-array and
@@ -128,8 +131,9 @@ The repository must retain regression coverage for:
 - Tauri Rust AI code queries prompt shapes and Ponder temperature through the
   sealed bridge instead of keeping duplicate prompt strings or temperature
   constants
-- Tauri Rust AI code delegates RAG note context formatting and truncation to
-  the sealed bridge instead of stitching note headers locally
+- Tauri Rust AI code delegates RAG note context formatting, note display-name
+  derivation, and truncation to the sealed bridge instead of stitching note
+  headers or deriving display names locally
 
 ## Study Truth State
 
