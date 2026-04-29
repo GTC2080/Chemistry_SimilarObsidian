@@ -12,18 +12,17 @@ pub async fn parse_spectroscopy(
     file_path: String,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<SpectroscopyData, AppError> {
-    let ext = Path::new(&file_path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-
+    let ext = media_file_extension(&file_path)?;
     let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
     tauri::async_runtime::spawn_blocking(move || {
         sealed_kernel::parse_spectroscopy_from_text(&raw, &ext)
     })
     .await
     .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
+}
+
+fn media_file_extension(file_path: &str) -> Result<String, AppError> {
+    sealed_kernel::derive_file_extension_from_path(file_path)
 }
 
 fn normalize_preview_limit(limit: Option<usize>) -> Result<usize, AppError> {
@@ -44,11 +43,7 @@ pub async fn read_molecular_preview(
     max_atoms: Option<usize>,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<MolecularPreview, AppError> {
-    let ext = Path::new(&file_path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = media_file_extension(&file_path)?;
     let raw = sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())?;
     let limit = normalize_preview_limit(max_atoms)?;
     tauri::async_runtime::spawn_blocking(move || build_molecular_preview(&raw, &ext, limit))
@@ -135,6 +130,22 @@ mod tests {
             build_molecular_preview("raw text", "txt", 2).expect_err("unsupported extension");
 
         assert_eq!(error.to_string(), "不支持的分子文件扩展名: txt".to_string());
+    }
+
+    #[test]
+    fn media_file_extension_uses_kernel_path_rules() {
+        assert_eq!(
+            media_file_extension("Folder.v1/Spectrum.CSV").expect("kernel file extension"),
+            "csv"
+        );
+        assert_eq!(
+            media_file_extension("C:\\vault\\Mol.XYZ").expect("kernel file extension"),
+            "xyz"
+        );
+        assert_eq!(
+            media_file_extension("Folder.With.Dot/README").expect("kernel file extension"),
+            ""
+        );
     }
 
     #[test]

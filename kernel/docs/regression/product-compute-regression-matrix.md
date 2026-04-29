@@ -37,6 +37,19 @@ The repository must retain regression coverage for:
 - Tauri Rust bridge tests continue to cover the existing command-facing
   localized reason strings for code-language and molecular awards
 
+## File Extension Derivation
+
+The repository must retain regression coverage for:
+
+- `kernel_derive_file_extension_from_path(...)` lower-cases final-segment
+  extensions
+- Windows `\` and POSIX `/` separators both delimit path segments
+- dots in parent directories are ignored
+- extensionless final segments return empty text
+- null non-empty path buffers and null output pointers are rejected
+- Tauri Rust media commands ask the sealed bridge for spectroscopy and molecular
+  preview file extensions instead of deriving them with Rust path helpers
+
 ## Semantic Context
 
 The repository must retain regression coverage for:

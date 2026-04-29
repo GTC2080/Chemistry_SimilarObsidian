@@ -15,6 +15,7 @@ Current surface:
 - `kernel_get_truth_award_reason_key(reason, out_key)`
 - `kernel_free_truth_diff_result(out_result)`
 - `kernel_build_semantic_context(content, content_size, out_buffer)`
+- `kernel_derive_file_extension_from_path(path, path_size, out_buffer)`
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
@@ -56,6 +57,8 @@ Frozen rules:
   code-fence language detection, and molecular line-growth detection
 - the kernel owns semantic context trimming, heading extraction, recent-block
   selection, and context length limits
+- the kernel owns host-facing file extension derivation from path strings used by
+  media/product compute commands
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
@@ -126,6 +129,8 @@ Frozen rules:
 - hosts must not reimplement truth diff award routing or scoring rules
 - hosts must not hard-code truth award enum integer values
 - hosts must not reimplement semantic context extraction rules
+- hosts must not reimplement media/product file extension derivation with local
+  path libraries or string slicing
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
 - hosts must not reimplement embedding input truncation, empty-text checks, or
@@ -147,6 +152,19 @@ Frozen rules:
 - hosts may map kernel-provided truth award reason keys to localized reason
   strings
 - frontends continue to consume host commands rather than kernel ABI directly
+
+## File Extension Derivation
+
+Frozen rules:
+
+- `kernel_derive_file_extension_from_path(...)` reads only the final path segment
+  after `/` or `\`
+- parent directory dots are ignored
+- the extension is the text after the final `.` in the final segment
+- returned extensions are lower-case ASCII
+- extensionless names, dotfiles without another dot, trailing dots, and trailing
+  separators return empty text
+- null non-empty path buffers and null output buffers are invalid
 
 ## Semantic Context Rules
 

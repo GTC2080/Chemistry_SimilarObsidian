@@ -171,6 +171,49 @@ void test_truth_award_reason_keys_are_kernel_owned() {
       "truth reason key should reject unknown enum values");
 }
 
+void test_file_extension_derivation_is_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string csv_path = "Folder.v1/Spectrum.CSV";
+  require_ok_status(
+      kernel_derive_file_extension_from_path(csv_path.data(), csv_path.size(), &buffer),
+      "derive extension from POSIX path");
+  require_true(
+      buffer_to_string(buffer) == "csv",
+      "file extension derivation should lower-case the final path segment extension");
+  kernel_free_buffer(&buffer);
+
+  const std::string xyz_path = "C:\\vault\\Mol.XYZ";
+  require_ok_status(
+      kernel_derive_file_extension_from_path(xyz_path.data(), xyz_path.size(), &buffer),
+      "derive extension from Windows path");
+  require_true(
+      buffer_to_string(buffer) == "xyz",
+      "file extension derivation should handle Windows separators");
+  kernel_free_buffer(&buffer);
+
+  const std::string folder_dot_path = "Folder.With.Dot/README";
+  require_ok_status(
+      kernel_derive_file_extension_from_path(
+          folder_dot_path.data(),
+          folder_dot_path.size(),
+          &buffer),
+      "derive extension from extensionless path");
+  require_true(
+      buffer_to_string(buffer).empty(),
+      "file extension derivation should ignore dots in parent directories");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_derive_file_extension_from_path(nullptr, 1, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "file extension derivation should reject null non-empty path");
+  require_true(
+      kernel_derive_file_extension_from_path(csv_path.data(), csv_path.size(), nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "file extension derivation should reject null output");
+}
+
 void test_semantic_context_trims_short_content() {
   const std::string content = "  short note  \n";
   kernel_owned_buffer buffer{};
@@ -793,6 +836,7 @@ void run_product_compute_tests() {
   test_truth_diff_molecular_line_award();
   test_truth_diff_empty_and_invalid_args();
   test_truth_award_reason_keys_are_kernel_owned();
+  test_file_extension_derivation_is_kernel_owned();
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();
   test_semantic_context_validates_arguments();

@@ -226,6 +226,12 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_derive_file_extension_from_path_text(
+        path_utf8: *const c_char,
+        path_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_get_semantic_context_min_bytes(
         out_bytes: *mut u64,
         out_error: *mut *mut c_char,
@@ -1838,6 +1844,27 @@ pub fn normalize_ai_embedding_text(text: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
+pub fn derive_file_extension_from_path(path: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_derive_file_extension_from_path_text(
+            path.as_ptr() as *const c_char,
+            path.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_derive_file_extension_from_path",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
 pub fn compute_ai_embedding_cache_key(
     base_url: &str,
     model: &str,
@@ -2996,6 +3023,22 @@ mod tests {
     #[test]
     fn product_text_limits_come_from_kernel() {
         assert_eq!(semantic_context_min_bytes().unwrap(), 24);
+    }
+
+    #[test]
+    fn file_extension_from_path_comes_from_kernel() {
+        assert_eq!(
+            derive_file_extension_from_path("Folder.v1/Spectrum.CSV").unwrap(),
+            "csv"
+        );
+        assert_eq!(
+            derive_file_extension_from_path("C:\\vault\\Mol.XYZ").unwrap(),
+            "xyz"
+        );
+        assert_eq!(
+            derive_file_extension_from_path("Folder.With.Dot/README").unwrap(),
+            ""
+        );
     }
 
     #[test]

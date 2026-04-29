@@ -2039,6 +2039,32 @@ int32_t sealed_kernel_bridge_build_semantic_context_text(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_derive_file_extension_from_path_text(
+    const char* path_utf8,
+    uint64_t path_size,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (out_text == nullptr || (path_size > 0 && path_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_derive_file_extension_from_path(
+      path_utf8,
+      static_cast<size_t>(path_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_derive_file_extension_from_path", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error) {

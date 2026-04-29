@@ -165,6 +165,21 @@ std::string_view extension_from_note_id(std::string_view note_id) {
   return note_id.substr(dot + 1);
 }
 
+std::string derive_file_extension_from_path(std::string_view path) {
+  const std::size_t slash = path.find_last_of("/\\");
+  const std::size_t name_start = slash == std::string_view::npos ? 0 : slash + 1;
+  if (name_start >= path.size()) {
+    return {};
+  }
+
+  const std::string_view file_name = path.substr(name_start);
+  const std::size_t dot = file_name.find_last_of('.');
+  if (dot == std::string_view::npos || dot == 0 || dot + 1 >= file_name.size()) {
+    return {};
+  }
+  return to_lower_ascii(file_name.substr(dot + 1));
+}
+
 std::string_view rag_display_name_from_note_path(std::string_view note_path) {
   const std::size_t slash = note_path.find_last_of("/\\");
   const std::size_t name_start = slash == std::string_view::npos ? 0 : slash + 1;
@@ -920,6 +935,24 @@ extern "C" kernel_status kernel_get_ai_embedding_concurrency_limit(std::size_t* 
 
 extern "C" kernel_status kernel_get_ai_rag_top_note_limit(std::size_t* out_limit) {
   return write_size_limit(kAiRagTopNoteLimit, out_limit);
+}
+
+extern "C" kernel_status kernel_derive_file_extension_from_path(
+    const char* path,
+    const std::size_t path_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (path_size > 0 && path == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view path_view(path == nullptr ? "" : path, path_size);
+  const std::string extension = derive_file_extension_from_path(path_view);
+  if (!fill_owned_buffer(extension, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" kernel_status kernel_normalize_ai_embedding_text(

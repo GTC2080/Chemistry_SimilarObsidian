@@ -208,6 +208,12 @@ int32_t sealed_kernel_bridge_build_semantic_context_text(
     char** out_text,
     char** out_error);
 
+int32_t sealed_kernel_bridge_derive_file_extension_from_path_text(
+    const char* path_utf8,
+    uint64_t path_size,
+    char** out_text,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error);
