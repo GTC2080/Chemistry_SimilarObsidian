@@ -1,15 +1,10 @@
 use rusqlite::Connection;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 /// 从路径字符串中提取文件扩展名（小写），无扩展名返回空字符串。
 pub(super) fn ext_from_path(path: &str) -> String {
-    Path::new(path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase()
+    crate::sealed_kernel::derive_file_extension_from_path(path).unwrap_or_default()
 }
 
 /// 数据库状态包装器
@@ -43,5 +38,15 @@ impl Drop for QueryTimer {
         if elapsed.as_millis() > 0 {
             eprintln!("[查询耗时] {} = {}ms", self.label, elapsed.as_millis());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ext_from_path_uses_kernel_ascii_extension_rules() {
+        assert_eq!(ext_from_path("Folder/Sample.İON"), "İon");
     }
 }

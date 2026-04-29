@@ -49,6 +49,8 @@ The repository must retain regression coverage for:
 - null non-empty path buffers and null output pointers are rejected
 - Tauri Rust media commands ask the sealed bridge for spectroscopy and molecular
   preview file extensions instead of deriving them with Rust path helpers
+- Tauri Rust legacy embedding-cache metadata asks the sealed bridge for file
+  extensions instead of deriving them with Rust path helpers
 
 ## Semantic Context
 
