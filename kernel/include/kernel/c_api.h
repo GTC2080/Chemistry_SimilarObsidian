@@ -198,6 +198,10 @@ kernel_status kernel_derive_file_extension_from_path(
     const char* path,
     size_t path_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_derive_note_display_name_from_path(
+    const char* path,
+    size_t path_size,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_normalize_database_column_type(
     const char* column_type,
     size_t column_type_size,

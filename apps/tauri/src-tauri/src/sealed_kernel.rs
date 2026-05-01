@@ -232,6 +232,12 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_derive_note_display_name_from_path_text(
+        path_utf8: *const c_char,
+        path_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_normalize_database_column_type_text(
         column_type_utf8: *const c_char,
         column_type_size: u64,
@@ -947,12 +953,10 @@ fn note_info_from_record(vault_path: &str, record: SealedKernelNoteRecord) -> No
     let rel_path = record.rel_path.replace('\\', "/");
     let abs_path = Path::new(vault_path).join(&rel_path);
     let extension = derive_file_extension_from_path(&rel_path).unwrap_or_default();
-    let name = Path::new(&rel_path)
-        .file_stem()
-        .and_then(|value| value.to_str())
+    let name = derive_note_display_name_from_path(&rel_path)
+        .ok()
         .filter(|value| !value.is_empty())
-        .unwrap_or(&record.title)
-        .to_string();
+        .unwrap_or_else(|| record.title.clone());
     let updated_at = (record.mtime_ns / 1_000_000_000) as i64;
 
     NoteInfo {
@@ -1860,6 +1864,27 @@ pub fn derive_file_extension_from_path(path: &str) -> AppResult<String> {
     if code != 0 {
         return Err(product_text_bridge_error(
             "sealed_kernel_derive_file_extension_from_path",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
+pub fn derive_note_display_name_from_path(path: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_derive_note_display_name_from_path_text(
+            path.as_ptr() as *const c_char,
+            path.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_derive_note_display_name_from_path",
             code,
             error,
         ));
@@ -3058,6 +3083,23 @@ mod tests {
         assert_eq!(note.name, "Sample");
         assert_eq!(note.file_extension, "İon");
         assert_eq!(note.updated_at, 1_700_000_000);
+    }
+
+    #[test]
+    fn note_display_name_from_path_comes_from_kernel() {
+        assert_eq!(
+            derive_note_display_name_from_path("Folder/Alpha.md").unwrap(),
+            "Alpha"
+        );
+        assert_eq!(
+            derive_note_display_name_from_path("Lab\\Beta.MD").unwrap(),
+            "Beta"
+        );
+        assert_eq!(
+            derive_note_display_name_from_path("README").unwrap(),
+            "README"
+        );
+        assert_eq!(derive_note_display_name_from_path(".env").unwrap(), ".env");
     }
 
     #[test]

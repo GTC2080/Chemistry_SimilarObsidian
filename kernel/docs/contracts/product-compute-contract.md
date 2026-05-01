@@ -16,6 +16,7 @@ Current surface:
 - `kernel_free_truth_diff_result(out_result)`
 - `kernel_build_semantic_context(content, content_size, out_buffer)`
 - `kernel_derive_file_extension_from_path(path, path_size, out_buffer)`
+- `kernel_derive_note_display_name_from_path(path, path_size, out_buffer)`
 - `kernel_normalize_database_column_type(column_type, column_type_size, out_buffer)`
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
@@ -60,6 +61,8 @@ Frozen rules:
   selection, and context length limits
 - the kernel owns host-facing file extension derivation from path strings used by
   media/product compute commands
+- the kernel owns host-facing note display-name derivation from path strings used
+  by note catalog DTOs and AI RAG context
 - the kernel owns host-facing database column type normalization for database
   grid payloads
 - the kernel owns host-facing AI/product text limits used for semantic context
@@ -134,6 +137,8 @@ Frozen rules:
 - hosts must not reimplement semantic context extraction rules
 - hosts must not reimplement media/product file extension derivation with local
   path libraries or string slicing
+- hosts must not reimplement note display-name derivation from rel paths with
+  local path libraries or string slicing
 - hosts must not keep local database column type allow-lists for database grid
   normalization
 - hosts must not hard-code semantic context gating, RAG note snippet, or
@@ -169,6 +174,20 @@ Frozen rules:
 - returned extensions are lower-case ASCII
 - extensionless names, dotfiles without another dot, trailing dots, and trailing
   separators return empty text
+- null non-empty path buffers and null output buffers are invalid
+
+## Note Display Name Derivation
+
+Frozen rules:
+
+- `kernel_derive_note_display_name_from_path(...)` reads only the final path
+  segment after `/` or `\`
+- parent directory dots are ignored
+- names with a final extension return the text before the final `.` in the final
+  segment
+- extensionless names are preserved
+- dotfiles without another dot are preserved
+- matching is byte-preserving; display names are not lower-cased
 - null non-empty path buffers and null output buffers are invalid
 
 ## Database Column Type Rules

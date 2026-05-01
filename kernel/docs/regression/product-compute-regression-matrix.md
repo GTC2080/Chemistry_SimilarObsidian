@@ -54,6 +54,19 @@ The repository must retain regression coverage for:
 - Tauri Rust note catalog DTO mapping asks the sealed bridge for `NoteInfo`
   file extensions instead of deriving them with Rust path helpers
 
+## Note Display Name Derivation
+
+The repository must retain regression coverage for:
+
+- `kernel_derive_note_display_name_from_path(...)` strips only the final path
+  segment extension
+- Windows `\` and POSIX `/` separators both delimit path segments
+- dots in parent directories are ignored
+- extensionless names and dotfiles without another dot are preserved
+- null non-empty path buffers and null output pointers are rejected
+- Tauri Rust note catalog DTO mapping asks the sealed bridge for `NoteInfo.name`
+  instead of deriving it with Rust path helpers
+
 ## Database Column Type Normalization
 
 The repository must retain regression coverage for:

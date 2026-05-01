@@ -968,6 +968,24 @@ extern "C" kernel_status kernel_derive_file_extension_from_path(
   return kernel::core::make_status(KERNEL_OK);
 }
 
+extern "C" kernel_status kernel_derive_note_display_name_from_path(
+    const char* path,
+    const std::size_t path_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (path_size > 0 && path == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view path_view(path == nullptr ? "" : path, path_size);
+  const std::string display_name(rag_display_name_from_note_path(path_view));
+  if (!fill_owned_buffer(display_name, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
 extern "C" kernel_status kernel_normalize_database_column_type(
     const char* column_type,
     const std::size_t column_type_size,

@@ -253,6 +253,58 @@ void test_database_column_type_normalization_is_kernel_owned() {
       "database column type normalization should reject null output");
 }
 
+void test_note_display_name_derivation_is_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string markdown_path = "Folder/Alpha.md";
+  require_ok_status(
+      kernel_derive_note_display_name_from_path(markdown_path.data(), markdown_path.size(), &buffer),
+      "derive note display name from POSIX path");
+  require_true(
+      buffer_to_string(buffer) == "Alpha",
+      "note display name derivation should strip final extension");
+  kernel_free_buffer(&buffer);
+
+  const std::string windows_path = "Lab\\Beta.MD";
+  require_ok_status(
+      kernel_derive_note_display_name_from_path(windows_path.data(), windows_path.size(), &buffer),
+      "derive note display name from Windows path");
+  require_true(
+      buffer_to_string(buffer) == "Beta",
+      "note display name derivation should handle Windows separators");
+  kernel_free_buffer(&buffer);
+
+  const std::string extensionless_path = "README";
+  require_ok_status(
+      kernel_derive_note_display_name_from_path(
+          extensionless_path.data(),
+          extensionless_path.size(),
+          &buffer),
+      "derive note display name from extensionless path");
+  require_true(
+      buffer_to_string(buffer) == "README",
+      "note display name derivation should preserve extensionless names");
+  kernel_free_buffer(&buffer);
+
+  const std::string dotfile_path = ".env";
+  require_ok_status(
+      kernel_derive_note_display_name_from_path(dotfile_path.data(), dotfile_path.size(), &buffer),
+      "derive note display name from dotfile path");
+  require_true(
+      buffer_to_string(buffer) == ".env",
+      "note display name derivation should preserve dotfiles without another dot");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_derive_note_display_name_from_path(nullptr, 1, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "note display name derivation should reject null non-empty input");
+  require_true(
+      kernel_derive_note_display_name_from_path(markdown_path.data(), markdown_path.size(), nullptr)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "note display name derivation should reject null output");
+}
+
 void test_semantic_context_trims_short_content() {
   const std::string content = "  short note  \n";
   kernel_owned_buffer buffer{};
@@ -877,6 +929,7 @@ void run_product_compute_tests() {
   test_truth_award_reason_keys_are_kernel_owned();
   test_file_extension_derivation_is_kernel_owned();
   test_database_column_type_normalization_is_kernel_owned();
+  test_note_display_name_derivation_is_kernel_owned();
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();
   test_semantic_context_validates_arguments();
