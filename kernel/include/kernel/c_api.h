@@ -97,6 +97,10 @@ kernel_status kernel_query_tags(
     kernel_handle* handle,
     size_t limit,
     kernel_tag_list* out_tags);
+kernel_status kernel_query_tag_tree(
+    kernel_handle* handle,
+    size_t limit,
+    kernel_tag_tree* out_tree);
 kernel_status kernel_query_graph(
     kernel_handle* handle,
     size_t note_limit,
@@ -457,6 +461,7 @@ void kernel_free_note_list(kernel_note_list* notes);
 void kernel_free_path_list(kernel_path_list* paths);
 void kernel_free_file_tree(kernel_file_tree* tree);
 void kernel_free_tag_list(kernel_tag_list* tags);
+void kernel_free_tag_tree(kernel_tag_tree* tree);
 void kernel_free_graph(kernel_graph* graph);
 void kernel_free_search_results(kernel_search_results* results);
 void kernel_free_search_page(kernel_search_page* page);

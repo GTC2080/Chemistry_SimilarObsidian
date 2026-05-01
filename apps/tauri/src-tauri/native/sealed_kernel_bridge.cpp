@@ -252,6 +252,23 @@ void AppendFileTreeNodeJson(std::string& json, const kernel_file_tree_node& node
   json += "],\"fileCount\":" + std::to_string(node.file_count) + "}";
 }
 
+void AppendTagTreeNodeJson(std::string& json, const kernel_tag_tree_node& node) {
+  const std::string name_utf8 = ActiveCodePageToUtf8(node.name);
+  const std::string full_path_utf8 = ActiveCodePageToUtf8(node.full_path);
+
+  json += "{\"name\":\"" + JsonEscape(name_utf8.c_str()) + "\",";
+  json += "\"fullPath\":\"" + JsonEscape(full_path_utf8.c_str()) + "\",";
+  json += "\"count\":" + std::to_string(node.count) + ",";
+  json += "\"children\":[";
+  for (size_t index = 0; index < node.child_count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendTagTreeNodeJson(json, node.children[index]);
+  }
+  json += "]}";
+}
+
 const char* ChemSpectrumFormatToken(const kernel_chem_spectrum_format value) {
   switch (value) {
     case KERNEL_CHEM_SPECTRUM_FORMAT_JCAMP_DX:
@@ -1552,6 +1569,44 @@ int32_t sealed_kernel_bridge_query_tags_json(
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "failed to allocate tag summary JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_tag_tree_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0) {
+    SetError(out_error, "sealed kernel session is not open or tag-tree arguments are invalid.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_tag_tree tree{};
+  const kernel_status status =
+      kernel_query_tag_tree(session->handle, static_cast<size_t>(limit), &tree);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_query_tag_tree", out_error);
+  }
+
+  std::string json = "{\"nodes\":[";
+  for (size_t index = 0; index < tree.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendTagTreeNodeJson(json, tree.nodes[index]);
+  }
+  json += "],\"count\":" + std::to_string(tree.count) + "}";
+
+  kernel_free_tag_tree(&tree);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "failed to allocate tag tree JSON.");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);

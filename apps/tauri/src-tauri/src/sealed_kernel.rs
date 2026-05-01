@@ -146,6 +146,12 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_query_tag_tree_json(
+        session: *mut SealedKernelBridgeSession,
+        limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_query_tag_notes_json(
         session: *mut SealedKernelBridgeSession,
         tag_utf8: *const c_char,
@@ -527,6 +533,20 @@ struct SealedKernelTagCatalog {
 struct SealedKernelTagRecord {
     name: String,
     count: u32,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelTagTreeCatalog {
+    nodes: Vec<SealedKernelTagTreeNode>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SealedKernelTagTreeNode {
+    name: String,
+    full_path: String,
+    count: u32,
+    children: Vec<SealedKernelTagTreeNode>,
 }
 
 #[derive(Deserialize)]
@@ -1002,6 +1022,19 @@ fn file_tree_node_from_kernel(vault_path: &str, node: SealedKernelFileTreeNode) 
     }
 }
 
+fn tag_tree_node_from_kernel(node: SealedKernelTagTreeNode) -> TagTreeNode {
+    TagTreeNode {
+        name: node.name,
+        full_path: node.full_path,
+        count: node.count,
+        children: node
+            .children
+            .into_iter()
+            .map(tag_tree_node_from_kernel)
+            .collect(),
+    }
+}
+
 pub fn query_note_infos(
     vault_path: &str,
     state: &SealedKernelState,
@@ -1333,43 +1366,31 @@ pub fn tag_note_infos(
 }
 
 pub fn query_tag_tree(state: &SealedKernelState, limit: u64) -> AppResult<Vec<TagTreeNode>> {
-    let tags = query_tag_infos(state, limit)?;
-    let mut root: Vec<TagTreeNode> = Vec::new();
-
-    for tag in tags {
-        let parts: Vec<&str> = tag
-            .name
-            .split('/')
-            .filter(|part| !part.is_empty())
-            .collect();
-        if parts.is_empty() {
-            continue;
-        }
-
-        let mut current_level = &mut root;
-        for (index, segment) in parts.iter().enumerate() {
-            let full_path = parts[..=index].join("/");
-            let position = current_level.iter().position(|node| node.name == *segment);
-            if let Some(position) = position {
-                if full_path == tag.name {
-                    current_level[position].count = tag.count;
-                }
-                current_level = &mut current_level[position].children;
-            } else {
-                let count = if full_path == tag.name { tag.count } else { 0 };
-                current_level.push(TagTreeNode {
-                    name: segment.to_string(),
-                    full_path,
-                    count,
-                    children: Vec::new(),
-                });
-                let last = current_level.len() - 1;
-                current_level = &mut current_level[last].children;
-            }
-        }
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "limit must be greater than zero.".to_string(),
+        ));
     }
 
-    Ok(root)
+    let session = active_session(state)?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_query_tag_tree_json(session, limit, &mut raw_json, &mut error)
+    };
+    if code != 0 {
+        return Err(bridge_error("sealed_kernel_query_tag_tree", code, error));
+    }
+
+    let value = take_bridge_string(raw_json);
+    let catalog: SealedKernelTagTreeCatalog = serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!("sealed kernel tag tree JSON is invalid: {err}"))
+    })?;
+    Ok(catalog
+        .nodes
+        .into_iter()
+        .map(tag_tree_node_from_kernel)
+        .collect())
 }
 
 pub fn query_graph_data(state: &SealedKernelState, limit: u64) -> AppResult<GraphData> {

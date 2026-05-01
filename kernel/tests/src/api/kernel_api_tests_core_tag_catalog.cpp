@@ -77,6 +77,54 @@ void test_query_tags_limit_and_argument_validation() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_query_tag_tree_builds_hierarchy_inside_kernel() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  write_note(handle, "alpha.md", "# Alpha\nTags: #chem #chem/nmr #chem/nmr/proton\n");
+  write_note(handle, "beta.md", "# Beta\nTags: #chem #bio\n");
+
+  kernel_tag_tree tree{};
+  expect_ok(kernel_query_tag_tree(handle, 16, &tree));
+  require_true(tree.count == 2, "tag tree should expose root tag nodes");
+  require_true(std::string(tree.nodes[0].name) == "chem", "highest-count root tag should come first");
+  require_true(std::string(tree.nodes[0].full_path) == "chem", "root full path should be exact tag");
+  require_true(tree.nodes[0].count == 2, "exact parent tag count should be retained");
+  require_true(tree.nodes[0].child_count == 1, "nested chem tag should become a child");
+  require_true(
+      std::string(tree.nodes[0].children[0].name) == "nmr",
+      "nested segment should use only its local name");
+  require_true(
+      std::string(tree.nodes[0].children[0].full_path) == "chem/nmr",
+      "nested segment should preserve full tag path");
+  require_true(tree.nodes[0].children[0].count == 1, "nested exact tag count should be retained");
+  require_true(
+      tree.nodes[0].children[0].child_count == 1,
+      "deep nested tag should remain attached below its parent");
+  require_true(
+      std::string(tree.nodes[0].children[0].children[0].full_path) == "chem/nmr/proton",
+      "deep nested full path should be kernel-owned");
+  require_true(
+      std::string(tree.nodes[1].name) == "bio",
+      "equal-count root tags should follow tag catalog ordering");
+  kernel_free_tag_tree(&tree);
+
+  require_true(
+      kernel_query_tag_tree(nullptr, 16, &tree).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "tag tree should require handle");
+  require_true(
+      kernel_query_tag_tree(handle, 0, &tree).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "tag tree should reject zero limit");
+  require_true(
+      kernel_query_tag_tree(handle, 16, nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "tag tree should require output pointer");
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
 void test_tag_default_limits_are_kernel_owned() {
   size_t tag_catalog_limit = 0;
   expect_ok(kernel_get_tag_catalog_default_limit(&tag_catalog_limit));
@@ -125,6 +173,7 @@ void test_query_tag_notes_uses_live_kernel_tag_index() {
 void run_kernel_api_core_tag_contract_tests() {
   test_query_tags_returns_live_summaries_sorted_by_count_then_name();
   test_query_tags_limit_and_argument_validation();
+  test_query_tag_tree_builds_hierarchy_inside_kernel();
   test_tag_default_limits_are_kernel_owned();
   test_query_tag_notes_uses_live_kernel_tag_index();
 }

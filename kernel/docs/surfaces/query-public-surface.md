@@ -169,13 +169,39 @@ Tag semantics:
 - each `kernel_tag_record.name` is the bare stored tag text without the leading `#`
 - each `kernel_tag_record.count` is the number of live notes carrying that exact tag
 - tags are derived from the same parser output that feeds `kernel_query_tag_notes(...)`
-- hierarchy is not stored as a second truth source; hosts that need a tag tree must derive it from returned tag names
+- hierarchy is not stored as a second truth source; `kernel_query_tag_tree(...)` derives the host-facing tree from the same returned tag names
 
 Ordering and ownership:
 
 - result ordering is deterministic: count descending, then tag name ascending
 - returned strings are kernel-owned and remain valid until `kernel_free_tag_list(...)`
 - `kernel_free_tag_list(...)` is idempotent and leaves the struct empty
+
+## Tag Tree Contract
+
+`kernel_query_tag_tree(...)` returns the parser-derived tag catalog folded into a
+slash-separated hierarchy. This is the only host-facing tag tree structure for
+the Tauri shell.
+
+Input rules:
+
+- `handle` must be non-null
+- `limit` must be greater than zero
+- `out_tree` must be non-null
+
+Tree semantics:
+
+- each root or child node is derived from one non-empty tag path segment
+- `name` is the local path segment
+- `full_path` is the slash-joined tag path from the root to that node
+- `count` is the exact stored tag count when `full_path` matches a stored tag; synthetic parents have count `0`
+- deeper tags remain attached below their parent node; hosts must not split tag names to rebuild the hierarchy
+
+Ordering and ownership:
+
+- root and child insertion order follows the deterministic tag catalog order
+- returned strings and child arrays are kernel-owned and remain valid until `kernel_free_tag_tree(...)`
+- `kernel_free_tag_tree(...)` is idempotent and leaves the struct empty
 
 ## Graph Query Contract
 

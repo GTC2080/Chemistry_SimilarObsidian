@@ -128,6 +128,12 @@ int32_t sealed_kernel_bridge_query_tags_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_query_tag_tree_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_query_tag_notes_json(
     sealed_kernel_bridge_session* session,
     const char* tag_utf8,

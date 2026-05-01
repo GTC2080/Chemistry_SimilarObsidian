@@ -128,6 +128,21 @@ typedef struct kernel_tag_list {
   size_t count;
 } kernel_tag_list;
 
+typedef struct kernel_tag_tree_node kernel_tag_tree_node;
+
+struct kernel_tag_tree_node {
+  char* name;
+  char* full_path;
+  uint32_t count;
+  kernel_tag_tree_node* children;
+  size_t child_count;
+};
+
+typedef struct kernel_tag_tree {
+  kernel_tag_tree_node* nodes;
+  size_t count;
+} kernel_tag_tree;
+
 typedef struct kernel_graph_node {
   char* id;
   char* name;
