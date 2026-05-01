@@ -946,11 +946,7 @@ where
 fn note_info_from_record(vault_path: &str, record: SealedKernelNoteRecord) -> NoteInfo {
     let rel_path = record.rel_path.replace('\\', "/");
     let abs_path = Path::new(vault_path).join(&rel_path);
-    let extension = Path::new(&rel_path)
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    let extension = derive_file_extension_from_path(&rel_path).unwrap_or_default();
     let name = Path::new(&rel_path)
         .file_stem()
         .and_then(|value| value.to_str())
@@ -3045,6 +3041,23 @@ mod tests {
     #[test]
     fn note_query_default_limit_comes_from_kernel() {
         assert_eq!(note_query_default_limit().unwrap(), 512);
+    }
+
+    #[test]
+    fn note_info_from_record_uses_kernel_extension_rules() {
+        let note = note_info_from_record(
+            "C:\\vault",
+            SealedKernelNoteRecord {
+                rel_path: "Folder\\Sample.İON".to_string(),
+                title: "Fallback".to_string(),
+                mtime_ns: 1_700_000_000_000_000_000,
+            },
+        );
+
+        assert_eq!(note.id, "Folder/Sample.İON");
+        assert_eq!(note.name, "Sample");
+        assert_eq!(note.file_extension, "İon");
+        assert_eq!(note.updated_at, 1_700_000_000);
     }
 
     #[test]

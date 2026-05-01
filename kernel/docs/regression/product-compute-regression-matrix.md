@@ -51,6 +51,8 @@ The repository must retain regression coverage for:
   preview file extensions instead of deriving them with Rust path helpers
 - Tauri Rust legacy embedding-cache metadata asks the sealed bridge for file
   extensions instead of deriving them with Rust path helpers
+- Tauri Rust note catalog DTO mapping asks the sealed bridge for `NoteInfo`
+  file extensions instead of deriving them with Rust path helpers
 
 ## Database Column Type Normalization
 
