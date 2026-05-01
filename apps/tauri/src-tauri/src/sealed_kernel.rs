@@ -232,6 +232,12 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_normalize_database_column_type_text(
+        column_type_utf8: *const c_char,
+        column_type_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_get_semantic_context_min_bytes(
         out_bytes: *mut u64,
         out_error: *mut *mut c_char,
@@ -1865,6 +1871,27 @@ pub fn derive_file_extension_from_path(path: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
+pub fn normalize_database_column_type(column_type: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_normalize_database_column_type_text(
+            column_type.as_ptr() as *const c_char,
+            column_type.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_normalize_database_column_type",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
 pub fn compute_ai_embedding_cache_key(
     base_url: &str,
     model: &str,
@@ -3039,6 +3066,13 @@ mod tests {
             derive_file_extension_from_path("Folder.With.Dot/README").unwrap(),
             ""
         );
+    }
+
+    #[test]
+    fn database_column_type_normalization_comes_from_kernel() {
+        assert_eq!(normalize_database_column_type("number").unwrap(), "number");
+        assert_eq!(normalize_database_column_type("formula").unwrap(), "text");
+        assert_eq!(normalize_database_column_type("").unwrap(), "text");
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 # Product Compute Contract
 
-Last updated: `2026-04-28`
+Last updated: `2026-05-01`
 
 ## Scope
 
@@ -16,6 +16,7 @@ Current surface:
 - `kernel_free_truth_diff_result(out_result)`
 - `kernel_build_semantic_context(content, content_size, out_buffer)`
 - `kernel_derive_file_extension_from_path(path, path_size, out_buffer)`
+- `kernel_normalize_database_column_type(column_type, column_type_size, out_buffer)`
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
@@ -59,6 +60,8 @@ Frozen rules:
   selection, and context length limits
 - the kernel owns host-facing file extension derivation from path strings used by
   media/product compute commands
+- the kernel owns host-facing database column type normalization for database
+  grid payloads
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
@@ -131,6 +134,8 @@ Frozen rules:
 - hosts must not reimplement semantic context extraction rules
 - hosts must not reimplement media/product file extension derivation with local
   path libraries or string slicing
+- hosts must not keep local database column type allow-lists for database grid
+  normalization
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
 - hosts must not reimplement embedding input truncation, empty-text checks, or
@@ -165,6 +170,17 @@ Frozen rules:
 - extensionless names, dotfiles without another dot, trailing dots, and trailing
   separators return empty text
 - null non-empty path buffers and null output buffers are invalid
+
+## Database Column Type Rules
+
+Frozen rules:
+
+- `kernel_normalize_database_column_type(...)` preserves `text`, `number`,
+  `select`, and `tags`
+- unknown column types return `text`
+- empty column type input returns `text`
+- matching is exact and case-sensitive
+- null non-empty input buffers and null output buffers are invalid
 
 ## Semantic Context Rules
 

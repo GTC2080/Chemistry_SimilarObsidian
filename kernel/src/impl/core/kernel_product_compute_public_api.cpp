@@ -180,6 +180,19 @@ std::string derive_file_extension_from_path(std::string_view path) {
   return to_lower_ascii(file_name.substr(dot + 1));
 }
 
+bool is_allowed_database_column_type(std::string_view column_type) {
+  return (
+      column_type == "text" || column_type == "number" ||
+      column_type == "select" || column_type == "tags");
+}
+
+std::string normalize_database_column_type(std::string_view column_type) {
+  if (is_allowed_database_column_type(column_type)) {
+    return std::string(column_type);
+  }
+  return "text";
+}
+
 std::string_view rag_display_name_from_note_path(std::string_view note_path) {
   const std::size_t slash = note_path.find_last_of("/\\");
   const std::size_t name_start = slash == std::string_view::npos ? 0 : slash + 1;
@@ -950,6 +963,26 @@ extern "C" kernel_status kernel_derive_file_extension_from_path(
   const std::string_view path_view(path == nullptr ? "" : path, path_size);
   const std::string extension = derive_file_extension_from_path(path_view);
   if (!fill_owned_buffer(extension, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_normalize_database_column_type(
+    const char* column_type,
+    const std::size_t column_type_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (column_type_size > 0 && column_type == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view column_type_view(
+      column_type == nullptr ? "" : column_type,
+      column_type_size);
+  const std::string normalized = normalize_database_column_type(column_type_view);
+  if (!fill_owned_buffer(normalized, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);

@@ -214,6 +214,45 @@ void test_file_extension_derivation_is_kernel_owned() {
       "file extension derivation should reject null output");
 }
 
+void test_database_column_type_normalization_is_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string allowed_type = "number";
+  require_ok_status(
+      kernel_normalize_database_column_type(allowed_type.data(), allowed_type.size(), &buffer),
+      "normalize allowed database column type");
+  require_true(
+      buffer_to_string(buffer) == "number",
+      "database column type normalization should preserve allowed types");
+  kernel_free_buffer(&buffer);
+
+  const std::string invalid_type = "formula";
+  require_ok_status(
+      kernel_normalize_database_column_type(invalid_type.data(), invalid_type.size(), &buffer),
+      "normalize invalid database column type");
+  require_true(
+      buffer_to_string(buffer) == "text",
+      "database column type normalization should fall back to text");
+  kernel_free_buffer(&buffer);
+
+  require_ok_status(
+      kernel_normalize_database_column_type(nullptr, 0, &buffer),
+      "normalize empty database column type");
+  require_true(
+      buffer_to_string(buffer) == "text",
+      "empty database column type should fall back to text");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_normalize_database_column_type(nullptr, 1, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "database column type normalization should reject null non-empty input");
+  require_true(
+      kernel_normalize_database_column_type(allowed_type.data(), allowed_type.size(), nullptr)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "database column type normalization should reject null output");
+}
+
 void test_semantic_context_trims_short_content() {
   const std::string content = "  short note  \n";
   kernel_owned_buffer buffer{};
@@ -837,6 +876,7 @@ void run_product_compute_tests() {
   test_truth_diff_empty_and_invalid_args();
   test_truth_award_reason_keys_are_kernel_owned();
   test_file_extension_derivation_is_kernel_owned();
+  test_database_column_type_normalization_is_kernel_owned();
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();
   test_semantic_context_validates_arguments();

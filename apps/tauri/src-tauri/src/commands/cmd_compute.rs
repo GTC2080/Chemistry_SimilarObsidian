@@ -134,8 +134,6 @@ fn gen_id(prefix: &str) -> String {
     format!("{}_{:x}", prefix, nanos & 0xFFFF_FFFF)
 }
 
-const ALLOWED_COL_TYPES: &[&str] = &["text", "number", "select", "tags"];
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseColumn {
     pub id: String,
@@ -154,6 +152,11 @@ pub struct DatabaseRow {
 pub struct DatabasePayload {
     pub columns: Vec<DatabaseColumn>,
     pub rows: Vec<DatabaseRow>,
+}
+
+fn normalize_database_column_type(raw_type: Option<&str>) -> String {
+    crate::sealed_kernel::normalize_database_column_type(raw_type.unwrap_or(""))
+        .unwrap_or_else(|_| "text".to_string())
 }
 
 #[tauri::command]
@@ -187,17 +190,8 @@ pub fn normalize_database(input: serde_json::Value) -> DatabasePayload {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| gen_id("col"));
-            let col_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("text");
-            let col_type = if ALLOWED_COL_TYPES.contains(&col_type) {
-                col_type
-            } else {
-                "text"
-            };
-            Some(DatabaseColumn {
-                id,
-                name,
-                col_type: col_type.to_string(),
-            })
+            let col_type = normalize_database_column_type(obj.get("type").and_then(|v| v.as_str()));
+            Some(DatabaseColumn { id, name, col_type })
         })
         .collect();
 
@@ -389,5 +383,29 @@ mod tests {
         let result = recalculate_stoichiometry(Vec::new());
 
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn normalize_database_column_types_use_kernel_rules() {
+        let result = normalize_database(serde_json::json!({
+            "columns": [
+                { "id": "a", "name": "Amount", "type": "number" },
+                { "id": "b", "name": "Formula", "type": "formula" },
+                { "id": "c", "name": "Missing" }
+            ],
+            "rows": [
+                { "id": "row1", "cells": { "a": 1 } }
+            ]
+        }));
+
+        let col_types: Vec<String> = result
+            .columns
+            .iter()
+            .map(|column| column.col_type.clone())
+            .collect();
+        assert_eq!(col_types, vec!["number", "text", "text"]);
+        assert_eq!(result.rows[0].cells["a"], serde_json::json!(1));
+        assert_eq!(result.rows[0].cells["b"], serde_json::json!(""));
+        assert_eq!(result.rows[0].cells["c"], serde_json::json!(""));
     }
 }

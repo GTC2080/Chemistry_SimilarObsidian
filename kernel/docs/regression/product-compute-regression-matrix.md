@@ -52,6 +52,17 @@ The repository must retain regression coverage for:
 - Tauri Rust legacy embedding-cache metadata asks the sealed bridge for file
   extensions instead of deriving them with Rust path helpers
 
+## Database Column Type Normalization
+
+The repository must retain regression coverage for:
+
+- `kernel_normalize_database_column_type(...)` preserves `text`, `number`,
+  `select`, and `tags`
+- unknown and empty column types fall back to `text`
+- null non-empty input buffers and null output pointers are rejected
+- Tauri Rust `normalize_database` asks the sealed bridge for column type
+  normalization instead of retaining a local allow-list
+
 ## Semantic Context
 
 The repository must retain regression coverage for:

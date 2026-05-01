@@ -214,6 +214,12 @@ int32_t sealed_kernel_bridge_derive_file_extension_from_path_text(
     char** out_text,
     char** out_error);
 
+int32_t sealed_kernel_bridge_normalize_database_column_type_text(
+    const char* column_type_utf8,
+    uint64_t column_type_size,
+    char** out_text,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error);
