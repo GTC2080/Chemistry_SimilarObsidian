@@ -56,7 +56,7 @@ impl WatcherState {
 
         self.stop();
 
-        let callback = handler::build_event_handler(vault.clone(), ignored_roots.to_string(), app);
+        let callback = handler::build_event_handler(ignored_roots.to_string(), app);
 
         let mut debouncer = new_debouncer(Duration::from_millis(500), callback)
             .map_err(|e| format!("创建 debouncer 失败: {}", e))?;

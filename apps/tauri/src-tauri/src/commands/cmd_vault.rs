@@ -488,7 +488,9 @@ pub fn start_watcher(
     ignored_folders: Option<String>,
     app: AppHandle,
     watcher: State<WatcherState>,
+    sealed_kernel: State<SealedKernelState>,
 ) -> Result<(), AppError> {
+    sealed_kernel::ensure_vault_open(&vault_path, sealed_kernel.inner())?;
     let ignored_roots = ignored_folders.unwrap_or_default();
     watcher
         .start(&vault_path, &ignored_roots, app)

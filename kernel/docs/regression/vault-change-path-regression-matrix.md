@@ -41,6 +41,8 @@ Tauri bridge coverage:
 - watcher event classification passes changed/removed relative path candidates
   through `kernel_filter_supported_vault_paths_filtered(...)` before emitting
   `vault:fs-change`
+- watcher event classification passes absolute notify event paths through
+  `kernel_relativize_vault_path(...)` before supported-path filtering
 - watcher Rust only performs platform directory-event checks before kernel path
   filtering
 - watcher Rust passes raw ignored-root CSV to the kernel rather than
@@ -61,3 +63,5 @@ Tauri bridge coverage:
 - by-path note and vault entry commands use
   `kernel_relativize_vault_path(...)` instead of rebuilding vault-root
   `strip_prefix`, separator normalization, or parent-segment checks in Rust
+- watcher event classification uses `kernel_relativize_vault_path(...)` instead
+  of rebuilding vault-root `strip_prefix` checks in Rust

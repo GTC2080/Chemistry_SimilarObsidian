@@ -20,7 +20,7 @@ incremental vault event fanout and Markdown note scan/index work.
 
 The host-path relativization surface accepts one absolute host path plus an
 opened vault kernel handle, then returns the canonical vault-relative path that
-may be used by by-path note and entry commands.
+may be used by by-path note, entry, and watcher event commands.
 
 ## Ownership
 
@@ -110,6 +110,9 @@ Tauri Rust may still:
   for removed Markdown notes
 - ignore directory events as a platform watcher concern before calling the
   kernel path filter
+- pass notify watcher absolute event paths through
+  `kernel_relativize_vault_path(...)` before supported-path filtering and IPC
+  fanout
 - use `kernel_normalize_vault_relative_path(...)` before one-off note read,
   write, and chemistry reference commands that accept a relative vault path
 - pass absolute host paths from by-path note and entry commands through
@@ -122,3 +125,5 @@ ignored-root normalization, path deduplication, or one-off vault relative path
 validation/normalization. It must also not reimplement vault-root
 relativization, `strip_prefix` checks, separator normalization, parent-segment
 checks, or root-folder allowance rules for by-path operations.
+Watcher event classification must also not use Rust `strip_prefix` to decide
+vault membership or produce relative event paths.
