@@ -2,7 +2,7 @@
 
 # Product Compute Regression Matrix
 
-Last updated: `2026-04-28`
+Last updated: `2026-05-02`
 
 ## Truth Diff Awards
 
@@ -136,6 +136,14 @@ The repository must retain regression coverage for:
   input after truncation
 - `kernel_normalize_ai_embedding_text(...)` rejects null non-empty input
   buffers and null output pointers
+- `kernel_is_ai_embedding_text_indexable(...)` returns true for non-empty
+  normalized embedding text
+- `kernel_is_ai_embedding_text_indexable(...)` returns false for empty or
+  all-whitespace text instead of forcing hosts to catch normalization errors
+- `kernel_is_ai_embedding_text_indexable(...)` applies the same 2000 Unicode
+  character truncation before deciding whether text is indexable
+- `kernel_is_ai_embedding_text_indexable(...)` rejects null non-empty input
+  buffers and null output pointers
 - `kernel_compute_ai_embedding_cache_key(...)` returns a stable 16-hex key for
   `(base_url, model, normalized text)`
 - `kernel_compute_ai_embedding_cache_key(...)` changes when normalized text
@@ -144,6 +152,8 @@ The repository must retain regression coverage for:
   buffers and null output pointers
 - Tauri Rust AI code delegates embedding input normalization to the sealed
   bridge instead of calling `chars().take(...)` locally
+- Tauri Rust indexing preflight delegates embedding text indexability to the
+  sealed bridge instead of calling `trim().is_empty()` locally
 - Tauri Rust AI code delegates embedding cache-key derivation to the sealed
   bridge instead of using Rust `DefaultHasher`
 

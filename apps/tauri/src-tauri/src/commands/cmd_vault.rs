@@ -64,6 +64,10 @@ fn deleted_markdown_rel_paths(paths: &[String]) -> Result<Vec<String>, AppError>
     sealed_kernel::filter_changed_markdown_paths(paths)
 }
 
+fn embedding_content_is_indexable(content: &str) -> Result<bool, AppError> {
+    sealed_kernel::is_ai_embedding_text_indexable(content)
+}
+
 fn kernel_note_info_map_for_rel_paths(
     vault_path: &str,
     rel_paths: &[String],
@@ -109,7 +113,7 @@ fn collect_kernel_note_upserts(
                 continue;
             }
         };
-        if content.trim().is_empty() {
+        if !embedding_content_is_indexable(&content)? {
             continue;
         }
         pending_upserts.push(pending_upsert_from_note(note, content));
@@ -142,7 +146,7 @@ fn collect_kernel_changed_upserts(
                 continue;
             }
         };
-        if content.trim().is_empty() {
+        if !embedding_content_is_indexable(&content)? {
             continue;
         }
         pending_upserts.push(pending_upsert_from_note(note, content));
@@ -339,12 +343,6 @@ pub async fn rebuild_vector_index(
 
     // Process embeddings concurrently with buffer_unordered(4)
     let results: Vec<_> = stream::iter(all_notes)
-        .filter_map(|(id, content)| {
-            if content.trim().is_empty() {
-                return std::future::ready(None);
-            }
-            std::future::ready(Some((id, content)))
-        })
         .map(|(id, content)| {
             let config = config.clone();
             let embedding_runtime = embedding_runtime.inner().clone();
@@ -519,6 +517,17 @@ mod tests {
         assert_eq!(
             deleted_markdown_rel_paths(&paths).expect("kernel deleted path filter"),
             vec!["Folder/Note.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn embedding_content_indexability_uses_kernel_truncated_input() {
+        assert!(embedding_content_is_indexable("useful text").expect("kernel indexability"));
+        assert!(!embedding_content_is_indexable(" \t\n\u{3000}").expect("kernel indexability"));
+
+        let truncated_whitespace = format!("{}Z", " ".repeat(2000));
+        assert!(
+            !embedding_content_is_indexable(&truncated_whitespace).expect("kernel indexability")
         );
     }
 }

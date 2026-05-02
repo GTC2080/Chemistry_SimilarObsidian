@@ -479,6 +479,50 @@ void test_ai_embedding_text_normalization_is_kernel_owned() {
       "embedding text normalization should reject null output");
 }
 
+void test_ai_embedding_text_indexability_is_kernel_owned() {
+  uint8_t indexable = 0;
+
+  const std::string useful = "  useful text  ";
+  require_ok_status(
+      kernel_is_ai_embedding_text_indexable(useful.data(), useful.size(), &indexable),
+      "AI embedding text indexability");
+  require_true(indexable == 1, "non-empty embedding text should be indexable");
+
+  const std::string whitespace = " \t\n" + utf8_string(u8"\u3000");
+  indexable = 1;
+  require_ok_status(
+      kernel_is_ai_embedding_text_indexable(whitespace.data(), whitespace.size(), &indexable),
+      "AI embedding whitespace indexability");
+  require_true(indexable == 0, "all-whitespace embedding text should not be indexable");
+
+  indexable = 1;
+  require_ok_status(
+      kernel_is_ai_embedding_text_indexable(nullptr, 0, &indexable),
+      "AI embedding empty-null indexability");
+  require_true(indexable == 0, "empty embedding text should not be indexable");
+
+  const std::string truncated_whitespace = std::string(2000, ' ') + "Z";
+  indexable = 1;
+  require_ok_status(
+      kernel_is_ai_embedding_text_indexable(
+          truncated_whitespace.data(),
+          truncated_whitespace.size(),
+          &indexable),
+      "AI embedding truncated whitespace indexability");
+  require_true(
+      indexable == 0,
+      "embedding indexability should use the kernel-owned truncated input");
+
+  require_true(
+      kernel_is_ai_embedding_text_indexable(nullptr, 1, &indexable).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding text indexability should reject null non-empty text");
+  require_true(
+      kernel_is_ai_embedding_text_indexable(useful.data(), useful.size(), nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding text indexability should reject null output");
+}
+
 void test_ai_embedding_cache_key_is_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -936,6 +980,7 @@ void run_product_compute_tests() {
   test_product_text_limits_are_kernel_owned();
   test_ai_host_runtime_defaults_are_kernel_owned();
   test_ai_embedding_text_normalization_is_kernel_owned();
+  test_ai_embedding_text_indexability_is_kernel_owned();
   test_ai_embedding_cache_key_is_kernel_owned();
   test_ai_rag_context_shape_and_truncation_are_kernel_owned();
   test_ai_prompt_shapes_are_kernel_owned();

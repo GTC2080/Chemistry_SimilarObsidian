@@ -272,6 +272,12 @@ int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
     char** out_text,
     char** out_error);
 
+int32_t sealed_kernel_bridge_is_ai_embedding_text_indexable(
+    const char* text_utf8,
+    uint64_t text_size,
+    uint8_t* out_is_indexable,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
     const char* base_url_utf8,
     uint64_t base_url_size,

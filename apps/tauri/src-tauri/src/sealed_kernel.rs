@@ -290,6 +290,12 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_is_ai_embedding_text_indexable(
+        text_utf8: *const c_char,
+        text_size: u64,
+        out_is_indexable: *mut u8,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_compute_ai_embedding_cache_key(
         base_url_utf8: *const c_char,
         base_url_size: u64,
@@ -1883,6 +1889,27 @@ pub fn normalize_ai_embedding_text(text: &str) -> AppResult<String> {
         return Err(embedding_text_bridge_error(code, error));
     }
     Ok(take_bridge_string(raw_text))
+}
+
+pub fn is_ai_embedding_text_indexable(text: &str) -> AppResult<bool> {
+    let mut is_indexable = 0u8;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_is_ai_embedding_text_indexable(
+            text.as_ptr() as *const c_char,
+            text.len() as u64,
+            &mut is_indexable,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_is_ai_embedding_text_indexable",
+            code,
+            error,
+        ));
+    }
+    Ok(is_indexable != 0)
 }
 
 pub fn derive_file_extension_from_path(path: &str) -> AppResult<String> {

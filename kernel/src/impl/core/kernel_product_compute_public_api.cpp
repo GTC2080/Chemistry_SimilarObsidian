@@ -1027,6 +1027,20 @@ extern "C" kernel_status kernel_normalize_ai_embedding_text(
   return kernel::core::make_status(KERNEL_OK);
 }
 
+extern "C" kernel_status kernel_is_ai_embedding_text_indexable(
+    const char* text,
+    const std::size_t text_size,
+    std::uint8_t* out_is_indexable) {
+  if (out_is_indexable == nullptr || (text_size > 0 && text == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string_view raw(text == nullptr ? "" : text, text_size);
+  const std::string normalized = normalize_ai_embedding_text(raw);
+  *out_is_indexable = static_cast<std::uint8_t>(has_non_whitespace_utf8(normalized));
+  return kernel::core::make_status(KERNEL_OK);
+}
+
 extern "C" kernel_status kernel_compute_ai_embedding_cache_key(
     const char* base_url,
     const std::size_t base_url_size,

@@ -2,7 +2,7 @@
 
 # Product Compute Contract
 
-Last updated: `2026-05-01`
+Last updated: `2026-05-02`
 
 ## Scope
 
@@ -28,6 +28,7 @@ Current surface:
 - `kernel_get_ai_embedding_concurrency_limit(out_limit)`
 - `kernel_get_ai_rag_top_note_limit(out_limit)`
 - `kernel_normalize_ai_embedding_text(text, text_size, out_buffer)`
+- `kernel_is_ai_embedding_text_indexable(text, text_size, out_is_indexable)`
 - `kernel_compute_ai_embedding_cache_key(base_url, base_url_size, model, model_size, text, text_size, out_buffer)`
 - `kernel_build_ai_rag_context(note_names, note_name_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
 - `kernel_build_ai_rag_context_from_note_paths(note_paths, note_path_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
@@ -71,7 +72,8 @@ Frozen rules:
   request timeout, embedding cache size, embedding concurrency, and RAG top-note
   count
 - the kernel owns AI embedding input normalization, Unicode character
-  truncation, empty-after-truncation rejection, and cache-key derivation
+  truncation, empty-after-truncation rejection, indexability preflight, and
+  cache-key derivation
 - the kernel owns AI RAG note context formatting, note display-name derivation
   from note paths, note numbering, note separators, and per-note Unicode
   character truncation
@@ -144,7 +146,7 @@ Frozen rules:
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
 - hosts must not reimplement embedding input truncation, empty-text checks, or
-  embedding cache-key derivation
+  embedding indexability / cache-key derivation
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache,
   concurrency, or RAG top-note defaults
 - hosts must not hard-code AI RAG note context headers, note display-name
@@ -243,6 +245,9 @@ Frozen rules:
   shape after truncation; it does not trim returned text
 - `kernel_normalize_ai_embedding_text(...)` rejects input that is empty or only
   Unicode whitespace after truncation
+- `kernel_is_ai_embedding_text_indexable(...)` returns `0` instead of failing
+  for empty or all-whitespace-after-truncation text, so hosts can prefilter
+  indexing work without duplicating whitespace or truncation rules
 - `kernel_compute_ai_embedding_cache_key(...)` returns a stable
   16-hex-character key for `(base_url, model, normalized text)`
 - `kernel_compute_ai_embedding_cache_key(...)` field-separates base URL, model,

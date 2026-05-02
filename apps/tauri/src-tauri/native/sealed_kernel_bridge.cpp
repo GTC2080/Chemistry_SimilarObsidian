@@ -2326,6 +2326,31 @@ int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
   return CopyKernelOwnedText(buffer, out_text, out_error);
 }
 
+int32_t sealed_kernel_bridge_is_ai_embedding_text_indexable(
+    const char* text_utf8,
+    uint64_t text_size,
+    uint8_t* out_is_indexable,
+    char** out_error) {
+  if (out_is_indexable != nullptr) {
+    *out_is_indexable = 0;
+  }
+  if (out_is_indexable == nullptr || (text_size > 0 && text_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_is_ai_embedding_text_indexable(
+      text_utf8,
+      static_cast<size_t>(text_size),
+      out_is_indexable);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, "embedding_text_indexability_failed");
+    return static_cast<int32_t>(status.code);
+  }
+
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_normalize_vault_relative_path_text(
     const char* rel_path_utf8,
     uint64_t rel_path_size,
