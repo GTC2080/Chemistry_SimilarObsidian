@@ -2,7 +2,7 @@
 
 # PDF Regression Matrix
 
-Last updated: `2026-04-22`
+Last updated: `2026-05-02`
 
 ## Frozen Cross-Batch Invariants
 
@@ -112,3 +112,9 @@ The repository must retain regression coverage for:
   null non-empty tail, and null output
 - Tauri PDF annotation persistence reading both rules through the sealed kernel
   bridge instead of using Rust-side SHA-256
+- Tauri PDF annotation load/save commands passing absolute viewer file paths
+  through `kernel_relativize_vault_path(...)` before choosing the JSON storage
+  key
+- Tauri PDF annotation JSON storing the same vault-relative `pdfPath` used for
+  the kernel storage key, while retaining the absolute host path only for file
+  I/O and lightweight content hashing

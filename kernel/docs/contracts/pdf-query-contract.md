@@ -2,7 +2,7 @@
 
 # PDF Query Contract
 
-Last updated: `2026-04-22`
+Last updated: `2026-05-02`
 
 ## Scope
 
@@ -157,12 +157,18 @@ hashing rules are kernel-owned.
 Frozen semantics:
 
 - annotation storage key is the first 16 hex characters of SHA-256 over the
-  host-supplied PDF path string
+  kernel-normalized vault-relative PDF path string supplied by the host
 - lightweight PDF hash is SHA-256 over `first_1kb || last_1kb || file_size_le`
 - `file_size_le` is an unsigned 64-bit little-endian value
 - hosts may choose where to store the JSON file under their vault support
   directory, but must not retain duplicate SHA-256 key or lightweight-hash rules
   in Rust
+- hosts that receive an absolute viewer file path must first pass it through
+  `kernel_relativize_vault_path(...)` using the opened vault handle
+- annotation JSON may keep durable annotations in host-owned files, but its
+  `pdfPath` field and storage filename key must use the same vault-relative PDF
+  path; the absolute host path may only be used for file I/O and lightweight
+  content hashing
 
 ## Surface Consistency Rules
 

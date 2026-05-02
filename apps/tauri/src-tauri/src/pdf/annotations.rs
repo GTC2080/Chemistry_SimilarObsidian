@@ -1,7 +1,7 @@
 //! PDF 批注持久化模块
 //!
 //! 批注以 JSON 文件形式存储在 `{vault_root}/.nexus/pdf-annotations/{hash}.json`，
-//! 其中 hash 是 PDF 路径（字符串）的 SHA-256 前 16 字符。
+//! 其中 hash 是 kernel vault-relative PDF 路径的 SHA-256 前 16 字符。
 //!
 //! 文件内容同时记录 PDF 文件自身的内容哈希（首尾各 1KB + 文件大小），
 //! 可用于检测文件是否被替换。
@@ -144,11 +144,11 @@ pub fn compute_pdf_hash(path: &Path) -> AppResult<String> {
     sealed_kernel::compute_pdf_lightweight_hash(&head[..head_len], &tail[..tail_len], file_size)
 }
 
-/// 根据 PDF 路径字符串的 SHA-256 前 16 字符确定批注文件位置
+/// 根据 kernel vault-relative PDF 路径的 SHA-256 前 16 字符确定批注文件位置
 ///
 /// 路径格式：`{vault_root}/.nexus/pdf-annotations/{hash16}.json`
-pub fn annotation_file_path(vault_root: &Path, pdf_path: &Path) -> AppResult<PathBuf> {
-    let key = sealed_kernel::pdf_annotation_storage_key(&pdf_path.to_string_lossy())?;
+pub fn annotation_file_path(vault_root: &Path, pdf_rel_path: &str) -> AppResult<PathBuf> {
+    let key = sealed_kernel::pdf_annotation_storage_key(pdf_rel_path)?;
 
     Ok(vault_root
         .join(".nexus")
@@ -157,8 +157,8 @@ pub fn annotation_file_path(vault_root: &Path, pdf_path: &Path) -> AppResult<Pat
 }
 
 /// 加载指定 PDF 的批注列表；若文件不存在则返回空列表
-pub fn load_annotations(vault_root: &Path, pdf_path: &Path) -> AppResult<Vec<PdfAnnotation>> {
-    let file_path = annotation_file_path(vault_root, pdf_path)?;
+pub fn load_annotations(vault_root: &Path, pdf_rel_path: &str) -> AppResult<Vec<PdfAnnotation>> {
+    let file_path = annotation_file_path(vault_root, pdf_rel_path)?;
 
     if !file_path.exists() {
         return Ok(Vec::new());
@@ -177,9 +177,10 @@ pub fn load_annotations(vault_root: &Path, pdf_path: &Path) -> AppResult<Vec<Pdf
 pub fn save_annotations(
     vault_root: &Path,
     pdf_path: &Path,
+    pdf_rel_path: &str,
     annotations: Vec<PdfAnnotation>,
 ) -> AppResult<()> {
-    let file_path = annotation_file_path(vault_root, pdf_path)?;
+    let file_path = annotation_file_path(vault_root, pdf_rel_path)?;
 
     // 确保目录存在
     if let Some(dir) = file_path.parent() {
@@ -190,7 +191,7 @@ pub fn save_annotations(
     let pdf_hash = compute_pdf_hash(pdf_path)?;
 
     let af = AnnotationFile {
-        pdf_path: pdf_path.to_string_lossy().to_string(),
+        pdf_path: pdf_rel_path.to_string(),
         pdf_hash,
         annotations,
     };
@@ -202,4 +203,85 @@ pub fn save_annotations(
         .map_err(|e| AppError::PdfAnnotation(format!("写入批注文件失败: {e}")))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_test_vault(prefix: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let vault = std::env::temp_dir().join(format!(
+            "nexus-pdf-annotations-{prefix}-{}-{nanos}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&vault).expect("create test vault");
+        vault
+    }
+
+    fn sample_annotation() -> PdfAnnotation {
+        PdfAnnotation {
+            id: "ann-1".to_string(),
+            page_number: 0,
+            annotation_type: "note".to_string(),
+            color: "#FFFF00".to_string(),
+            text_ranges: None,
+            area: None,
+            content: Some("sample".to_string()),
+            selected_text: None,
+            ink_strokes: None,
+            created_at: "2026-05-02T00:00:00Z".to_string(),
+            updated_at: "2026-05-02T00:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn annotation_storage_uses_kernel_relative_pdf_path() {
+        let vault = make_test_vault("relative-path");
+        let pdf_rel_path = "docs/Paper.pdf";
+        let pdf_path = vault.join("docs").join("Paper.pdf");
+        std::fs::create_dir_all(pdf_path.parent().expect("pdf parent")).expect("create pdf parent");
+        std::fs::write(&pdf_path, b"%PDF-1.7\nbody\n%%EOF").expect("write pdf fixture");
+
+        save_annotations(&vault, &pdf_path, pdf_rel_path, vec![sample_annotation()])
+            .expect("save annotations");
+
+        let rel_key =
+            sealed_kernel::pdf_annotation_storage_key(pdf_rel_path).expect("relative key");
+        let storage_path = vault
+            .join(".nexus")
+            .join("pdf-annotations")
+            .join(format!("{rel_key}.json"));
+        assert!(
+            storage_path.exists(),
+            "annotation storage file should be keyed by relative pdf path"
+        );
+
+        let raw = std::fs::read_to_string(&storage_path).expect("read annotation json");
+        let stored: AnnotationFile = serde_json::from_str(&raw).expect("parse annotation json");
+        assert_eq!(stored.pdf_path, pdf_rel_path);
+        assert_eq!(stored.annotations.len(), 1);
+        assert_eq!(stored.annotations[0].id, "ann-1");
+
+        let loaded = load_annotations(&vault, pdf_rel_path).expect("load annotations");
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].id, "ann-1");
+
+        let absolute_key = sealed_kernel::pdf_annotation_storage_key(&pdf_path.to_string_lossy())
+            .expect("absolute key");
+        assert_ne!(rel_key, absolute_key);
+        assert!(
+            !vault
+                .join(".nexus")
+                .join("pdf-annotations")
+                .join(format!("{absolute_key}.json"))
+                .exists(),
+            "annotation storage should not be keyed by absolute host path"
+        );
+
+        let _ = std::fs::remove_dir_all(&vault);
+    }
 }

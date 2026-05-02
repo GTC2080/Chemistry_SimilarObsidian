@@ -2681,7 +2681,7 @@ pub fn calculate_miller_plane_from_cif(
     })
 }
 
-fn relativize_vault_path(
+pub(crate) fn relativize_vault_path(
     file_path: &str,
     allow_empty: bool,
     state: &SealedKernelState,
