@@ -2273,6 +2273,32 @@ int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
   return CopyKernelOwnedText(buffer, out_text, out_error);
 }
 
+int32_t sealed_kernel_bridge_normalize_vault_relative_path_text(
+    const char* rel_path_utf8,
+    uint64_t rel_path_size,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (out_text == nullptr || (rel_path_size > 0 && rel_path_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_normalize_vault_relative_path(
+      rel_path_utf8,
+      static_cast<size_t>(rel_path_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_normalize_vault_relative_path", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
 int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
     const char* base_url_utf8,
     uint64_t base_url_size,

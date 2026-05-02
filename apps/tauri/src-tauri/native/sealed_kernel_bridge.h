@@ -220,6 +220,12 @@ int32_t sealed_kernel_bridge_derive_file_extension_from_path_text(
     char** out_text,
     char** out_error);
 
+int32_t sealed_kernel_bridge_normalize_vault_relative_path_text(
+    const char* rel_path_utf8,
+    uint64_t rel_path_size,
+    char** out_text,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_derive_note_display_name_from_path_text(
     const char* path_utf8,
     uint64_t path_size,

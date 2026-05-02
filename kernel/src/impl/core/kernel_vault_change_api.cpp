@@ -84,6 +84,50 @@ std::string normalize_change_path(std::string_view value) {
   return normalized;
 }
 
+bool is_valid_host_vault_relative_path(std::string_view rel_path) {
+  if (rel_path.empty() || rel_path.front() == '/' || rel_path.find('\0') != std::string_view::npos) {
+    return false;
+  }
+
+  bool first_segment = true;
+  std::size_t start = 0;
+  while (start <= rel_path.size()) {
+    const std::size_t next = rel_path.find('/', start);
+    const std::string_view segment =
+        next == std::string_view::npos ? rel_path.substr(start) : rel_path.substr(start, next - start);
+    if (segment.empty() || segment == "." || segment == "..") {
+      return false;
+    }
+    if (first_segment && segment.find(':') != std::string_view::npos) {
+      return false;
+    }
+    if (next == std::string_view::npos) {
+      break;
+    }
+    first_segment = false;
+    start = next + 1;
+  }
+
+  return true;
+}
+
+bool fill_owned_buffer(std::string_view value, kernel_owned_buffer* out_buffer) {
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+  if (value.empty()) {
+    return true;
+  }
+
+  char* data = new (std::nothrow) char[value.size()];
+  if (data == nullptr) {
+    return false;
+  }
+  std::copy(value.begin(), value.end(), data);
+  out_buffer->data = data;
+  out_buffer->size = value.size();
+  return true;
+}
+
 std::string first_rel_path_segment(std::string_view rel_path) {
   const std::size_t slash = rel_path.find('/');
   if (slash == std::string_view::npos) {
@@ -292,6 +336,29 @@ extern "C" kernel_status kernel_filter_supported_vault_paths_filtered(
       ignored_roots_csv,
       out_paths,
       is_supported_vault_event_path);
+}
+
+extern "C" kernel_status kernel_normalize_vault_relative_path(
+    const char* rel_path,
+    const std::size_t rel_path_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (rel_path_size > 0 && rel_path == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view raw(rel_path == nullptr ? "" : rel_path, rel_path_size);
+  const std::string normalized = normalize_change_path(raw);
+  if (!is_valid_host_vault_relative_path(normalized)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  if (!fill_owned_buffer(normalized, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" void kernel_free_path_list(kernel_path_list* paths) {

@@ -9,7 +9,9 @@ Current surface:
 - `kernel_filter_changed_markdown_paths(changed_paths_lf, out_paths)`
 - `kernel_filter_supported_vault_paths(changed_paths_lf, out_paths)`
 - `kernel_filter_supported_vault_paths_filtered(changed_paths_lf, ignored_roots_csv, out_paths)`
+- `kernel_normalize_vault_relative_path(rel_path, rel_path_size, out_buffer)`
 - `kernel_free_path_list(out_paths)`
+- `kernel_free_buffer(out_buffer)`
 
 The input is a line-feed separated list of changed relative paths from the host
 watcher or frontend. The kernel returns canonical subsets that should drive
@@ -21,6 +23,9 @@ incremental vault event fanout and Markdown note scan/index work.
 - callers release the list with `kernel_free_path_list(...)`
 - `kernel_free_path_list(...)` is idempotent and leaves `paths == nullptr` and
   `count == 0`
+- the kernel owns normalized relative path text returned by
+  `kernel_normalize_vault_relative_path(...)`
+- callers release normalized relative path text with `kernel_free_buffer(...)`
 - null output returns `KERNEL_ERROR_INVALID_ARGUMENT`
 
 ## Frozen Semantics
@@ -56,6 +61,16 @@ All path filters:
 - drops paths whose first relative path segment matches an ignored root exactly
 - drops any path with a hidden segment whose name starts with `.`
 
+`kernel_normalize_vault_relative_path(...)`:
+
+- trims leading and trailing whitespace
+- normalizes path separators to `/`
+- rejects empty paths
+- rejects rooted paths and drive-qualified paths such as `C:/vault/note.md`
+- rejects embedded NUL bytes
+- rejects empty, `.`, and `..` path segments
+- returns the normalized relative path as a kernel-owned buffer
+
 ## Host Boundary
 
 Tauri Rust may still:
@@ -71,7 +86,10 @@ Tauri Rust may still:
   for removed Markdown notes
 - ignore directory events as a platform watcher concern before calling the
   kernel path filter
+- use `kernel_normalize_vault_relative_path(...)` before one-off note read,
+  write, and chemistry reference commands that accept a relative vault path
 
 Tauri Rust must not reimplement supported-extension filtering, changed-entry
 Markdown filtering, hidden segment filtering, ignored-root filtering,
-ignored-root normalization, or path deduplication.
+ignored-root normalization, path deduplication, or one-off vault relative path
+validation/normalization.

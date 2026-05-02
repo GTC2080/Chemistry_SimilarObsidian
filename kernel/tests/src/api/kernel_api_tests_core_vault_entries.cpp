@@ -191,6 +191,51 @@ void test_filter_supported_vault_paths_filtered_applies_hidden_and_ignored_roots
       "filtered supported path filter should require output pointer");
 }
 
+void test_normalize_vault_relative_path_applies_host_path_rules() {
+  kernel_owned_buffer normalized{};
+  expect_ok(kernel_normalize_vault_relative_path(
+      " Folder\\Note.md ",
+      std::string(" Folder\\Note.md ").size(),
+      &normalized));
+  require_true(
+      std::string(normalized.data, normalized.size) == "Folder/Note.md",
+      "vault rel path normalizer should trim and normalize backslashes");
+  kernel_free_buffer(&normalized);
+  require_true(normalized.data == nullptr && normalized.size == 0, "owned buffer free should reset output");
+
+  const std::string nul_path("Folder\0Note.md", 14);
+  require_true(
+      kernel_normalize_vault_relative_path(
+          nul_path.data(),
+          nul_path.size(),
+          &normalized).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault rel path normalizer should reject NUL bytes");
+  require_true(
+      kernel_normalize_vault_relative_path("folder/../note.md", 17, &normalized).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault rel path normalizer should reject parent segments");
+  require_true(
+      kernel_normalize_vault_relative_path("folder//note.md", 15, &normalized).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault rel path normalizer should reject empty segments");
+  require_true(
+      kernel_normalize_vault_relative_path("/note.md", 8, &normalized).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault rel path normalizer should reject rooted paths");
+  require_true(
+      kernel_normalize_vault_relative_path("C:/vault/note.md", 16, &normalized).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault rel path normalizer should reject drive-qualified paths");
+  require_true(
+      kernel_normalize_vault_relative_path("note.md", 7, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault rel path normalizer should require output pointer");
+  require_true(
+      kernel_normalize_vault_relative_path(nullptr, 1, &normalized).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault rel path normalizer should reject missing non-empty input");
+}
+
 }  // namespace
 
 void run_kernel_api_core_vault_entry_contract_tests() {
@@ -201,4 +246,5 @@ void run_kernel_api_core_vault_entry_contract_tests() {
   test_filter_changed_markdown_paths_normalizes_filters_and_deduplicates();
   test_filter_supported_vault_paths_normalizes_filters_and_deduplicates();
   test_filter_supported_vault_paths_filtered_applies_hidden_and_ignored_roots();
+  test_normalize_vault_relative_path_applies_host_path_rules();
 }

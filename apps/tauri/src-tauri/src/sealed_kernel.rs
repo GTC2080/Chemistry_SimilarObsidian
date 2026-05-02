@@ -238,6 +238,12 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_normalize_vault_relative_path_text(
+        rel_path_utf8: *const c_char,
+        rel_path_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_derive_note_display_name_from_path_text(
         path_utf8: *const c_char,
         path_size: u64,
@@ -1892,6 +1898,27 @@ pub fn derive_file_extension_from_path(path: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
+pub fn normalize_vault_relative_path(rel_path: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_normalize_vault_relative_path_text(
+            rel_path.as_ptr() as *const c_char,
+            rel_path.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_normalize_vault_relative_path",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
 pub fn derive_note_display_name_from_path(path: &str) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -2660,18 +2687,8 @@ fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<Strin
 }
 
 fn validate_rel_path(rel_path: &str, label: &str) -> AppResult<String> {
-    let normalized = rel_path.trim().replace('\\', "/");
-    if normalized.is_empty()
-        || normalized.starts_with('/')
-        || normalized.contains('\0')
-        || normalized
-            .split('/')
-            .any(|part| part.is_empty() || part == "." || part == "..")
-        || Path::new(&normalized).is_absolute()
-    {
-        return Err(AppError::Custom(format!("非法{label}路径")));
-    }
-    Ok(normalized)
+    normalize_vault_relative_path(rel_path)
+        .map_err(|_| AppError::Custom(format!("非法{label}路径")))
 }
 
 fn rel_path_from_optional_folder_path(vault_path: &str, folder_path: &str) -> AppResult<String> {
@@ -2738,9 +2755,9 @@ pub fn write_note_by_file_path(
     state: &SealedKernelState,
 ) -> AppResult<()> {
     ensure_vault_open(vault_path, state)?;
-    let rel_path = rel_path_from_file_path(vault_path, file_path)?;
-    let rel_path_c = CString::new(rel_path)
-        .map_err(|_| AppError::Custom("rel_path must not contain NUL bytes.".to_string()))?;
+    let rel_path = normalize_vault_relative_path(&rel_path_from_file_path(vault_path, file_path)?)
+        .map_err(|_| AppError::Custom("非法笔记路径".to_string()))?;
+    let rel_path_c = cstring_arg(rel_path, "rel_path")?;
     let content_c = CString::new(content)
         .map_err(|_| AppError::Custom("content must not contain NUL bytes.".to_string()))?;
     let session = active_session(state)?;
@@ -2967,19 +2984,26 @@ mod tests {
 
     #[test]
     fn validate_rel_path_normalizes_windows_separators() {
-        let value = validate_rel_path("folder\\note.md", "笔记").expect("valid rel path");
+        let value = validate_rel_path(" folder\\note.md ", "笔记").expect("valid rel path");
         assert_eq!(value, "folder/note.md");
     }
 
     #[test]
     fn validate_rel_path_rejects_parent_segments() {
         assert!(validate_rel_path("folder/../note.md", "笔记").is_err());
+        assert!(validate_rel_path("folder/./note.md", "笔记").is_err());
+        assert!(validate_rel_path("folder//note.md", "笔记").is_err());
     }
 
     #[test]
     fn validate_rel_path_rejects_rooted_paths() {
         assert!(validate_rel_path("/note.md", "笔记").is_err());
         assert!(validate_rel_path("C:/vault/note.md", "笔记").is_err());
+    }
+
+    #[test]
+    fn validate_rel_path_rejects_nul_bytes() {
+        assert!(validate_rel_path("folder\0note.md", "笔记").is_err());
     }
 
     #[test]

@@ -51,6 +51,10 @@ kernel_status kernel_filter_supported_vault_paths_filtered(
     const char* changed_paths_lf,
     const char* ignored_roots_csv,
     kernel_path_list* out_paths);
+kernel_status kernel_normalize_vault_relative_path(
+    const char* rel_path,
+    size_t rel_path_size,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_write_note(
     kernel_handle* handle,
     const char* rel_path,
