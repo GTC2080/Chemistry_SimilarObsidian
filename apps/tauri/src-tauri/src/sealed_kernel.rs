@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -470,6 +470,14 @@ extern "C" {
         k: i32,
         l: i32,
         out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_relativize_vault_path_text(
+        session: *mut SealedKernelBridgeSession,
+        host_path_utf8: *const c_char,
+        host_path_size: u64,
+        allow_empty: u8,
+        out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_create_folder(
@@ -2673,17 +2681,32 @@ pub fn calculate_miller_plane_from_cif(
     })
 }
 
-fn rel_path_from_file_path(vault_path: &str, file_path: &str) -> AppResult<String> {
-    let vault = PathBuf::from(vault_path);
-    let target = PathBuf::from(file_path);
-    let rel = target
-        .strip_prefix(&vault)
-        .map_err(|_| AppError::Custom(format!("文件不在当前 vault 内: {file_path}")))?;
-    let rel_path = rel.to_string_lossy().replace('\\', "/");
-    if rel_path.trim().is_empty() || rel_path.contains("..") {
-        return Err(AppError::Custom("非法笔记路径".to_string()));
+fn relativize_vault_path(
+    file_path: &str,
+    allow_empty: bool,
+    state: &SealedKernelState,
+) -> AppResult<String> {
+    let session = active_session(state)?;
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_relativize_vault_path_text(
+            session,
+            file_path.as_ptr() as *const c_char,
+            file_path.len() as u64,
+            u8::from(allow_empty),
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_relativize_vault_path",
+            code,
+            error,
+        ));
     }
-    Ok(rel_path)
+    Ok(take_bridge_string(raw_text))
 }
 
 fn validate_rel_path(rel_path: &str, label: &str) -> AppResult<String> {
@@ -2691,17 +2714,21 @@ fn validate_rel_path(rel_path: &str, label: &str) -> AppResult<String> {
         .map_err(|_| AppError::Custom(format!("非法{label}路径")))
 }
 
-fn rel_path_from_optional_folder_path(vault_path: &str, folder_path: &str) -> AppResult<String> {
-    let vault = PathBuf::from(vault_path);
-    let target = PathBuf::from(folder_path);
-    let rel = target
-        .strip_prefix(&vault)
-        .map_err(|_| AppError::Custom(format!("文件夹不在当前 vault 内: {folder_path}")))?;
-    let rel_path = rel.to_string_lossy().replace('\\', "/");
-    if rel_path.contains("..") {
-        return Err(AppError::Custom("非法文件夹路径".to_string()));
-    }
-    Ok(rel_path)
+fn rel_path_from_file_path(
+    file_path: &str,
+    state: &SealedKernelState,
+    label: &str,
+) -> AppResult<String> {
+    relativize_vault_path(file_path, false, state)
+        .map_err(|_| AppError::Custom(format!("{label}不在当前 vault 内或路径非法: {file_path}")))
+}
+
+fn rel_path_from_optional_folder_path(
+    folder_path: &str,
+    state: &SealedKernelState,
+) -> AppResult<String> {
+    relativize_vault_path(folder_path, true, state)
+        .map_err(|_| AppError::Custom(format!("文件夹不在当前 vault 内或路径非法: {folder_path}")))
 }
 
 fn cstring_arg(value: String, label: &str) -> AppResult<CString> {
@@ -2722,8 +2749,7 @@ where
 }
 
 pub fn read_note_by_file_path(file_path: &str, state: &SealedKernelState) -> AppResult<String> {
-    let vault_path = active_vault_path(state)?;
-    let rel_path = rel_path_from_file_path(&vault_path, file_path)?;
+    let rel_path = rel_path_from_file_path(file_path, state, "文件")?;
     read_note_by_rel_path(&rel_path, state)
 }
 
@@ -2755,8 +2781,9 @@ pub fn write_note_by_file_path(
     state: &SealedKernelState,
 ) -> AppResult<()> {
     ensure_vault_open(vault_path, state)?;
-    let rel_path = normalize_vault_relative_path(&rel_path_from_file_path(vault_path, file_path)?)
-        .map_err(|_| AppError::Custom("非法笔记路径".to_string()))?;
+    let rel_path =
+        normalize_vault_relative_path(&rel_path_from_file_path(file_path, state, "文件")?)
+            .map_err(|_| AppError::Custom("非法笔记路径".to_string()))?;
     let rel_path_c = cstring_arg(rel_path, "rel_path")?;
     let content_c = CString::new(content)
         .map_err(|_| AppError::Custom("content must not contain NUL bytes.".to_string()))?;
@@ -2788,7 +2815,7 @@ pub fn create_folder_by_path(
     state: &SealedKernelState,
 ) -> AppResult<()> {
     ensure_vault_open(vault_path, state)?;
-    let rel_path = rel_path_from_file_path(vault_path, folder_path)?;
+    let rel_path = rel_path_from_file_path(folder_path, state, "文件夹")?;
     let rel_path_c = cstring_arg(rel_path, "folder_rel_path")?;
     let session = active_session(state)?;
     call_status_operation("sealed_kernel_create_folder", |error| unsafe {
@@ -2802,7 +2829,7 @@ pub fn delete_entry_by_path(
     state: &SealedKernelState,
 ) -> AppResult<()> {
     ensure_vault_open(vault_path, state)?;
-    let rel_path = rel_path_from_file_path(vault_path, target_path)?;
+    let rel_path = rel_path_from_file_path(target_path, state, "条目")?;
     let rel_path_c = cstring_arg(rel_path, "target_rel_path")?;
     let session = active_session(state)?;
     call_status_operation("sealed_kernel_delete_entry", |error| unsafe {
@@ -2817,7 +2844,7 @@ pub fn rename_entry_by_path(
     state: &SealedKernelState,
 ) -> AppResult<()> {
     ensure_vault_open(vault_path, state)?;
-    let rel_path = rel_path_from_file_path(vault_path, source_path)?;
+    let rel_path = rel_path_from_file_path(source_path, state, "条目")?;
     let rel_path_c = cstring_arg(rel_path, "source_rel_path")?;
     let new_name_c = cstring_arg(new_name.to_string(), "new_name")?;
     let session = active_session(state)?;
@@ -2833,8 +2860,8 @@ pub fn move_entry_by_path(
     state: &SealedKernelState,
 ) -> AppResult<()> {
     ensure_vault_open(vault_path, state)?;
-    let source_rel_path = rel_path_from_file_path(vault_path, source_path)?;
-    let dest_rel_path = rel_path_from_optional_folder_path(vault_path, dest_folder)?;
+    let source_rel_path = rel_path_from_file_path(source_path, state, "条目")?;
+    let dest_rel_path = rel_path_from_optional_folder_path(dest_folder, state)?;
     let source_rel_path_c = cstring_arg(source_rel_path, "source_rel_path")?;
     let dest_rel_path_c = if dest_rel_path.is_empty() {
         None
@@ -2981,6 +3008,7 @@ pub fn sealed_kernel_query_chem_spectrum_referrers(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn validate_rel_path_normalizes_windows_separators() {
@@ -3004,6 +3032,58 @@ mod tests {
     #[test]
     fn validate_rel_path_rejects_nul_bytes() {
         assert!(validate_rel_path("folder\0note.md", "笔记").is_err());
+    }
+
+    fn make_test_vault(prefix: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let vault =
+            std::env::temp_dir().join(format!("nexus-{prefix}-{}-{nanos}", std::process::id()));
+        std::fs::create_dir_all(&vault).expect("create test vault");
+        vault
+    }
+
+    fn close_test_vault(state: &SealedKernelState) {
+        let existing = {
+            let mut guard = state.session.lock().expect("lock session");
+            guard.take()
+        };
+        if let Some(existing) = existing {
+            unsafe { sealed_kernel_bridge_close(existing as *mut SealedKernelBridgeSession) };
+        }
+        let mut guard = state.vault_path.lock().expect("lock vault path");
+        *guard = None;
+    }
+
+    #[test]
+    fn file_path_relativization_comes_from_kernel_handle() {
+        let vault = make_test_vault("relativize");
+        let vault_path = vault.to_string_lossy().into_owned();
+        let state = SealedKernelState::default();
+        open_vault_inner(vault_path.clone(), &state).expect("open test vault");
+
+        let note_path = vault.join("Folder").join("Note.md");
+        let note_path = note_path.to_string_lossy().into_owned();
+        let rel_path =
+            rel_path_from_file_path(&note_path, &state, "文件").expect("kernel rel path");
+        assert_eq!(rel_path, "Folder/Note.md");
+
+        let root_rel_path =
+            rel_path_from_optional_folder_path(&vault_path, &state).expect("root folder path");
+        assert_eq!(root_rel_path, "");
+
+        let outside_path = vault
+            .parent()
+            .expect("vault parent")
+            .join("outside.md")
+            .to_string_lossy()
+            .into_owned();
+        assert!(rel_path_from_file_path(&outside_path, &state, "文件").is_err());
+
+        close_test_vault(&state);
+        let _ = std::fs::remove_dir_all(&vault);
     }
 
     #[test]

@@ -42,6 +42,7 @@
 
 ## 最近更新
 
+- **v1.0.6-dev** — vault host path 边界继续内核化：`read_note_by_file_path` / `write_note_by_file_path` / create/delete/rename/move by-path entry commands 的绝对宿主路径到 vault 相对路径转换改走 `kernel_relativize_vault_path(...)`；Rust 不再用 `strip_prefix`、反斜杠替换或 `..` 检查持有 vault-root 归属规则。
 - **v1.0.6-dev** — 产品计算面继续内核化：`compute_truth_diff` 改为通过 sealed C++ bridge 调用 `kernel_compute_truth_diff(...)`，`build_semantic_context` 改为通过 sealed C++ bridge 调用 `kernel_build_semantic_context(...)`；TRUTH_SYSTEM 经验归因、reason key、代码块语言增量、分子编辑行数规则和 AI 语义上下文裁剪由 C++ sealed kernel 统一提供。Tauri Rust 只保留 DTO 映射和中文 reason 文案，不再保留 product compute C ABI mirror / unsafe 拷贝循环或 truth award reason 整数镜像。
 - **v1.0.6-dev** — vault 相对路径校验继续内核化：`read_note` / `write_note` / chemistry reference commands 的 rel path trim、反斜杠归一、NUL/root/drive/`.`/`..`/空 segment 拒绝规则改走 `kernel_normalize_vault_relative_path(...)`；Tauri Rust 只保留中文错误外壳，不再在 `sealed_kernel.rs` 里重建路径真相。
 - **v1.0.6-dev** — AI/product 文本边界继续内核化：`get_related_notes_raw` 的 semantic context 最小字节阈值通过 `kernel_get_semantic_context_min_bytes(...)` 提供；embedding 输入截断与空文本判断由 `kernel_normalize_ai_embedding_text(...)` 在 kernel 内部应用；RAG 单笔记截断长度由 `kernel_build_ai_rag_context(...)` 在 kernel 内部应用；Rust 只保留网络请求、缓存和 IPC 编排。
@@ -101,6 +102,7 @@
 - watcher hidden/ignored/supported path filtering -> `kernel_filter_supported_vault_paths_filtered(...)`
 - changed-entry path normalization -> `kernel_filter_changed_markdown_paths(...)`
 - one-off vault relative path normalization -> `kernel_normalize_vault_relative_path(...)`
+- by-path host path relativization -> `kernel_relativize_vault_path(...)`
 - `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
 - `ask_vault` RAG note content -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
@@ -117,6 +119,7 @@ Kernel note catalog 映射到前端 `NoteInfo` 时同样通过 `kernel_derive_fi
 Kernel note catalog 映射到前端 `NoteInfo` 时也通过 `kernel_derive_note_display_name_from_path(...)` 派生 `name`，避免 sealed bridge 层重新拥有路径展示名规则。
 Rust watcher 只保留 notify 事件分类、平台目录事件判断、原始 ignored-root CSV 透传和 IPC 发送；隐藏路径、ignored root 解析/归一、支持扩展名、路径归一化与去重规则由 kernel path filter 统一判定。
 `read_note` / `write_note` / chemistry reference commands 的单路径校验与标准化由 `kernel_normalize_vault_relative_path(...)` 统一判定，Rust 只把 kernel 返回的 rel path 继续交给 read/write/reference bridge。
+`read_note_by_file_path` / `write_note_by_file_path` / create/delete/rename/move by-path entry commands 的绝对宿主路径归属、vault-root 相对化、分隔符标准化和 root-folder 空路径许可由 `kernel_relativize_vault_path(...)` 统一判定，Rust 只保留中文错误外壳和命令编排。
 Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单。
 
 已收口到 kernel 的关系读面：

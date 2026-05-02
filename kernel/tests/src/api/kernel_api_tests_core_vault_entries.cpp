@@ -236,6 +236,73 @@ void test_normalize_vault_relative_path_applies_host_path_rules() {
       "vault rel path normalizer should reject missing non-empty input");
 }
 
+void test_relativize_vault_path_applies_kernel_boundary() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  kernel_owned_buffer rel_path{};
+  const std::string note_path = (vault / "Folder" / "Note.md").string();
+  expect_ok(kernel_relativize_vault_path(
+      handle,
+      note_path.data(),
+      note_path.size(),
+      0,
+      &rel_path));
+  require_true(
+      std::string(rel_path.data, rel_path.size) == "Folder/Note.md",
+      "vault path relativizer should return a generic relative path");
+  kernel_free_buffer(&rel_path);
+  require_true(rel_path.data == nullptr && rel_path.size == 0, "relativized path free should reset output");
+
+  const std::string vault_root = vault.string();
+  require_true(
+      kernel_relativize_vault_path(
+          handle,
+          vault_root.data(),
+          vault_root.size(),
+          0,
+          &rel_path).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault path relativizer should reject root as an entry path");
+  expect_ok(kernel_relativize_vault_path(
+      handle,
+      vault_root.data(),
+      vault_root.size(),
+      1,
+      &rel_path));
+  require_true(rel_path.data == nullptr && rel_path.size == 0, "optional folder root should return empty rel path");
+
+  const std::string outside_path = (vault.parent_path() / "outside.md").string();
+  require_true(
+      kernel_relativize_vault_path(
+          handle,
+          outside_path.data(),
+          outside_path.size(),
+          0,
+          &rel_path).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault path relativizer should reject paths outside the vault root");
+
+  const std::string nul_path("Folder\0Note.md", 14);
+  require_true(
+      kernel_relativize_vault_path(
+          handle,
+          nul_path.data(),
+          nul_path.size(),
+          0,
+          &rel_path).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault path relativizer should reject NUL bytes");
+  require_true(
+      kernel_relativize_vault_path(handle, note_path.data(), note_path.size(), 0, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault path relativizer should require output pointer");
+  require_true(
+      kernel_relativize_vault_path(nullptr, note_path.data(), note_path.size(), 0, &rel_path).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault path relativizer should require a kernel handle");
+
+  close_and_cleanup(handle, vault);
+}
+
 }  // namespace
 
 void run_kernel_api_core_vault_entry_contract_tests() {
@@ -247,4 +314,5 @@ void run_kernel_api_core_vault_entry_contract_tests() {
   test_filter_supported_vault_paths_normalizes_filters_and_deduplicates();
   test_filter_supported_vault_paths_filtered_applies_hidden_and_ignored_roots();
   test_normalize_vault_relative_path_applies_host_path_rules();
+  test_relativize_vault_path_applies_kernel_boundary();
 }

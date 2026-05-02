@@ -20,6 +20,16 @@ Required coverage:
   rooted paths, drive-qualified paths, empty segments, `.`, and `..`
 - `kernel_normalize_vault_relative_path(...)` returns kernel-owned text released
   with `kernel_free_buffer(...)`
+- `kernel_relativize_vault_path(...)` converts host paths inside the opened
+  vault root into `/`-separated vault-relative paths
+- `kernel_relativize_vault_path(...)` rejects paths outside the opened vault
+  root
+- `kernel_relativize_vault_path(...)` rejects embedded NUL bytes, null output,
+  and null handles
+- `kernel_relativize_vault_path(...)` rejects the vault root when
+  `allow_empty == 0`
+- `kernel_relativize_vault_path(...)` accepts the vault root and returns an
+  empty kernel-owned buffer when `allow_empty != 0`
 - duplicate paths are removed after normalization
 - first-seen order is preserved
 - original path case is preserved
@@ -48,3 +58,6 @@ Tauri bridge coverage:
 - one-off note read/write and chemistry reference commands use
   `kernel_normalize_vault_relative_path(...)` instead of rebuilding relative
   path validation rules in Rust
+- by-path note and vault entry commands use
+  `kernel_relativize_vault_path(...)` instead of rebuilding vault-root
+  `strip_prefix`, separator normalization, or parent-segment checks in Rust

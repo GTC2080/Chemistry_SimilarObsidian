@@ -461,6 +461,14 @@ int32_t sealed_kernel_bridge_calculate_miller_plane_from_cif_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_relativize_vault_path_text(
+    sealed_kernel_bridge_session* session,
+    const char* host_path_utf8,
+    uint64_t host_path_size,
+    uint8_t allow_empty,
+    char** out_text,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_create_folder(
     sealed_kernel_bridge_session* session,
     const char* folder_rel_path_utf8,

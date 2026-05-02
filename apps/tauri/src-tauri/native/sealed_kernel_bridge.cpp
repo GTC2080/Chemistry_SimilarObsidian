@@ -8,6 +8,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -97,6 +98,58 @@ std::string Utf8ToActiveCodePage(const char* value) {
   return acp_value;
 #else
   return std::string(value);
+#endif
+}
+
+std::string Utf8ToActiveCodePage(const char* value, const uint64_t value_size) {
+  if (value == nullptr || value_size == 0 ||
+      value_size > static_cast<uint64_t>((std::numeric_limits<int>::max)())) {
+    return {};
+  }
+
+#ifdef _WIN32
+  const int input_size = static_cast<int>(value_size);
+  const int wide_size =
+      MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, input_size, nullptr, 0);
+  if (wide_size <= 0) {
+    return {};
+  }
+
+  std::wstring wide_value(static_cast<std::size_t>(wide_size), L'\0');
+  MultiByteToWideChar(
+      CP_UTF8,
+      MB_ERR_INVALID_CHARS,
+      value,
+      input_size,
+      wide_value.data(),
+      wide_size);
+
+  const int acp_size = WideCharToMultiByte(
+      CP_ACP,
+      0,
+      wide_value.data(),
+      wide_size,
+      nullptr,
+      0,
+      nullptr,
+      nullptr);
+  if (acp_size <= 0) {
+    return {};
+  }
+
+  std::string acp_value(static_cast<std::size_t>(acp_size), '\0');
+  WideCharToMultiByte(
+      CP_ACP,
+      0,
+      wide_value.data(),
+      wide_size,
+      acp_value.data(),
+      acp_size,
+      nullptr,
+      nullptr);
+  return acp_value;
+#else
+  return std::string(value, static_cast<std::size_t>(value_size));
 #endif
 }
 
@@ -3222,6 +3275,56 @@ int32_t sealed_kernel_bridge_calculate_miller_plane_from_cif_json(
   AppendCrystalMillerPlaneJson(json, result.plane);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_relativize_vault_path_text(
+    sealed_kernel_bridge_session* session,
+    const char* host_path_utf8,
+    uint64_t host_path_size,
+    uint8_t allow_empty,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (
+      out_text == nullptr || session == nullptr || session->handle == nullptr ||
+      (host_path_size > 0 && host_path_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string host_path =
+      Utf8ToActiveCodePage(host_path_utf8, host_path_size);
+  if (host_path.empty()) {
+    SetError(out_error, "host_path must be a non-empty UTF-8 string.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_relativize_vault_path(
+      session->handle,
+      host_path.data(),
+      host_path.size(),
+      allow_empty,
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_relativize_vault_path", out_error);
+  }
+
+  const std::string active_text = buffer.data == nullptr || buffer.size == 0
+                                      ? std::string()
+                                      : std::string(buffer.data, buffer.size);
+  kernel_free_buffer(&buffer);
+  const std::string utf8_text =
+      active_text.empty() ? std::string() : ActiveCodePageToUtf8(active_text.c_str());
+  *out_text = CopyString(utf8_text);
+  if (*out_text == nullptr) {
     SetError(out_error, "allocation_failed");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }

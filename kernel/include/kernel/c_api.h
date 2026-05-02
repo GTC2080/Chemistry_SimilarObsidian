@@ -55,6 +55,12 @@ kernel_status kernel_normalize_vault_relative_path(
     const char* rel_path,
     size_t rel_path_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_relativize_vault_path(
+    kernel_handle* handle,
+    const char* host_path,
+    size_t host_path_size,
+    uint8_t allow_empty,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_write_note(
     kernel_handle* handle,
     const char* rel_path,

@@ -7,7 +7,10 @@
 #include "index/refresh.h"
 #include "storage/storage.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <filesystem>
+#include <new>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -44,6 +47,29 @@ bool is_valid_new_name(const char* new_name) {
   }
   return value.find('/') == std::string_view::npos &&
          value.find('\\') == std::string_view::npos;
+}
+
+bool fill_owned_buffer(std::string_view value, kernel_owned_buffer* out_buffer) {
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+  if (value.empty()) {
+    return true;
+  }
+
+  char* data = new (std::nothrow) char[value.size()];
+  if (data == nullptr) {
+    return false;
+  }
+  std::copy(value.begin(), value.end(), data);
+  out_buffer->data = data;
+  out_buffer->size = value.size();
+  return true;
+}
+
+bool has_parent_segment(const std::filesystem::path& path) {
+  return std::any_of(path.begin(), path.end(), [](const auto& part) {
+    return part == "..";
+  });
 }
 
 std::string normalize_optional_dest_folder(const char* rel_path) {
@@ -132,6 +158,49 @@ kernel_status map_entry_error(const std::error_code& ec) {
 }
 
 }  // namespace
+
+extern "C" kernel_status kernel_relativize_vault_path(
+    kernel_handle* handle,
+    const char* host_path,
+    const std::size_t host_path_size,
+    const std::uint8_t allow_empty,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || handle == nullptr || (host_path_size > 0 && host_path == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view raw_path(host_path == nullptr ? "" : host_path, host_path_size);
+  if (raw_path.empty() || raw_path.find('\0') != std::string_view::npos) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::filesystem::path root = handle->paths.root.lexically_normal();
+  const std::filesystem::path target = std::filesystem::path(std::string(raw_path)).lexically_normal();
+  const std::filesystem::path relative = target.lexically_relative(root);
+  if (relative.empty() || relative == ".") {
+    if (target == root && allow_empty != 0) {
+      return kernel::core::make_status(KERNEL_OK);
+    }
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  if (relative.is_absolute() || relative.has_root_name() || relative.has_root_directory() ||
+      has_parent_segment(relative)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string rel_path = relative.generic_string();
+  if (!is_valid_entry_rel_path(rel_path.c_str())) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  if (!fill_owned_buffer(rel_path, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+
+  return kernel::core::make_status(KERNEL_OK);
+}
 
 extern "C" kernel_status kernel_create_folder(
     kernel_handle* handle,

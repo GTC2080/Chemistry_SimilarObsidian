@@ -10,12 +10,17 @@ Current surface:
 - `kernel_filter_supported_vault_paths(changed_paths_lf, out_paths)`
 - `kernel_filter_supported_vault_paths_filtered(changed_paths_lf, ignored_roots_csv, out_paths)`
 - `kernel_normalize_vault_relative_path(rel_path, rel_path_size, out_buffer)`
+- `kernel_relativize_vault_path(handle, host_path, host_path_size, allow_empty, out_buffer)`
 - `kernel_free_path_list(out_paths)`
 - `kernel_free_buffer(out_buffer)`
 
 The input is a line-feed separated list of changed relative paths from the host
 watcher or frontend. The kernel returns canonical subsets that should drive
 incremental vault event fanout and Markdown note scan/index work.
+
+The host-path relativization surface accepts one absolute host path plus an
+opened vault kernel handle, then returns the canonical vault-relative path that
+may be used by by-path note and entry commands.
 
 ## Ownership
 
@@ -26,6 +31,9 @@ incremental vault event fanout and Markdown note scan/index work.
 - the kernel owns normalized relative path text returned by
   `kernel_normalize_vault_relative_path(...)`
 - callers release normalized relative path text with `kernel_free_buffer(...)`
+- the kernel owns relativized relative path text returned by
+  `kernel_relativize_vault_path(...)`
+- callers release relativized relative path text with `kernel_free_buffer(...)`
 - null output returns `KERNEL_ERROR_INVALID_ARGUMENT`
 
 ## Frozen Semantics
@@ -71,6 +79,22 @@ All path filters:
 - rejects empty, `.`, and `..` path segments
 - returns the normalized relative path as a kernel-owned buffer
 
+`kernel_relativize_vault_path(...)`:
+
+- requires an opened kernel handle with a vault root
+- rejects null output, null handle, null non-empty input, empty host paths, and
+  embedded NUL bytes
+- normalizes the host path and vault root before comparison
+- accepts only paths inside the opened vault root
+- returns `/`-separated relative paths using generic path format
+- rejects relative outputs that are rooted, drive-qualified, or contain `.`,
+  `..`, or empty segments
+- rejects the vault root itself unless `allow_empty != 0`
+- returns an empty kernel-owned buffer for the vault root when
+  `allow_empty != 0`
+- validates non-empty outputs with `kernel_normalize_vault_relative_path(...)`
+  semantics before returning
+
 ## Host Boundary
 
 Tauri Rust may still:
@@ -88,8 +112,13 @@ Tauri Rust may still:
   kernel path filter
 - use `kernel_normalize_vault_relative_path(...)` before one-off note read,
   write, and chemistry reference commands that accept a relative vault path
+- pass absolute host paths from by-path note and entry commands through
+  `kernel_relativize_vault_path(...)` before calling kernel read/write/delete,
+  rename, move, or create-folder surfaces
 
 Tauri Rust must not reimplement supported-extension filtering, changed-entry
 Markdown filtering, hidden segment filtering, ignored-root filtering,
 ignored-root normalization, path deduplication, or one-off vault relative path
-validation/normalization.
+validation/normalization. It must also not reimplement vault-root
+relativization, `strip_prefix` checks, separator normalization, parent-segment
+checks, or root-folder allowance rules for by-path operations.
