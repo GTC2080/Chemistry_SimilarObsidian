@@ -245,6 +245,14 @@ kernel_status kernel_compute_ai_embedding_cache_key(
     const char* text,
     size_t text_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_serialize_ai_embedding_blob(
+    const float* values,
+    size_t value_count,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_parse_ai_embedding_blob(
+    const uint8_t* blob,
+    size_t blob_size,
+    kernel_float_buffer* out_values);
 kernel_status kernel_build_ai_rag_context(
     const char* const* note_names,
     const size_t* note_name_sizes,
@@ -471,6 +479,7 @@ kernel_status kernel_join_rebuild_index(kernel_handle* handle);
 kernel_status kernel_rebuild_index(kernel_handle* handle);
 kernel_status kernel_export_diagnostics(kernel_handle* handle, const char* output_path);
 void kernel_free_buffer(kernel_owned_buffer* buffer);
+void kernel_free_float_buffer(kernel_float_buffer* buffer);
 void kernel_free_note_list(kernel_note_list* notes);
 void kernel_free_path_list(kernel_path_list* paths);
 void kernel_free_file_tree(kernel_file_tree* tree);

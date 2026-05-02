@@ -27,6 +27,33 @@ char* CopyString(const std::string& value) {
   return out;
 }
 
+uint8_t* CopyBytes(const void* value, const std::size_t size) {
+  if (size == 0) {
+    return nullptr;
+  }
+  auto* out = static_cast<uint8_t*>(std::malloc(size));
+  if (out == nullptr) {
+    return nullptr;
+  }
+  std::memcpy(out, value, size);
+  return out;
+}
+
+float* CopyFloatArray(const float* values, const std::size_t count) {
+  if (count == 0) {
+    return nullptr;
+  }
+  if (count > (std::numeric_limits<std::size_t>::max)() / sizeof(float)) {
+    return nullptr;
+  }
+  auto* out = static_cast<float*>(std::malloc(count * sizeof(float)));
+  if (out == nullptr) {
+    return nullptr;
+  }
+  std::memcpy(out, values, count * sizeof(float));
+  return out;
+}
+
 void SetError(char** out_error, const std::string& message) {
   if (out_error == nullptr) {
     return;
@@ -1000,6 +1027,14 @@ char* sealed_kernel_bridge_info_json(void) {
 }
 
 void sealed_kernel_bridge_free_string(char* value) {
+  std::free(value);
+}
+
+void sealed_kernel_bridge_free_bytes(uint8_t* value) {
+  std::free(value);
+}
+
+void sealed_kernel_bridge_free_float_array(float* value) {
   std::free(value);
 }
 
@@ -2412,6 +2447,94 @@ int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
   }
 
   return CopyKernelOwnedText(buffer, out_key, out_error);
+}
+
+int32_t sealed_kernel_bridge_serialize_ai_embedding_blob(
+    const float* values,
+    uint64_t value_count,
+    uint8_t** out_bytes,
+    uint64_t* out_size,
+    char** out_error) {
+  if (out_bytes != nullptr) {
+    *out_bytes = nullptr;
+  }
+  if (out_size != nullptr) {
+    *out_size = 0;
+  }
+  if (
+      out_bytes == nullptr || out_size == nullptr ||
+      (value_count > 0 && values == nullptr) ||
+      value_count > (std::numeric_limits<std::size_t>::max)()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_serialize_ai_embedding_blob(
+      values,
+      static_cast<std::size_t>(value_count),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    SetError(out_error, "embedding_blob_serialize_failed");
+    return static_cast<int32_t>(status.code);
+  }
+
+  auto* copied = CopyBytes(buffer.data, buffer.size);
+  const std::size_t copied_size = buffer.size;
+  kernel_free_buffer(&buffer);
+  if (copied == nullptr && copied_size != 0) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  *out_bytes = copied;
+  *out_size = static_cast<uint64_t>(copied_size);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_parse_ai_embedding_blob(
+    const uint8_t* blob,
+    uint64_t blob_size,
+    float** out_values,
+    uint64_t* out_count,
+    char** out_error) {
+  if (out_values != nullptr) {
+    *out_values = nullptr;
+  }
+  if (out_count != nullptr) {
+    *out_count = 0;
+  }
+  if (
+      out_values == nullptr || out_count == nullptr ||
+      (blob_size > 0 && blob == nullptr) ||
+      blob_size > (std::numeric_limits<std::size_t>::max)()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_float_buffer parsed{};
+  const kernel_status status = kernel_parse_ai_embedding_blob(
+      blob,
+      static_cast<std::size_t>(blob_size),
+      &parsed);
+  if (status.code != KERNEL_OK) {
+    kernel_free_float_buffer(&parsed);
+    SetError(out_error, "embedding_blob_parse_failed");
+    return static_cast<int32_t>(status.code);
+  }
+
+  auto* copied = CopyFloatArray(parsed.values, parsed.count);
+  const std::size_t copied_count = parsed.count;
+  kernel_free_float_buffer(&parsed);
+  if (copied == nullptr && copied_count != 0) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  *out_values = copied;
+  *out_count = static_cast<uint64_t>(copied_count);
+  return static_cast<int32_t>(KERNEL_OK);
 }
 
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(

@@ -5,9 +5,12 @@
 
 #include "support/test_support.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -584,6 +587,65 @@ void test_ai_embedding_cache_key_is_kernel_owned() {
       "embedding cache key should reject null output");
 }
 
+void test_ai_embedding_blob_codec_is_kernel_owned() {
+  const float values[] = {1.0F, -2.5F, 0.25F};
+  kernel_owned_buffer blob{};
+  require_ok_status(
+      kernel_serialize_ai_embedding_blob(values, 3, &blob),
+      "AI embedding blob serialization");
+  const std::vector<std::uint8_t> expected_blob = {
+      0x00,
+      0x00,
+      0x80,
+      0x3f,
+      0x00,
+      0x00,
+      0x20,
+      0xc0,
+      0x00,
+      0x00,
+      0x80,
+      0x3e,
+  };
+  require_true(blob.size == expected_blob.size(), "embedding blob byte count");
+  const auto* blob_bytes = reinterpret_cast<const std::uint8_t*>(blob.data);
+  require_true(
+      std::equal(blob_bytes, blob_bytes + blob.size, expected_blob.begin()),
+      "embedding blob should use stable little-endian f32 bytes");
+
+  kernel_float_buffer parsed{};
+  require_ok_status(
+      kernel_parse_ai_embedding_blob(blob_bytes, blob.size, &parsed),
+      "AI embedding blob parse");
+  require_true(parsed.count == 3, "embedding blob parse should restore value count");
+  require_true(parsed.values[0] == 1.0F, "embedding blob parse should restore first value");
+  require_true(parsed.values[1] == -2.5F, "embedding blob parse should restore second value");
+  require_true(parsed.values[2] == 0.25F, "embedding blob parse should restore third value");
+  kernel_free_float_buffer(&parsed);
+  kernel_free_buffer(&blob);
+
+  const std::uint8_t invalid_blob[] = {0x00, 0x01, 0x02};
+  require_true(
+      kernel_parse_ai_embedding_blob(invalid_blob, sizeof(invalid_blob), &parsed).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding blob parse should reject non-f32 byte counts");
+  require_true(
+      kernel_serialize_ai_embedding_blob(nullptr, 1, &blob).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding blob serialization should reject null non-empty vectors");
+  require_true(
+      kernel_serialize_ai_embedding_blob(values, 3, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding blob serialization should reject null output");
+  require_true(
+      kernel_parse_ai_embedding_blob(
+          reinterpret_cast<const std::uint8_t*>(expected_blob.data()),
+          expected_blob.size(),
+          nullptr)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding blob parse should reject null output");
+}
+
 void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -982,6 +1044,7 @@ void run_product_compute_tests() {
   test_ai_embedding_text_normalization_is_kernel_owned();
   test_ai_embedding_text_indexability_is_kernel_owned();
   test_ai_embedding_cache_key_is_kernel_owned();
+  test_ai_embedding_blob_codec_is_kernel_owned();
   test_ai_rag_context_shape_and_truncation_are_kernel_owned();
   test_ai_prompt_shapes_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();

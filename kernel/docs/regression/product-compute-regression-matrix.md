@@ -150,12 +150,21 @@ The repository must retain regression coverage for:
   changes
 - `kernel_compute_ai_embedding_cache_key(...)` rejects null non-empty input
   buffers and null output pointers
+- `kernel_serialize_ai_embedding_blob(...)` encodes f32 vectors as stable
+  little-endian BLOB bytes
+- `kernel_parse_ai_embedding_blob(...)` round-trips the same stable
+  little-endian f32 BLOB format
+- `kernel_parse_ai_embedding_blob(...)` rejects BLOB byte counts that are not
+  divisible by four
 - Tauri Rust AI code delegates embedding input normalization to the sealed
   bridge instead of calling `chars().take(...)` locally
 - Tauri Rust indexing preflight delegates embedding text indexability to the
   sealed bridge instead of calling `trim().is_empty()` locally
 - Tauri Rust AI code delegates embedding cache-key derivation to the sealed
   bridge instead of using Rust `DefaultHasher`
+- Tauri Rust legacy embedding cache storage delegates f32 vector BLOB encode /
+  decode to the sealed bridge instead of using `from_raw_parts`,
+  `chunks_exact`, or local endian conversion
 
 ## AI Prompt Shape
 

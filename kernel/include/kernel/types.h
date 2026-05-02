@@ -68,6 +68,11 @@ typedef struct kernel_owned_buffer {
   size_t size;
 } kernel_owned_buffer;
 
+typedef struct kernel_float_buffer {
+  float* values;
+  size_t count;
+} kernel_float_buffer;
+
 typedef struct kernel_note_metadata {
   uint64_t file_size;
   uint64_t mtime_ns;

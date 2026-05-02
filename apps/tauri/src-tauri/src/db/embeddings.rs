@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection};
 
 use crate::models::NoteInfo;
+use crate::sealed_kernel;
 use crate::AppResult;
 
 use super::common::{ext_from_path, QueryTimer};
@@ -40,26 +41,12 @@ pub fn get_embedding_note_timestamps(
 }
 
 /// 将向量化结果（Vec<f32>）写入指定笔记的 embedding 字段。
-///
-/// # Vec<f32> -> BLOB 序列化方案
-/// 直接将 f32 数组的内存表示（每个 f32 占 4 字节，小端序）
-/// 拷贝为连续的字节切片存入 SQLite BLOB。
-/// 这种方式零拷贝、零开销，比 JSON 序列化快几个数量级。
-///
-/// 反序列化时只需将 BLOB 按 4 字节对齐重新解释为 &[f32] 即可。
 pub fn update_note_embedding(conn: &Connection, id: &str, embedding: &[f32]) -> AppResult<()> {
-    // 安全地将 &[f32] 转换为 &[u8]：
-    // 每个 f32 = 4 bytes，总长度 = embedding.len() * 4
-    let bytes: &[u8] = unsafe {
-        std::slice::from_raw_parts(
-            embedding.as_ptr() as *const u8,
-            embedding.len() * std::mem::size_of::<f32>(),
-        )
-    };
+    let bytes = sealed_kernel::serialize_ai_embedding_blob(embedding)?;
 
     conn.execute(
         "UPDATE notes_index SET embedding = ?1 WHERE id = ?2",
-        params![bytes, id],
+        params![bytes.as_slice(), id],
     )?;
 
     Ok(())
@@ -96,14 +83,9 @@ pub fn get_all_embeddings(conn: &Connection) -> AppResult<Vec<(NoteInfo, Vec<f32
     let mut results = Vec::new();
     for row in rows {
         let (note, bytes) = row?;
-        if bytes.len() % 4 != 0 {
-            continue;
+        if let Ok(embedding) = sealed_kernel::parse_ai_embedding_blob(&bytes) {
+            results.push((note, embedding));
         }
-        let embedding: Vec<f32> = bytes
-            .chunks_exact(4)
-            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-            .collect();
-        results.push((note, embedding));
     }
 
     Ok(results)

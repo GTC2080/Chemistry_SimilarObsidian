@@ -17,6 +17,8 @@ typedef struct sealed_kernel_bridge_state_snapshot {
 
 char* sealed_kernel_bridge_info_json(void);
 void sealed_kernel_bridge_free_string(char* value);
+void sealed_kernel_bridge_free_bytes(uint8_t* value);
+void sealed_kernel_bridge_free_float_array(float* value);
 
 int32_t sealed_kernel_bridge_open_vault_utf8(
     const char* vault_path_utf8,
@@ -286,6 +288,20 @@ int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
     const char* text_utf8,
     uint64_t text_size,
     char** out_key,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_serialize_ai_embedding_blob(
+    const float* values,
+    uint64_t value_count,
+    uint8_t** out_bytes,
+    uint64_t* out_size,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_parse_ai_embedding_blob(
+    const uint8_t* blob,
+    uint64_t blob_size,
+    float** out_values,
+    uint64_t* out_count,
     char** out_error);
 
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_int};
+use std::os::raw::{c_char, c_float, c_int};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -37,6 +37,8 @@ struct SealedKernelBridgeStateSnapshot {
 extern "C" {
     fn sealed_kernel_bridge_info_json() -> *mut c_char;
     fn sealed_kernel_bridge_free_string(value: *mut c_char);
+    fn sealed_kernel_bridge_free_bytes(value: *mut u8);
+    fn sealed_kernel_bridge_free_float_array(value: *mut c_float);
     fn sealed_kernel_bridge_open_vault_utf8(
         vault_path_utf8: *const c_char,
         out_session: *mut *mut SealedKernelBridgeSession,
@@ -304,6 +306,20 @@ extern "C" {
         text_utf8: *const c_char,
         text_size: u64,
         out_key: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_serialize_ai_embedding_blob(
+        values: *const c_float,
+        value_count: u64,
+        out_bytes: *mut *mut u8,
+        out_size: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_parse_ai_embedding_blob(
+        blob: *const u8,
+        blob_size: u64,
+        out_values: *mut *mut c_float,
+        out_count: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_build_ai_rag_system_content_text(
@@ -2025,6 +2041,83 @@ pub fn compute_ai_embedding_cache_key(
     Ok(take_bridge_string(raw_key))
 }
 
+pub fn serialize_ai_embedding_blob(values: &[f32]) -> AppResult<Vec<u8>> {
+    let mut raw_bytes: *mut u8 = std::ptr::null_mut();
+    let mut byte_count = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_serialize_ai_embedding_blob(
+            values.as_ptr() as *const c_float,
+            values.len() as u64,
+            &mut raw_bytes,
+            &mut byte_count,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_serialize_ai_embedding_blob",
+            code,
+            error,
+        ));
+    }
+    let Ok(byte_count) = usize::try_from(byte_count) else {
+        unsafe {
+            sealed_kernel_bridge_free_bytes(raw_bytes);
+        }
+        return Err(AppError::Custom(
+            "Embedding blob 内核结果过大，无法复制".to_string(),
+        ));
+    };
+    if raw_bytes.is_null() || byte_count == 0 {
+        return Ok(Vec::new());
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(raw_bytes, byte_count).to_vec() };
+    unsafe {
+        sealed_kernel_bridge_free_bytes(raw_bytes);
+    }
+    Ok(bytes)
+}
+
+pub fn parse_ai_embedding_blob(blob: &[u8]) -> AppResult<Vec<f32>> {
+    let mut raw_values: *mut c_float = std::ptr::null_mut();
+    let mut value_count = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_parse_ai_embedding_blob(
+            blob.as_ptr(),
+            blob.len() as u64,
+            &mut raw_values,
+            &mut value_count,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_parse_ai_embedding_blob",
+            code,
+            error,
+        ));
+    }
+    let Ok(value_count) = usize::try_from(value_count) else {
+        unsafe {
+            sealed_kernel_bridge_free_float_array(raw_values);
+        }
+        return Err(AppError::Custom(
+            "Embedding blob 内核解析结果过大，无法复制".to_string(),
+        ));
+    };
+    if raw_values.is_null() || value_count == 0 {
+        return Ok(Vec::new());
+    }
+    let values =
+        unsafe { std::slice::from_raw_parts(raw_values as *const f32, value_count).to_vec() };
+    unsafe {
+        sealed_kernel_bridge_free_float_array(raw_values);
+    }
+    Ok(values)
+}
+
 pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -3340,6 +3433,20 @@ mod tests {
             compute_ai_embedding_cache_key("https://api.example.test", "embed-small", "other text")
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn ai_embedding_blob_codec_comes_from_kernel() {
+        let blob = serialize_ai_embedding_blob(&[1.0, -2.5, 0.25]).unwrap();
+        assert_eq!(
+            blob,
+            vec![0x00, 0x00, 0x80, 0x3f, 0x00, 0x00, 0x20, 0xc0, 0x00, 0x00, 0x80, 0x3e]
+        );
+        assert_eq!(
+            parse_ai_embedding_blob(&blob).unwrap(),
+            vec![1.0, -2.5, 0.25]
+        );
+        assert!(parse_ai_embedding_blob(&[0x00, 0x01, 0x02]).is_err());
     }
 
     #[test]
