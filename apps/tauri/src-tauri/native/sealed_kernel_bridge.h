@@ -280,6 +280,13 @@ int32_t sealed_kernel_bridge_is_ai_embedding_text_indexable(
     uint8_t* out_is_indexable,
     char** out_error);
 
+int32_t sealed_kernel_bridge_should_refresh_ai_embedding_note(
+    int64_t note_updated_at,
+    uint8_t has_existing_updated_at,
+    int64_t existing_updated_at,
+    uint8_t* out_should_refresh,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
     const char* base_url_utf8,
     uint64_t base_url_size,

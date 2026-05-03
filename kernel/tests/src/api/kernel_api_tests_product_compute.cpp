@@ -646,6 +646,46 @@ void test_ai_embedding_blob_codec_is_kernel_owned() {
       "embedding blob parse should reject null output");
 }
 
+void test_ai_embedding_note_refresh_decision_is_kernel_owned() {
+  std::uint8_t should_refresh = 0;
+
+  require_ok_status(
+      kernel_should_refresh_ai_embedding_note(200, 0, 0, &should_refresh),
+      "AI embedding note refresh without existing timestamp");
+  require_true(
+      should_refresh == 1,
+      "embedding note should refresh when the compatibility cache has no timestamp");
+
+  should_refresh = 0;
+  require_ok_status(
+      kernel_should_refresh_ai_embedding_note(200, 1, 199, &should_refresh),
+      "AI embedding note refresh with stale timestamp");
+  require_true(
+      should_refresh == 1,
+      "embedding note should refresh when the note timestamp is newer than the cache");
+
+  should_refresh = 1;
+  require_ok_status(
+      kernel_should_refresh_ai_embedding_note(200, 1, 200, &should_refresh),
+      "AI embedding note refresh with equal timestamp");
+  require_true(
+      should_refresh == 0,
+      "embedding note should not refresh when timestamps are equal");
+
+  should_refresh = 1;
+  require_ok_status(
+      kernel_should_refresh_ai_embedding_note(199, 1, 200, &should_refresh),
+      "AI embedding note refresh with newer cache timestamp");
+  require_true(
+      should_refresh == 0,
+      "embedding note should not refresh when the cache timestamp is newer");
+
+  require_true(
+      kernel_should_refresh_ai_embedding_note(200, 1, 199, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "embedding note refresh should reject null output");
+}
+
 void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -1045,6 +1085,7 @@ void run_product_compute_tests() {
   test_ai_embedding_text_indexability_is_kernel_owned();
   test_ai_embedding_cache_key_is_kernel_owned();
   test_ai_embedding_blob_codec_is_kernel_owned();
+  test_ai_embedding_note_refresh_decision_is_kernel_owned();
   test_ai_rag_context_shape_and_truncation_are_kernel_owned();
   test_ai_prompt_shapes_are_kernel_owned();
   test_truth_state_routes_activity_and_levels();

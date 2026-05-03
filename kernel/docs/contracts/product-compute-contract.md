@@ -2,7 +2,7 @@
 
 # Product Compute Contract
 
-Last updated: `2026-05-02`
+Last updated: `2026-05-03`
 
 ## Scope
 
@@ -29,6 +29,7 @@ Current surface:
 - `kernel_get_ai_rag_top_note_limit(out_limit)`
 - `kernel_normalize_ai_embedding_text(text, text_size, out_buffer)`
 - `kernel_is_ai_embedding_text_indexable(text, text_size, out_is_indexable)`
+- `kernel_should_refresh_ai_embedding_note(note_updated_at, has_existing_updated_at, existing_updated_at, out_should_refresh)`
 - `kernel_compute_ai_embedding_cache_key(base_url, base_url_size, model, model_size, text, text_size, out_buffer)`
 - `kernel_serialize_ai_embedding_blob(values, value_count, out_buffer)`
 - `kernel_parse_ai_embedding_blob(blob, blob_size, out_values)`
@@ -76,6 +77,8 @@ Frozen rules:
 - the kernel owns AI embedding input normalization, Unicode character
   truncation, empty-after-truncation rejection, indexability preflight, and
   cache-key derivation
+- the kernel owns the AI embedding note refresh decision used by host
+  compatibility caches
 - the kernel owns the stable AI embedding vector BLOB codec used by legacy
   host compatibility caches
 - the kernel owns AI RAG note context formatting, note display-name derivation
@@ -151,6 +154,8 @@ Frozen rules:
   embedding input text limits
 - hosts must not reimplement embedding input truncation, empty-text checks, or
   embedding indexability / cache-key derivation
+- hosts must not locally compare note timestamps to decide whether embedding
+  cache metadata should refresh
 - hosts must not reinterpret `float` memory, hand-roll little-endian f32 BLOB
   serialization, or locally decide malformed embedding BLOB validity
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache,
@@ -259,6 +264,12 @@ Frozen rules:
 - `kernel_compute_ai_embedding_cache_key(...)` field-separates base URL, model,
   and normalized text before hashing so adjacent field concatenation cannot
   collide
+- `kernel_should_refresh_ai_embedding_note(...)` returns true when no existing
+  timestamp is present
+- `kernel_should_refresh_ai_embedding_note(...)` returns true only when
+  `note_updated_at > existing_updated_at` when an existing timestamp is present
+- `kernel_should_refresh_ai_embedding_note(...)` returns false for equal or
+  newer compatibility-cache timestamps
 - `kernel_serialize_ai_embedding_blob(...)` encodes each embedding value as one
   stable little-endian IEEE-754 32-bit float
 - `kernel_parse_ai_embedding_blob(...)` decodes the same little-endian f32 BLOB

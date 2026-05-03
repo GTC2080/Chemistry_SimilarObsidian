@@ -42,10 +42,10 @@ struct PendingUpsert {
 fn should_refresh_note(
     note: &NoteInfo,
     existing_timestamps: Option<&HashMap<String, i64>>,
-) -> bool {
-    existing_timestamps
-        .and_then(|timestamps| timestamps.get(&note.id))
-        .is_none_or(|db_ts| note.updated_at > *db_ts)
+) -> Result<bool, AppError> {
+    let existing_updated_at =
+        existing_timestamps.and_then(|timestamps| timestamps.get(&note.id).copied());
+    sealed_kernel::should_refresh_ai_embedding_note(note.updated_at, existing_updated_at)
 }
 
 fn pending_upsert_from_note(note: NoteInfo, content: String) -> PendingUpsert {
@@ -103,7 +103,7 @@ fn collect_kernel_note_upserts(
     let mut pending_upserts = Vec::new();
 
     for note in notes {
-        if !should_refresh_note(&note, existing_timestamps) {
+        if !should_refresh_note(&note, existing_timestamps)? {
             continue;
         }
         let content = match sealed_kernel::read_note_by_rel_path(&note.id, kernel_state) {
@@ -136,7 +136,7 @@ fn collect_kernel_changed_upserts(
         let Some(note) = notes_by_id.remove(&rel_path) else {
             continue;
         };
-        if !should_refresh_note(&note, Some(existing_timestamps)) {
+        if !should_refresh_note(&note, Some(existing_timestamps))? {
             continue;
         }
         let content = match sealed_kernel::read_note_by_rel_path(&note.id, kernel_state) {
@@ -529,5 +529,29 @@ mod tests {
         assert!(
             !embedding_content_is_indexable(&truncated_whitespace).expect("kernel indexability")
         );
+    }
+
+    #[test]
+    fn embedding_note_refresh_decision_uses_kernel_rule() {
+        let note = NoteInfo {
+            id: "Folder/Note.md".to_string(),
+            name: "Note".to_string(),
+            path: "E:\\vault\\Folder\\Note.md".to_string(),
+            created_at: 100,
+            updated_at: 200,
+            file_extension: "md".to_string(),
+        };
+
+        assert!(should_refresh_note(&note, None).expect("kernel refresh rule"));
+
+        let mut timestamps = HashMap::new();
+        timestamps.insert(note.id.clone(), 199);
+        assert!(should_refresh_note(&note, Some(&timestamps)).expect("kernel refresh rule"));
+
+        timestamps.insert(note.id.clone(), 200);
+        assert!(!should_refresh_note(&note, Some(&timestamps)).expect("kernel refresh rule"));
+
+        timestamps.insert(note.id.clone(), 201);
+        assert!(!should_refresh_note(&note, Some(&timestamps)).expect("kernel refresh rule"));
     }
 }

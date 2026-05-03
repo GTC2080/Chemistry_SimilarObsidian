@@ -2386,6 +2386,33 @@ int32_t sealed_kernel_bridge_is_ai_embedding_text_indexable(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_should_refresh_ai_embedding_note(
+    int64_t note_updated_at,
+    uint8_t has_existing_updated_at,
+    int64_t existing_updated_at,
+    uint8_t* out_should_refresh,
+    char** out_error) {
+  if (out_should_refresh != nullptr) {
+    *out_should_refresh = 0;
+  }
+  if (out_should_refresh == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_should_refresh_ai_embedding_note(
+      note_updated_at,
+      has_existing_updated_at,
+      existing_updated_at,
+      out_should_refresh);
+  if (status.code != KERNEL_OK) {
+    SetError(out_error, "embedding_note_refresh_failed");
+    return static_cast<int32_t>(status.code);
+  }
+
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_normalize_vault_relative_path_text(
     const char* rel_path_utf8,
     uint64_t rel_path_size,

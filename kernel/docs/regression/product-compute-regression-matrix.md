@@ -2,7 +2,7 @@
 
 # Product Compute Regression Matrix
 
-Last updated: `2026-05-02`
+Last updated: `2026-05-03`
 
 ## Truth Diff Awards
 
@@ -150,6 +150,13 @@ The repository must retain regression coverage for:
   changes
 - `kernel_compute_ai_embedding_cache_key(...)` rejects null non-empty input
   buffers and null output pointers
+- `kernel_should_refresh_ai_embedding_note(...)` returns true when the
+  compatibility cache has no existing timestamp
+- `kernel_should_refresh_ai_embedding_note(...)` returns true when the note
+  timestamp is newer than the compatibility cache timestamp
+- `kernel_should_refresh_ai_embedding_note(...)` returns false for equal or
+  newer compatibility cache timestamps
+- `kernel_should_refresh_ai_embedding_note(...)` rejects null output pointers
 - `kernel_serialize_ai_embedding_blob(...)` encodes f32 vectors as stable
   little-endian BLOB bytes
 - `kernel_parse_ai_embedding_blob(...)` round-trips the same stable
@@ -162,6 +169,9 @@ The repository must retain regression coverage for:
   sealed bridge instead of calling `trim().is_empty()` locally
 - Tauri Rust AI code delegates embedding cache-key derivation to the sealed
   bridge instead of using Rust `DefaultHasher`
+- Tauri Rust vault indexing delegates embedding note refresh decisions to the
+  sealed bridge instead of comparing `note.updated_at` and cached timestamps
+  locally
 - Tauri Rust legacy embedding cache storage delegates f32 vector BLOB encode /
   decode to the sealed bridge instead of using `from_raw_parts`,
   `chunks_exact`, or local endian conversion

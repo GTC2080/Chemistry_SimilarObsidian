@@ -1067,6 +1067,20 @@ extern "C" kernel_status kernel_is_ai_embedding_text_indexable(
   return kernel::core::make_status(KERNEL_OK);
 }
 
+extern "C" kernel_status kernel_should_refresh_ai_embedding_note(
+    const std::int64_t note_updated_at,
+    const std::uint8_t has_existing_updated_at,
+    const std::int64_t existing_updated_at,
+    std::uint8_t* out_should_refresh) {
+  if (out_should_refresh == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  *out_should_refresh = static_cast<std::uint8_t>(
+      has_existing_updated_at == 0 || note_updated_at > existing_updated_at);
+  return kernel::core::make_status(KERNEL_OK);
+}
+
 extern "C" kernel_status kernel_compute_ai_embedding_cache_key(
     const char* base_url,
     const std::size_t base_url_size,

@@ -237,6 +237,11 @@ kernel_status kernel_is_ai_embedding_text_indexable(
     const char* text,
     size_t text_size,
     uint8_t* out_is_indexable);
+kernel_status kernel_should_refresh_ai_embedding_note(
+    int64_t note_updated_at,
+    uint8_t has_existing_updated_at,
+    int64_t existing_updated_at,
+    uint8_t* out_should_refresh);
 kernel_status kernel_compute_ai_embedding_cache_key(
     const char* base_url,
     size_t base_url_size,

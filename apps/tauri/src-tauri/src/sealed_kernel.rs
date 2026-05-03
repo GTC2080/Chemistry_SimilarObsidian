@@ -298,6 +298,13 @@ extern "C" {
         out_is_indexable: *mut u8,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_should_refresh_ai_embedding_note(
+        note_updated_at: i64,
+        has_existing_updated_at: u8,
+        existing_updated_at: i64,
+        out_should_refresh: *mut u8,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_compute_ai_embedding_cache_key(
         base_url_utf8: *const c_char,
         base_url_size: u64,
@@ -1928,6 +1935,31 @@ pub fn is_ai_embedding_text_indexable(text: &str) -> AppResult<bool> {
     Ok(is_indexable != 0)
 }
 
+pub fn should_refresh_ai_embedding_note(
+    note_updated_at: i64,
+    existing_updated_at: Option<i64>,
+) -> AppResult<bool> {
+    let mut should_refresh = 0u8;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_should_refresh_ai_embedding_note(
+            note_updated_at,
+            u8::from(existing_updated_at.is_some()),
+            existing_updated_at.unwrap_or_default(),
+            &mut should_refresh,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_should_refresh_ai_embedding_note",
+            code,
+            error,
+        ));
+    }
+    Ok(should_refresh != 0)
+}
+
 pub fn derive_file_extension_from_path(path: &str) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -3417,6 +3449,14 @@ mod tests {
 
         let err = normalize_ai_embedding_text(" \t\n").expect_err("empty embedding input");
         assert_eq!(err.to_string(), "文本内容为空，跳过向量化");
+    }
+
+    #[test]
+    fn ai_embedding_note_refresh_decision_comes_from_kernel() {
+        assert!(should_refresh_ai_embedding_note(200, None).unwrap());
+        assert!(should_refresh_ai_embedding_note(200, Some(199)).unwrap());
+        assert!(!should_refresh_ai_embedding_note(200, Some(200)).unwrap());
+        assert!(!should_refresh_ai_embedding_note(199, Some(200)).unwrap());
     }
 
     #[test]
