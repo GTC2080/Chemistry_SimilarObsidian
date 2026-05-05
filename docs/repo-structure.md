@@ -12,7 +12,9 @@ This repository uses a two-layer structure:
 ## Current Tree
 
 - `README.md`
-  - the single project entrypoint
+  - Chinese project entrypoint
+- `README_EN.md`
+  - English project entrypoint
 - `kernel/`
   - `CMakeLists.txt`
   - `CMakePresets.json`
@@ -31,7 +33,7 @@ This repository uses a two-layer structure:
 
 ## Boundary Rule
 
-- root `README.md` is the only README in the project.
+- root `README.md` and `README_EN.md` are the only README files in the project source.
 - `kernel/` is the sealed truth and compute root.
 - `apps/tauri/` is the current running host app.
 - root `docs/` does not replace `kernel/docs/`.

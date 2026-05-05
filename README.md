@@ -1,4 +1,8 @@
 <p align="center">
+  简体中文 | <a href="README_EN.md">English</a>
+</p>
+
+<p align="center">
   <img src="apps/tauri/.logo/Logo.png" width="116" alt="Nexus Logo" />
 </p>
 
@@ -88,7 +92,8 @@ C++20 sealed kernel
 
 ```text
 .
-|-- README.md                 # 项目唯一 README
+|-- README.md                 # 中文 README
+|-- README_EN.md              # English README
 |-- apps/
 |   `-- tauri/                # 当前桌面 host：React + Tauri + Rust bridge
 |-- docs/                     # 仓库级集成与结构说明
@@ -212,7 +217,7 @@ npx tauri build
 
 ## 文档地图
 
-这个仓库刻意只保留一份 README。细节文档放在更准确的位置：
+这个仓库只保留中文和英文两份 README。细节文档放在更准确的位置：
 
 - 仓库结构：`docs/repo-structure.md`
 - 集成计划：`docs/integration-plan.md`
@@ -226,7 +231,7 @@ npx tauri build
 
 ## 开发原则
 
-- 根目录 `README.md` 是项目唯一入口。
+- `README.md` 是中文入口，`README_EN.md` 是英文入口。
 - 行为规则写入 `kernel/docs/contracts/`。
 - 回归预期写入 `kernel/docs/regression/`。
 - 长期架构决策写入 `kernel/docs/adr/`。
