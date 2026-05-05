@@ -422,6 +422,44 @@ int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_start_study_session(
+    sealed_kernel_bridge_session* session,
+    const char* note_id_utf8,
+    const char* folder_utf8,
+    int64_t* out_session_id,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_tick_study_session(
+    sealed_kernel_bridge_session* session,
+    int64_t session_id,
+    int64_t active_secs,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_end_study_session(
+    sealed_kernel_bridge_session* session,
+    int64_t session_id,
+    int64_t active_secs,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_query_study_stats_json(
+    sealed_kernel_bridge_session* session,
+    int64_t now_epoch_secs,
+    int64_t days_back,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_query_study_truth_state_json(
+    sealed_kernel_bridge_session* session,
+    int64_t now_epoch_millis,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_query_study_heatmap_grid_json(
+    sealed_kernel_bridge_session* session,
+    int64_t now_epoch_secs,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
     const char* target_smiles_utf8,
     uint8_t depth,

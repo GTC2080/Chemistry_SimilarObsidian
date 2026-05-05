@@ -3124,6 +3124,139 @@ int32_t sealed_kernel_bridge_build_study_heatmap_grid_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_start_study_session(
+    sealed_kernel_bridge_session* session,
+    const char* note_id_utf8,
+    const char* folder_utf8,
+    int64_t* out_session_id,
+    char** out_error) {
+  if (out_session_id != nullptr) {
+    *out_session_id = 0;
+  }
+  if (
+      session == nullptr || session->handle == nullptr || note_id_utf8 == nullptr ||
+      out_session_id == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_start_study_session(
+      session->handle,
+      note_id_utf8,
+      folder_utf8 == nullptr ? "" : folder_utf8,
+      out_session_id);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_start_study_session", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_tick_study_session(
+    sealed_kernel_bridge_session* session,
+    int64_t session_id,
+    int64_t active_secs,
+    char** out_error) {
+  if (session == nullptr || session->handle == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status =
+      kernel_tick_study_session(session->handle, session_id, active_secs);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_tick_study_session", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_end_study_session(
+    sealed_kernel_bridge_session* session,
+    int64_t session_id,
+    int64_t active_secs,
+    char** out_error) {
+  if (session == nullptr || session->handle == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status =
+      kernel_end_study_session(session->handle, session_id, active_secs);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_end_study_session", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_study_stats_json(
+    sealed_kernel_bridge_session* session,
+    int64_t now_epoch_secs,
+    int64_t days_back,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status =
+      kernel_query_study_stats_json(session->handle, now_epoch_secs, days_back, &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_query_study_stats_json", out_error);
+  }
+  return CopyKernelOwnedText(buffer, out_json, out_error);
+}
+
+int32_t sealed_kernel_bridge_query_study_truth_state_json(
+    sealed_kernel_bridge_session* session,
+    int64_t now_epoch_millis,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status =
+      kernel_query_study_truth_state_json(session->handle, now_epoch_millis, &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_query_study_truth_state_json", out_error);
+  }
+  return CopyKernelOwnedText(buffer, out_json, out_error);
+}
+
+int32_t sealed_kernel_bridge_query_study_heatmap_grid_json(
+    sealed_kernel_bridge_session* session,
+    int64_t now_epoch_secs,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status =
+      kernel_query_study_heatmap_grid_json(session->handle, now_epoch_secs, &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_query_study_heatmap_grid_json", out_error);
+  }
+  return CopyKernelOwnedText(buffer, out_json, out_error);
+}
+
 int32_t sealed_kernel_bridge_generate_mock_retrosynthesis_json(
     const char* target_smiles_utf8,
     uint8_t depth,

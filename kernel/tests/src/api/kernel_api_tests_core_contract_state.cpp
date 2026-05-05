@@ -115,7 +115,7 @@ void test_open_creates_state_dir_and_storage_db() {
   require_true(std::filesystem::is_regular_file(db_path), "open_vault should create state sqlite db");
 
   sqlite3* db = open_sqlite_readonly(db_path);
-  require_true(query_single_int(db, "PRAGMA user_version;") == 9, "storage schema should be at version 9");
+  require_true(query_single_int(db, "PRAGMA user_version;") == 10, "storage schema should be at version 10");
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_meta';") == 1,
       "schema_meta table should exist");
@@ -146,6 +146,9 @@ void test_open_creates_state_dir_and_storage_db() {
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ai_embedding_cache';") == 1,
       "ai_embedding_cache table should exist");
+  require_true(
+      query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='study_sessions';") == 1,
+      "study_sessions table should exist");
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='note_fts';") == 1,
       "note_fts table should exist");
@@ -194,9 +197,9 @@ void test_open_vault_reopen_preserves_schema_v1() {
   expect_ok(kernel_close(handle));
 
   sqlite3* db = open_sqlite_readonly(db_path);
-  require_true(query_single_int(db, "PRAGMA user_version;") == 9, "schema reopen should preserve user_version=9");
+  require_true(query_single_int(db, "PRAGMA user_version;") == 10, "schema reopen should preserve user_version=10");
   require_true(
-      query_single_text(db, "SELECT value FROM schema_meta WHERE key='schema_version';") == "9",
+      query_single_text(db, "SELECT value FROM schema_meta WHERE key='schema_version';") == "10",
       "schema reopen should preserve schema_meta version");
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM notes WHERE is_deleted=0;") == 0,
@@ -219,6 +222,9 @@ void test_open_vault_reopen_preserves_schema_v1() {
   require_true(
       query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ai_embedding_cache';") == 1,
       "schema reopen should preserve ai_embedding_cache table");
+  require_true(
+      query_single_int(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='study_sessions';") == 1,
+      "schema reopen should preserve study_sessions table");
   sqlite3_close(db);
 
   std::filesystem::remove_all(vault);

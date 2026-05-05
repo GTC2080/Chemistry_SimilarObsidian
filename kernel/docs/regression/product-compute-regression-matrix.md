@@ -218,8 +218,24 @@ The repository must retain regression coverage for:
 - attribute levels use the `50` EXP per level rule capped at `99`
 - empty activity starts at level `1` with next level requirement `100`
 - null non-empty buffers, null note ids, and null output pointers are rejected
-- Tauri Rust study DB code aggregates SQLite rows and delegates truth rules to
-  the sealed kernel bridge
+- handle-bound `kernel_query_study_truth_state_json(...)` reads
+  kernel-owned session rows and returns the host-facing TruthState JSON
+- Tauri Rust `cmd_study.rs` delegates truth queries to the sealed kernel bridge
+  without retaining a SQLite connection, schema, or aggregation SQL
+
+## Study Session Storage
+
+The repository must retain regression coverage for:
+
+- `kernel_start_study_session(...)` inserts a row and returns a generated
+  session id
+- `kernel_tick_study_session(...)` and `kernel_end_study_session(...)` add
+  active seconds to the existing row
+- stats, truth state, and heatmap queries observe the accumulated session rows
+- invalid handles, null note/folder pointers, null output pointers, and missing
+  session rows are rejected
+- Tauri Rust study commands call the sealed bridge storage/query APIs instead
+  of creating `src/db` or using `rusqlite`
 
 ## Study Stats Window
 
@@ -233,8 +249,10 @@ The repository must retain regression coverage for:
 - legacy stats heatmap reads keep the `179` day lookback from today
 - folder ranking limit remains `5` and comes from the kernel
 - non-positive `days_back` and null output pointers are rejected
-- Tauri Rust study stats code queries SQLite with kernel-returned boundaries
-  and does not hard-code study stats windows or folder ranking limits
+- handle-bound `kernel_query_study_stats_json(...)` returns today/week/daily
+  summaries and folder ranking from kernel-owned session rows
+- Tauri Rust study commands do not hard-code study stats windows, folder
+  ranking limits, or aggregation SQL
 
 ## Study Streak
 
@@ -251,8 +269,8 @@ The repository must retain regression coverage for:
 - input order does not affect the result
 - empty bucket input returns `0`
 - null non-empty bucket/timestamp buffers and null output pointers are rejected
-- Tauri Rust study stats code reads SQLite timestamps and delegates day
-  bucketing plus streak continuity rules to the sealed kernel bridge
+- handle-bound study stats queries derive streaks from kernel-owned session
+  rows through the same kernel bucketing and continuity rules
 
 ## Study Heatmap Grid
 
@@ -267,5 +285,7 @@ The repository must retain regression coverage for:
   the grid
 - null non-empty buffers, null date pointers, and null output pointers are
   rejected
-- Tauri Rust study stats code reads SQLite daily rows and delegates heatmap
-  grid calendar/layout rules to the sealed kernel bridge
+- handle-bound `kernel_query_study_heatmap_grid_json(...)` reads
+  kernel-owned daily rows and returns the host-facing heatmap JSON
+- Tauri Rust study commands do not read SQLite daily rows or rebuild heatmap
+  grid calendar/layout rules

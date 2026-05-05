@@ -2,12 +2,13 @@
 
 # Product Compute Contract
 
-Last updated: `2026-05-03`
+Last updated: `2026-05-05`
 
 ## Scope
 
-This document covers stateless product compute surfaces that are not chemistry,
-crystal, symmetry, search, or vault persistence surfaces.
+This document covers product compute surfaces and the study/session product
+storage/query surface that are not chemistry, crystal, symmetry, search, or
+general vault persistence surfaces.
 
 Current surface:
 
@@ -47,11 +48,17 @@ Current surface:
 - `kernel_compute_study_streak_days_from_timestamps(started_at_epoch_secs, timestamp_count, today_bucket, out_streak_days)`
 - `kernel_build_study_heatmap_grid(days, day_count, now_epoch_secs, out_grid)`
 - `kernel_free_study_heatmap_grid(out_grid)`
+- `kernel_start_study_session(handle, note_id, folder, out_session_id)`
+- `kernel_tick_study_session(handle, session_id, active_secs)`
+- `kernel_end_study_session(handle, session_id, active_secs)`
+- `kernel_query_study_stats_json(handle, now_epoch_secs, days_back, out_buffer)`
+- `kernel_query_study_truth_state_json(handle, now_epoch_millis, out_buffer)`
+- `kernel_query_study_heatmap_grid_json(handle, now_epoch_secs, out_buffer)`
 
 Current exclusions:
 
-- vault reads or writes
-- database writes
+- general vault reads or writes outside the documented study/session storage
+- host-owned database writes outside the kernel
 - UI state
 - localized display text
 
@@ -59,7 +66,10 @@ Current exclusions:
 
 Frozen rules:
 
-- the surface is handle-free and must not read or write vault state
+- stateless compute surfaces are handle-free and must not read or write vault
+  state
+- handle-bound study/session surfaces may read and write only the
+  kernel-owned `study_sessions` storage table for the active vault handle
 - Tauri Rust owns serde command marshalling and localized reason text
 - the kernel owns award attribute routing, award amounts, reason keys,
   code-fence language detection, and molecular line-growth detection
@@ -96,6 +106,8 @@ Frozen rules:
   contiguous-day counting
 - the kernel owns study heatmap grid dimensions, UTC day bucketing, Monday
   alignment, date formatting, cell coordinates, and max-second calculation
+- the kernel owns study session persistence, active-second increments, stats
+  aggregation rows, truth-state activity aggregation, and heatmap daily rows
 - returned awards and strings are kernel-owned until released with
   `kernel_free_truth_diff_result(...)`
 - returned semantic context bytes are kernel-owned until released with
@@ -319,10 +331,26 @@ Frozen rules:
 - total level starts at `1`
 - next-level EXP requirement is `floor(100 * 1.5^(level - 1))`
 - attribute level is `min(99, 1 + attribute_exp / 50)`
-- hosts may aggregate activity rows from SQLite and add localized timestamps,
-  but must call `kernel_compute_truth_state_from_activity(...)` for the rules
+- handle-free callers may pass explicit activity rows to
+  `kernel_compute_truth_state_from_activity(...)`
+- handle-bound hosts must use `kernel_query_study_truth_state_json(...)` so the
+  kernel reads activity rows from its own storage and appends the requested
+  settlement timestamp
 - null non-empty activity buffers, null note ids, and null output pointers are
   invalid
+
+## Study Session Storage
+
+Frozen rules:
+
+- `kernel_start_study_session(...)` inserts into the kernel-owned
+  `study_sessions` table and returns the generated session id
+- `kernel_tick_study_session(...)` and `kernel_end_study_session(...)` add
+  non-negative active seconds to the existing session row
+- note ids and folders are host-provided UTF-8 text and must not be null
+- invalid handles, null output pointers, and missing session rows are errors
+- Tauri Rust must not create a parallel SQLite connection, schema, or
+  host-side study/session table
 
 ## Study Stats Window
 
@@ -335,8 +363,11 @@ Frozen rules:
 - `daily_window_start_epoch_secs = today_start_epoch_secs - (days_back - 1) * 86400`
 - `heatmap_start_epoch_secs = today_start_epoch_secs - 179 * 86400`
 - `folder_rank_limit = 5`
-- hosts may query SQLite using these returned boundaries, but must not compute
-  or hard-code them outside the kernel
+- handle-free callers may use these returned boundaries for compatibility
+  tests, but handle-bound Tauri commands must use
+  `kernel_query_study_stats_json(...)`
+- Tauri Rust must not compute or hard-code study stats windows, folder ranking
+  limits, or aggregation SQL outside the kernel
 - non-positive `days_back` and null output pointers are invalid
 
 ## Study Streak

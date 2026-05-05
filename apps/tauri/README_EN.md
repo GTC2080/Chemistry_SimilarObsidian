@@ -37,11 +37,13 @@
 - **Release focus**: chemistry-heavy today, while the Markdown, search, graph, and AI layers remain general-purpose
 - **Data policy**: local-first by default, with vault content and SQLite data kept on the user's machine
 - **Optimization direction**: large-vault responsiveness, low-blocking I/O, fast interaction feedback, and stable semantic retrieval
-- **Backend boundary**: core note IO, vault root validation, vault file reads, PDF file hashing, search, tags, backlinks, graph, file tree, AI embedding cache retrieval, and embedding refresh job planning are owned by `kernel/`; Tauri Rust keeps command registration, bridge wiring, platform glue, external embedding requests, and thin orchestration
+- **Backend boundary**: core note IO, vault root validation, vault file reads, PDF file hashing, search, tags, backlinks, graph, file tree, AI embedding cache retrieval, embedding refresh job planning, and study/session storage/statistics are owned by `kernel/`; Tauri Rust keeps command registration, bridge wiring, platform glue, external network calls, and thin orchestration
 
 ## Recent Updates
 
+- **v1.0.6-dev** — study/session storage has moved fully into the C++ kernel: `study_session_start` / `study_session_tick` / `study_session_end`, `study_stats_query`, `truth_state_from_study`, and `get_heatmap_cells` now go through the sealed bridge; Rust `src/db/`, `DbState`, the `rusqlite` dependency, and the legacy study SQLite compatibility layer have been removed
 - **v1.0.6-dev** — legacy embedding refresh jobs have moved into the C++ kernel: `index_vault_content`, `index_changed_entries`, and `rebuild_vector_index` now ask the kernel to prepare jobs, including note catalog reads, ignored-root filtering, changed-path catalog refresh, timestamp comparison, note-content reads, indexability checks, and metadata upserts; Rust only calls the external embedding API and writes vectors back
+- **v1.0.6-dev** — legacy `index.db` has left the note/vault/study main path: `init_vault` now only opens the sealed kernel session and no longer initializes Rust `DbState` or creates `index.db` under the vault root; study/session data now lives in the kernel storage schema's `study_sessions` table
 - **v1.0.6-dev** — vault root preflight now goes through `kernel_validate_vault_root(...)`; `scan_vault` and watcher startup no longer use Rust `Path::is_dir(...)` to own the valid-vault-root rule
 - **v1.0.6-dev** — media and PDF binary reads now go through `kernel_read_vault_file(...)`; PDF annotation JSON file I/O goes through `kernel_read_pdf_annotation_file(...)` / `kernel_write_pdf_annotation_file(...)`; PDF annotation content hashes go through `kernel_compute_pdf_file_lightweight_hash(...)`; Rust only exposes the Tauri command shell and annotation DTO serialization
 - **v1.0.6-dev** — the legacy embedding DB has moved into the C++ kernel: `ai_embedding_cache` now owns metadata, timestamps, vectors, clear/delete, and semantic top-k retrieval; Rust no longer keeps a local embedding SQL layer or local cosine-similarity cache
@@ -129,7 +131,7 @@ In chemistry mode, click `POLYMER KINETICS` in the Markdown editor to open a ful
 
 - Left panel controls: `[M]0`, `[I]0`, `[CTA]0`, `kd`, `kp`, `kt`, `ktr`, `timeMax`, `steps`
 - Frontend IPC is debounced (`150ms`) to avoid request congestion during slider drags
-- Rust backend tracks radical/monomer states and 0/1/2 moments, returning `time / conversion / Mn / PDI`
+- The C++ kernel tracks radical/monomer states and 0/1/2 moments; Rust only bridges the result back as `time / conversion / Mn / PDI`
 - Two live Plotly charts:
   - `Conversion vs Time`
   - `Mn / PDI vs Conversion` (`PDI` on right y-axis)
@@ -193,7 +195,7 @@ src-tauri/src/          # Rust backend
 │   ├── cmd_tree.rs     # File tree/tag tree build and query commands
 │   ├── cmd_search.rs   # Search / FTS / semantic retrieval commands
 │   ├── cmd_ai.rs       # AI chat and reasoning commands
-│   ├── cmd_study.rs    # Study timeline recording and statistics commands
+│   ├── cmd_study.rs    # Study timeline command shell; session/stats/truth/heatmap come from the kernel
 │   ├── cmd_compute.rs  # TRUTH diff and compute commands
 │   ├── cmd_media.rs    # Media and spectroscopy parsing commands
 │   ├── cmd_symmetry.rs # Molecular symmetry analysis commands (point group / axes / planes)
@@ -203,15 +205,6 @@ src-tauri/src/          # Rust backend
 │   ├── mod.rs          # DTO re-export; full-result compute runs through sealed kernel bridge
 │   └── types.rs        # Lattice data protocol (LatticeData / UnitCellBox / AtomNode / MillerPlaneData)
 ├── kinetics.rs         # Polymer kinetics kernel bridge
-├── db.rs               # SQLite database management
-├── db/                 # DB submodules
-│   ├── schema.rs       # Study schema and migrations
-│   ├── study.rs        # Study module entry (submodules: session / stats / truth)
-│   ├── study/          # Study module subdir
-│   │   ├── session.rs  # Session CRUD (start / tick / end)
-│   │   ├── stats.rs    # Statistics aggregation queries (heatmap / daily / ranking)
-│   │   └── truth.rs    # TruthState experience-level derivation
-│   └── common.rs       # Shared DB utilities
 ├── shared/             # Shared helpers across command and service modules
 ├── services/           # Domain service layer
 ├── symmetry/           # Symmetry command DTOs; compute runs through sealed kernel bridge

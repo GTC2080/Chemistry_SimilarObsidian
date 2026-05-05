@@ -3,7 +3,7 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_float, c_int};
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -403,6 +403,7 @@ extern "C" {
         out_temperature: *mut f32,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_compute_truth_state_json(
         note_ids_utf8: *const *const c_char,
         active_secs: *const i64,
@@ -410,6 +411,7 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_compute_study_streak_days_from_timestamps(
         started_at_epoch_secs: *const i64,
         timestamp_count: u64,
@@ -417,6 +419,7 @@ extern "C" {
         out_streak_days: *mut i64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_compute_study_stats_window(
         now_epoch_secs: i64,
         days_back: i64,
@@ -428,10 +431,49 @@ extern "C" {
         out_folder_rank_limit: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_build_study_heatmap_grid_json(
         dates_utf8: *const *const c_char,
         active_secs: *const i64,
         day_count: u64,
+        now_epoch_secs: i64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_start_study_session(
+        session: *mut SealedKernelBridgeSession,
+        note_id_utf8: *const c_char,
+        folder_utf8: *const c_char,
+        out_session_id: *mut i64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_tick_study_session(
+        session: *mut SealedKernelBridgeSession,
+        session_id: i64,
+        active_secs: i64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_end_study_session(
+        session: *mut SealedKernelBridgeSession,
+        session_id: i64,
+        active_secs: i64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_study_stats_json(
+        session: *mut SealedKernelBridgeSession,
+        now_epoch_secs: i64,
+        days_back: i64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_study_truth_state_json(
+        session: *mut SealedKernelBridgeSession,
+        now_epoch_millis: i64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_study_heatmap_grid_json(
+        session: *mut SealedKernelBridgeSession,
         now_epoch_secs: i64,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
@@ -689,6 +731,7 @@ struct SealedKernelTruthDiffResult {
     awards: Vec<SealedKernelTruthAward>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct SealedKernelTruthAttributes {
     pub science: i64,
@@ -697,6 +740,7 @@ pub struct SealedKernelTruthAttributes {
     pub finance: i64,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SealedKernelTruthState {
@@ -707,6 +751,7 @@ pub struct SealedKernelTruthState {
     pub attribute_exp: SealedKernelTruthAttributes,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct SealedKernelHeatmapCell {
     pub date: String,
@@ -715,6 +760,7 @@ pub struct SealedKernelHeatmapCell {
     pub row: usize,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SealedKernelHeatmapGrid {
@@ -722,6 +768,7 @@ pub struct SealedKernelHeatmapGrid {
     pub max_secs: i64,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy)]
 pub struct SealedKernelStudyStatsWindow {
     pub today_start_epoch_secs: i64,
@@ -951,6 +998,23 @@ pub fn ensure_vault_open(vault_path: &str, state: &SealedKernelState) -> AppResu
     }
 
     open_vault_inner(vault_path.to_string(), state)?;
+    Ok(())
+}
+
+pub fn close_vault_state(state: &SealedKernelState) -> AppResult<()> {
+    let existing = {
+        let mut guard = state.session.lock().map_err(|_| AppError::Lock)?;
+        guard.take()
+    };
+    if let Some(existing) = existing {
+        unsafe { sealed_kernel_bridge_close(existing as *mut SealedKernelBridgeSession) };
+    }
+
+    {
+        let mut guard = state.vault_path.lock().map_err(|_| AppError::Lock)?;
+        *guard = None;
+    }
+
     Ok(())
 }
 
@@ -2480,6 +2544,7 @@ pub fn ai_ponder_temperature() -> AppResult<f32> {
     )
 }
 
+#[cfg(test)]
 pub fn compute_truth_state_from_activity(
     activities: &[(String, i64)],
 ) -> AppResult<SealedKernelTruthState> {
@@ -2519,6 +2584,7 @@ pub fn compute_truth_state_from_activity(
     })
 }
 
+#[cfg(test)]
 pub fn compute_study_streak_days_from_timestamps(
     started_at_epoch_secs: &[i64],
     today_bucket: i64,
@@ -2544,6 +2610,7 @@ pub fn compute_study_streak_days_from_timestamps(
     Ok(streak_days)
 }
 
+#[cfg(test)]
 pub fn compute_study_stats_window(
     now_epoch_secs: i64,
     days_back: i64,
@@ -2586,6 +2653,7 @@ pub fn compute_study_stats_window(
     })
 }
 
+#[cfg(test)]
 pub fn build_study_heatmap_grid(
     days: &[(String, i64)],
     now_epoch_secs: i64,
@@ -2627,6 +2695,84 @@ pub fn build_study_heatmap_grid(
             "sealed kernel study heatmap grid JSON is invalid: {err}"
         ))
     })
+}
+
+pub fn start_study_session(
+    note_id: &str,
+    folder: &str,
+    state: &SealedKernelState,
+) -> AppResult<i64> {
+    let note_id_c = cstring_arg(note_id.to_string(), "note_id")?;
+    let folder_c = cstring_arg(folder.to_string(), "folder")?;
+    let session = active_session(state)?;
+    let mut session_id = 0i64;
+    call_status_operation("sealed_kernel_start_study_session", |error| unsafe {
+        sealed_kernel_bridge_start_study_session(
+            session,
+            note_id_c.as_ptr(),
+            folder_c.as_ptr(),
+            &mut session_id,
+            error,
+        )
+    })?;
+    Ok(session_id)
+}
+
+pub fn tick_study_session(
+    session_id: i64,
+    active_secs: i64,
+    state: &SealedKernelState,
+) -> AppResult<()> {
+    let session = active_session(state)?;
+    call_status_operation("sealed_kernel_tick_study_session", |error| unsafe {
+        sealed_kernel_bridge_tick_study_session(session, session_id, active_secs, error)
+    })
+}
+
+pub fn end_study_session(
+    session_id: i64,
+    active_secs: i64,
+    state: &SealedKernelState,
+) -> AppResult<()> {
+    let session = active_session(state)?;
+    call_status_operation("sealed_kernel_end_study_session", |error| unsafe {
+        sealed_kernel_bridge_end_study_session(session, session_id, active_secs, error)
+    })
+}
+
+pub fn query_study_stats(days_back: i64, state: &SealedKernelState) -> AppResult<Value> {
+    let session = active_session(state)?;
+    let now_secs = unix_now_secs()?;
+    call_json_value_operation(
+        "sealed_kernel_query_study_stats",
+        |out_json, error| unsafe {
+            sealed_kernel_bridge_query_study_stats_json(
+                session, now_secs, days_back, out_json, error,
+            )
+        },
+    )
+}
+
+pub fn query_study_truth_state(state: &SealedKernelState) -> AppResult<Value> {
+    let session = active_session(state)?;
+    let now_millis = unix_now_millis()?;
+    call_json_value_operation(
+        "sealed_kernel_query_study_truth_state",
+        |out_json, error| unsafe {
+            sealed_kernel_bridge_query_study_truth_state_json(session, now_millis, out_json, error)
+        },
+    )
+}
+
+pub fn query_study_heatmap_grid(state: &SealedKernelState) -> AppResult<Value> {
+    let session = active_session(state)?;
+    let now_secs = unix_now_secs()?;
+    call_json_value_operation(
+        "sealed_kernel_query_study_heatmap_grid",
+        |out_json, error| unsafe {
+            sealed_kernel_bridge_query_study_heatmap_grid_json(session, now_secs, out_json, error)
+        },
+    )
 }
 
 pub fn parse_spectroscopy_from_text(raw: &str, extension: &str) -> AppResult<SpectroscopyData> {
@@ -3133,6 +3279,14 @@ fn cstring_arg(value: String, label: &str) -> AppResult<CString> {
         .map_err(|_| AppError::Custom(format!("{label} must not contain NUL bytes.")))
 }
 
+fn unix_now_secs() -> AppResult<i64> {
+    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64)
+}
+
+fn unix_now_millis() -> AppResult<i64> {
+    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as i64)
+}
+
 fn call_status_operation<F>(operation: &str, f: F) -> AppResult<()>
 where
     F: FnOnce(*mut *mut c_char) -> c_int,
@@ -3143,6 +3297,25 @@ where
         return Err(bridge_error(operation, code, error));
     }
     Ok(())
+}
+
+fn parse_bridge_json_value(operation: &str, raw_json: *mut c_char) -> AppResult<Value> {
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value)
+        .map_err(|err| AppError::Custom(format!("{operation} JSON is invalid: {err}")))
+}
+
+fn call_json_value_operation<F>(operation: &str, f: F) -> AppResult<Value>
+where
+    F: FnOnce(*mut *mut c_char, *mut *mut c_char) -> c_int,
+{
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = f(&mut raw_json, &mut error);
+    if code != 0 {
+        return Err(bridge_error(operation, code, error));
+    }
+    parse_bridge_json_value(operation, raw_json)
 }
 
 pub fn read_note_by_file_path(file_path: &str, state: &SealedKernelState) -> AppResult<String> {
@@ -3360,19 +3533,7 @@ pub fn sealed_kernel_get_state(
 pub fn sealed_kernel_close_vault(
     state: State<'_, SealedKernelState>,
 ) -> AppResult<SealedKernelSessionSummary> {
-    let existing = {
-        let mut guard = state.session.lock().map_err(|_| AppError::Lock)?;
-        guard.take()
-    };
-    if let Some(existing) = existing {
-        unsafe { sealed_kernel_bridge_close(existing as *mut SealedKernelBridgeSession) };
-    }
-
-    {
-        let mut guard = state.vault_path.lock().map_err(|_| AppError::Lock)?;
-        *guard = None;
-    }
-
+    close_vault_state(state.inner())?;
     Ok(SealedKernelSessionSummary {
         active: false,
         vault_path: None,

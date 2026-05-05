@@ -164,6 +164,45 @@ struct PdfAnchorRecord {
   bool is_missing = false;
 };
 
+struct StudyDailySummaryRecord {
+  std::string date;
+  std::int64_t active_secs = 0;
+  std::int64_t file_count = 0;
+};
+
+struct StudyDailyDetailRecord {
+  std::string date;
+  std::string note_id;
+  std::string folder;
+  std::int64_t active_secs = 0;
+};
+
+struct StudyFolderRankRecord {
+  std::string folder;
+  std::int64_t total_secs = 0;
+};
+
+struct StudyHeatmapDayRecord {
+  std::string date;
+  std::int64_t active_secs = 0;
+};
+
+struct StudyNoteActivityRecord {
+  std::string note_id;
+  std::int64_t active_secs = 0;
+};
+
+struct StudyStatsRecords {
+  std::int64_t today_active_secs = 0;
+  std::int64_t today_files = 0;
+  std::int64_t week_active_secs = 0;
+  std::vector<std::int64_t> streak_started_at_epoch_secs;
+  std::vector<StudyDailySummaryRecord> daily_summary;
+  std::vector<StudyDailyDetailRecord> daily_details;
+  std::vector<StudyFolderRankRecord> folder_ranking;
+  std::vector<StudyHeatmapDayRecord> heatmap;
+};
+
 std::error_code open_or_create(const std::filesystem::path& db_path, Database& out_db);
 void close(Database& db);
 std::error_code ensure_schema_v1(Database& db);
@@ -261,6 +300,30 @@ std::error_code read_live_pdf_anchor_record(
     std::string_view rel_path,
     std::uint64_t page,
     PdfAnchorRecord& out_record);
+std::error_code start_study_session(
+    Database& db,
+    std::string_view note_id,
+    std::string_view folder,
+    std::int64_t started_at_epoch_secs,
+    std::int64_t& out_session_id);
+std::error_code add_study_session_active_secs(
+    Database& db,
+    std::int64_t session_id,
+    std::int64_t active_secs);
+std::error_code query_study_stats_records(
+    Database& db,
+    std::int64_t today_start_epoch_secs,
+    std::int64_t week_start_epoch_secs,
+    std::int64_t daily_window_start_epoch_secs,
+    std::int64_t heatmap_start_epoch_secs,
+    std::size_t folder_rank_limit,
+    StudyStatsRecords& out_records);
+std::error_code query_study_note_activity_records(
+    Database& db,
+    std::vector<StudyNoteActivityRecord>& out_records);
+std::error_code query_all_study_heatmap_day_records(
+    Database& db,
+    std::vector<StudyHeatmapDayRecord>& out_records);
 std::error_code list_note_pdf_source_ref_records(
     Database& db,
     std::string_view note_rel_path,

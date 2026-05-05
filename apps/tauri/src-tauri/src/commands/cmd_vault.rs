@@ -4,7 +4,6 @@ use futures_util::stream::{self, StreamExt};
 use tauri::{AppHandle, State};
 
 use crate::ai;
-use crate::db::{self, DbState};
 use crate::models::NoteInfo;
 use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::read_ai_config;
@@ -14,14 +13,16 @@ use crate::AppError;
 #[tauri::command]
 pub fn init_vault(
     vault_path: String,
-    db: State<DbState>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<(), AppError> {
-    sealed_kernel::ensure_vault_open(&vault_path, sealed_kernel.inner())?;
-    let new_conn = db::init_db(&vault_path)?;
-    let mut conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-    *conn = new_conn;
-    Ok(())
+    init_vault_note_workflow(&vault_path, sealed_kernel.inner())
+}
+
+fn init_vault_note_workflow(
+    vault_path: &str,
+    sealed_kernel: &SealedKernelState,
+) -> Result<(), AppError> {
+    sealed_kernel::ensure_vault_open(vault_path, sealed_kernel)
 }
 
 fn deleted_markdown_rel_paths(paths: &[String]) -> Result<Vec<String>, AppError> {
@@ -304,6 +305,38 @@ pub fn stop_watcher(watcher: State<WatcherState>) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn make_temp_vault(prefix: &str) -> std::path::PathBuf {
+        let unique = format!(
+            "{}_{}",
+            prefix,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        );
+        let path = std::env::temp_dir().join(unique);
+        std::fs::create_dir_all(&path).expect("create temp vault");
+        path
+    }
+
+    #[test]
+    fn init_vault_note_workflow_does_not_create_legacy_index_db() {
+        let vault = make_temp_vault("nexus_init_vault_kernel_only");
+        let vault_path = vault.to_string_lossy().into_owned();
+        let state = SealedKernelState::default();
+
+        init_vault_note_workflow(&vault_path, &state).expect("open vault through kernel");
+
+        assert!(sealed_kernel::active_session_token(&state).is_ok());
+        assert!(
+            !vault.join("index.db").exists(),
+            "init_vault must not create the legacy Rust index.db"
+        );
+
+        sealed_kernel::close_vault_state(&state).expect("close kernel vault");
+        let _ = std::fs::remove_dir_all(vault);
+    }
 
     #[test]
     fn deleted_markdown_rel_paths_use_kernel_path_filter() {

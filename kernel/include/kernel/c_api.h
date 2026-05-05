@@ -361,6 +361,32 @@ kernel_status kernel_build_study_heatmap_grid(
     size_t day_count,
     int64_t now_epoch_secs,
     kernel_heatmap_grid* out_grid);
+kernel_status kernel_start_study_session(
+    kernel_handle* handle,
+    const char* note_id,
+    const char* folder,
+    int64_t* out_session_id);
+kernel_status kernel_tick_study_session(
+    kernel_handle* handle,
+    int64_t session_id,
+    int64_t active_secs);
+kernel_status kernel_end_study_session(
+    kernel_handle* handle,
+    int64_t session_id,
+    int64_t active_secs);
+kernel_status kernel_query_study_stats_json(
+    kernel_handle* handle,
+    int64_t now_epoch_secs,
+    int64_t days_back,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_query_study_truth_state_json(
+    kernel_handle* handle,
+    int64_t now_epoch_millis,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_query_study_heatmap_grid_json(
+    kernel_handle* handle,
+    int64_t now_epoch_secs,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_generate_mock_retrosynthesis(
     const char* target_smiles,
     uint8_t depth,

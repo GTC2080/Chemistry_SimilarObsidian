@@ -2,9 +2,6 @@ use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("数据库错误: {0}")]
-    Database(#[from] rusqlite::Error),
-
     #[error("IO 错误: {0}")]
     Io(#[from] std::io::Error),
 

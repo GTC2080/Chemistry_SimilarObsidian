@@ -60,6 +60,7 @@ add_executable(
   src/api/kernel_api_pdf_test_helpers.cpp
   src/api/kernel_api_tests_product_compute.cpp
   src/api/kernel_api_tests_ai_embedding_cache.cpp
+  src/api/kernel_api_tests_study_sessions.cpp
   src/api/kernel_api_tests_rebuild_runtime.cpp
   src/api/kernel_api_tests_rebuild_runtime_background.cpp
   src/api/kernel_api_tests_rebuild_runtime_background_lifecycle.cpp
