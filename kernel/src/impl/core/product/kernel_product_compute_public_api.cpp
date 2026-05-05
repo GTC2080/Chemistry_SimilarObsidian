@@ -4,7 +4,10 @@
 #include "kernel/c_api.h"
 
 #include "core/kernel_shared.h"
+#include "core/kernel_product_ai.h"
 #include "core/kernel_product_database.h"
+#include "core/kernel_product_paper.h"
+#include "core/kernel_product_pubchem.h"
 
 #include <algorithm>
 #include <cctype>
@@ -28,17 +31,6 @@ constexpr int kExpPerMolEdit = 5;
 constexpr int kExpPerCodeBlock = 8;
 constexpr std::size_t kMinContextChars = 24;
 constexpr std::size_t kMaxContextChars = 2200;
-constexpr std::size_t kRagContextPerNoteChars = 1500;
-constexpr std::size_t kEmbeddingTextCharLimit = 2000;
-constexpr std::size_t kAiChatTimeoutSecs = 120;
-constexpr std::size_t kAiPonderTimeoutSecs = 60;
-constexpr std::size_t kAiEmbeddingRequestTimeoutSecs = 30;
-constexpr std::size_t kAiEmbeddingCacheLimit = 64;
-constexpr std::size_t kAiEmbeddingConcurrencyLimit = 4;
-constexpr std::size_t kAiRagTopNoteLimit = 5;
-constexpr std::uint64_t kFnv1a64Offset = 14695981039346656037ull;
-constexpr std::uint64_t kFnv1a64Prime = 1099511628211ull;
-constexpr float kAiPonderTemperature = 0.7F;
 constexpr double kStudySecsPerExp = 60.0;
 constexpr double kStudyBaseExp = 100.0;
 constexpr double kStudyGrowthRate = 1.5;
@@ -49,46 +41,10 @@ constexpr std::size_t kStudyHeatmapDaysPerWeek = 7;
 constexpr std::int64_t kStudyWeekLookbackDays = 6;
 constexpr std::int64_t kStudyLegacyHeatmapLookbackDays = 179;
 constexpr std::size_t kStudyFolderRankLimit = 5;
-constexpr std::size_t kPaperCompileHighlightLimit = 12;
-constexpr char kDefaultPaperTemplate[] = "standard-thesis";
 
 bool is_ascii_space(char ch);
 std::string_view trim_ascii(std::string_view value);
-std::size_t utf8_prefix_bytes_by_chars(std::string_view value, std::size_t char_limit);
 
-constexpr char8_t kAiRagSystemPrompt[] =
-    u8"\u4F60\u662F\u4E00\u4E2A\u79C1\u4EBA\u77E5\u8BC6\u5E93\u7684"
-    u8"\u6781\u5BA2\u52A9\u624B\u3002\u8BF7\u4E25\u683C\u57FA\u4E8E"
-    u8"\u4EE5\u4E0B\u63D0\u4F9B\u7684\u4E0A\u4E0B\u6587\u56DE\u7B54"
-    u8"\u7528\u6237\u95EE\u9898\u3002\u5982\u679C\u4E0A\u4E0B\u6587"
-    u8"\u4E2D\u6CA1\u6709\u7B54\u6848\uFF0C\u8BF7\u8BDA\u5B9E\u5730"
-    u8"\u8BF4\u660E\u3002\u8BF7\u5728\u5F15\u7528\u76F8\u5173\u5185"
-    u8"\u5BB9\u65F6\uFF0C\u5728\u53E5\u672B\u4F7F\u7528 [[\u7B14"
-    u8"\u8BB0\u540D\u79F0]] \u7684\u683C\u5F0F\u6807\u6CE8\u51FA"
-    u8"\u5904\u3002";
-constexpr char8_t kAiRagContextHeader[] =
-    u8"\u4EE5\u4E0B\u662F\u76F8\u5173\u7B14\u8BB0\u4E0A\u4E0B"
-    u8"\u6587\uFF1A";
-constexpr char8_t kAiRagNotePrefix[] = u8"--- \u7B14\u8BB0 ";
-constexpr char8_t kAiRagNoteNameOpen[] = u8" \u300A";
-constexpr char8_t kAiRagNoteNameClose[] = u8"\u300B ---\n";
-constexpr char8_t kAiPonderSystemPrompt[] =
-    u8"\u4F60\u662F\u4E00\u4E2A\u903B\u8F91\u53D1\u6563\u5F15"
-    u8"\u64CE\u3002\u4F60\u7684\u4EFB\u52A1\u662F\u56F4\u7ED5"
-    u8"\u6838\u5FC3\u6982\u5FF5\u751F\u6210\u53EF\u62D3\u5C55"
-    u8"\u77E5\u8BC6\u56FE\u8C31\u7684\u5B50\u8282\u70B9\u3002"
-    u8"\u4F60\u5FC5\u987B\u8F93\u51FA\u4E25\u683C JSON \u6570"
-    u8"\u7EC4\uFF0C\u4E14\u6570\u7EC4\u5143\u7D20\u7ED3\u6784"
-    u8"\u56FA\u5B9A\u4E3A {\"title\":\"...\",\"relation\":\"...\"}"
-    u8"\u3002\u7981\u6B62\u8F93\u51FA Markdown\u3001\u4EE3\u7801"
-    u8"\u5757\u3001\u89E3\u91CA\u6027\u6587\u672C\u3001\u524D"
-    u8"\u540E\u7F00\u3002";
-constexpr char8_t kAiPonderTopicLabel[] = u8"\u6838\u5FC3\u6982\u5FF5: ";
-constexpr char8_t kAiPonderContextLabel[] = u8"\u4E0A\u4E0B\u6587: ";
-constexpr char8_t kAiPonderInstruction[] =
-    u8"\u8BF7\u751F\u6210 3 \u5230 5 \u4E2A\u5177\u5907\u903B\u8F91"
-    u8"\u9012\u8FDB\u6216\u8865\u5145\u5173\u7CFB\u7684\u5B50\u8282"
-    u8"\u70B9\u3002";
 
 struct TruthAwardDraft {
   std::string attr;
@@ -187,167 +143,6 @@ std::string derive_file_extension_from_path(std::string_view path) {
     return {};
   }
   return to_lower_ascii(file_name.substr(dot + 1));
-}
-
-std::string json_string(std::string_view value) {
-  return "\"" + kernel::core::json_escape(value) + "\"";
-}
-
-std::string parent_path_string(std::string_view path) {
-  const std::size_t slash = path.find_last_of("/\\");
-  if (slash == std::string_view::npos) {
-    return {};
-  }
-  return std::string(path.substr(0, slash));
-}
-
-void append_template_args_json(std::string& output, std::string_view template_name) {
-  const std::string normalized = to_lower_ascii(trim_ascii(template_name));
-  if (normalized == "acs") {
-    output += "\"-V\",\"papersize=letter\",\"-V\",\"fontsize=10pt\",\"-V\",\"geometry:margin=1in\"";
-    return;
-  }
-  if (normalized == "nature") {
-    output += "\"-V\",\"papersize=a4\",\"-V\",\"fontsize=10pt\",\"-V\",\"geometry:margin=1in\"";
-    return;
-  }
-  if (normalized == "standard-thesis") {
-    output += "\"-V\",\"documentclass=report\",\"-V\",\"fontsize=12pt\",\"-V\",\"geometry:margin=1in\"";
-    return;
-  }
-  output += "\"-V\",\"documentclass=article\",\"-V\",\"fontsize=11pt\"";
-}
-
-bool is_paper_compile_highlight_line(std::string_view line) {
-  const std::string lower = to_lower_ascii(line);
-  return (
-      lower.find("! ") != std::string::npos ||
-      lower.find("error") != std::string::npos ||
-      lower.find("undefined control sequence") != std::string::npos ||
-      lower.find("missing") != std::string::npos ||
-      lower.find("emergency stop") != std::string::npos ||
-      lower.find("fatal") != std::string::npos);
-}
-
-std::string summarize_paper_compile_highlights(std::string_view log) {
-  std::string summary;
-  std::size_t start = 0;
-  std::size_t count = 0;
-  while (start <= log.size()) {
-    const std::size_t end = log.find('\n', start);
-    std::string_view line =
-        end == std::string_view::npos ? log.substr(start) : log.substr(start, end - start);
-    if (!line.empty() && line.back() == '\r') {
-      line.remove_suffix(1);
-    }
-
-    const std::string_view trimmed = trim_ascii(line);
-    if (!trimmed.empty() && is_paper_compile_highlight_line(trimmed)) {
-      if (!summary.empty()) {
-        summary.push_back('\n');
-      }
-      summary.append(trimmed);
-      ++count;
-      if (count >= kPaperCompileHighlightLimit) {
-        break;
-      }
-    }
-
-    if (end == std::string_view::npos) {
-      break;
-    }
-    start = end + 1;
-  }
-  return summary;
-}
-
-std::string build_paper_compile_log_summary_json(
-    std::string_view log,
-    const std::size_t log_char_limit) {
-  const std::size_t prefix_size = utf8_prefix_bytes_by_chars(log, log_char_limit);
-  const bool truncated = prefix_size < log.size();
-
-  std::string output = "{\"summary\":";
-  output += json_string(summarize_paper_compile_highlights(log));
-  output += ",\"logPrefix\":";
-  output += json_string(log.substr(0, prefix_size));
-  output += ",\"truncated\":";
-  output += truncated ? "true" : "false";
-  output += "}";
-  return output;
-}
-
-std::string build_resource_path(
-    std::string_view workspace,
-    const char* const* image_paths,
-    const std::size_t* image_path_sizes,
-    const std::size_t image_path_count,
-    std::string_view separator) {
-  std::vector<std::string> roots;
-  if (!workspace.empty()) {
-    roots.push_back(std::string(workspace));
-  }
-
-  for (std::size_t index = 0; index < image_path_count; ++index) {
-    const std::string_view image_path(image_paths[index], image_path_sizes[index]);
-    const std::string parent = parent_path_string(image_path);
-    if (
-        trim_ascii(parent).empty() ||
-        std::find(roots.begin(), roots.end(), parent) != roots.end()) {
-      continue;
-    }
-    roots.push_back(parent);
-  }
-
-  std::string joined;
-  for (std::size_t index = 0; index < roots.size(); ++index) {
-    if (index != 0) {
-      joined.append(separator);
-    }
-    joined.append(roots[index]);
-  }
-  return joined;
-}
-
-std::string build_paper_compile_plan_json(
-    std::string_view workspace,
-    std::string_view template_name,
-    const char* const* image_paths,
-    const std::size_t* image_path_sizes,
-    const std::size_t image_path_count,
-    std::string_view csl_path,
-    std::string_view bibliography_path,
-    std::string_view resource_separator) {
-  std::string output = "{\"templateArgs\":[";
-  append_template_args_json(output, template_name);
-  output += "],\"cslPath\":";
-  output += json_string(trim_ascii(csl_path));
-  output += ",\"bibliographyPath\":";
-  output += json_string(trim_ascii(bibliography_path));
-  output += ",\"resourcePath\":";
-  output += json_string(build_resource_path(
-      workspace,
-      image_paths,
-      image_path_sizes,
-      image_path_count,
-      resource_separator.empty() ? std::string_view(";") : resource_separator));
-  output += "}";
-  return output;
-}
-
-std::string_view rag_display_name_from_note_path(std::string_view note_path) {
-  const std::size_t slash = note_path.find_last_of("/\\");
-  const std::size_t name_start = slash == std::string_view::npos ? 0 : slash + 1;
-  if (name_start >= note_path.size()) {
-    return note_path;
-  }
-
-  const std::string_view file_name = note_path.substr(name_start);
-  const std::size_t dot = file_name.find_last_of('.');
-  if (dot == std::string_view::npos || dot == 0) {
-    return file_name;
-  }
-  return file_name.substr(0, dot);
 }
 
 std::string route_by_code_language(std::string_view lang) {
@@ -610,11 +405,6 @@ std::uint32_t read_u32_le(const std::uint8_t* in) {
          (static_cast<std::uint32_t>(in[3]) << 24u);
 }
 
-template <std::size_t N>
-std::string_view utf8_literal(const char8_t (&value)[N]) {
-  return std::string_view(reinterpret_cast<const char*>(value), N - 1);
-}
-
 kernel_status write_size_limit(std::size_t value, std::size_t* out_value) {
   if (out_value == nullptr) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
@@ -660,298 +450,6 @@ std::int64_t study_attr_level(const std::int64_t exp) {
 std::int64_t study_secs_to_exp(const std::int64_t secs) {
   return static_cast<std::int64_t>(
       std::floor(static_cast<double>(secs) / kStudySecsPerExp));
-}
-
-std::uint32_t utf8_codepoint_at(
-    std::string_view value,
-    const std::size_t index,
-    std::size_t* out_width) {
-  const auto lead = static_cast<unsigned char>(value[index]);
-  std::size_t width = 1;
-  std::uint32_t codepoint = lead;
-  if ((lead & 0x80U) == 0U) {
-    width = 1;
-  } else if ((lead & 0xE0U) == 0xC0U && index + 1 < value.size()) {
-    width = 2;
-    codepoint =
-        static_cast<std::uint32_t>(lead & 0x1FU) << 6 |
-        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 1]) & 0x3FU);
-  } else if ((lead & 0xF0U) == 0xE0U && index + 2 < value.size()) {
-    width = 3;
-    codepoint =
-        static_cast<std::uint32_t>(lead & 0x0FU) << 12 |
-        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 1]) & 0x3FU) << 6 |
-        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 2]) & 0x3FU);
-  } else if ((lead & 0xF8U) == 0xF0U && index + 3 < value.size()) {
-    width = 4;
-    codepoint =
-        static_cast<std::uint32_t>(lead & 0x07U) << 18 |
-        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 1]) & 0x3FU) << 12 |
-        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 2]) & 0x3FU) << 6 |
-        static_cast<std::uint32_t>(static_cast<unsigned char>(value[index + 3]) & 0x3FU);
-  }
-
-  *out_width = width;
-  return codepoint;
-}
-
-std::size_t utf8_prefix_bytes_by_chars(std::string_view value, const std::size_t char_limit) {
-  if (char_limit == 0) {
-    return 0;
-  }
-
-  std::size_t index = 0;
-  std::size_t chars = 0;
-  while (index < value.size() && chars < char_limit) {
-    std::size_t width = 1;
-    static_cast<void>(utf8_codepoint_at(value, index, &width));
-    index += width;
-    ++chars;
-  }
-  return index;
-}
-
-bool is_unicode_whitespace(const std::uint32_t codepoint) {
-  return (
-      (codepoint >= 0x0009U && codepoint <= 0x000DU) || codepoint == 0x0020U ||
-      codepoint == 0x0085U || codepoint == 0x00A0U || codepoint == 0x1680U ||
-      (codepoint >= 0x2000U && codepoint <= 0x200AU) || codepoint == 0x2028U ||
-      codepoint == 0x2029U || codepoint == 0x202FU || codepoint == 0x205FU ||
-      codepoint == 0x3000U);
-}
-
-bool has_non_whitespace_utf8(std::string_view value) {
-  std::size_t index = 0;
-  while (index < value.size()) {
-    std::size_t width = 1;
-    const std::uint32_t codepoint = utf8_codepoint_at(value, index, &width);
-    if (!is_unicode_whitespace(codepoint)) {
-      return true;
-    }
-    index += width;
-  }
-  return false;
-}
-
-std::string_view trim_utf8_whitespace(std::string_view value) {
-  std::size_t start = 0;
-  while (start < value.size()) {
-    std::size_t width = 1;
-    const std::uint32_t codepoint = utf8_codepoint_at(value, start, &width);
-    if (!is_unicode_whitespace(codepoint)) {
-      break;
-    }
-    start += width;
-  }
-
-  std::size_t end = value.size();
-  while (end > start) {
-    std::size_t previous = end - 1;
-    while (previous > start && (static_cast<unsigned char>(value[previous]) & 0xC0U) == 0x80U) {
-      --previous;
-    }
-    std::size_t width = 1;
-    const std::uint32_t codepoint = utf8_codepoint_at(value, previous, &width);
-    if (previous + width != end || !is_unicode_whitespace(codepoint)) {
-      break;
-    }
-    end = previous;
-  }
-
-  return value.substr(start, end - start);
-}
-
-std::string json_double(const double value) {
-  char buffer[64]{};
-  const int count = std::snprintf(buffer, sizeof(buffer), "%.15g", value);
-  if (count <= 0) {
-    return "0";
-  }
-  return std::string(buffer, static_cast<std::size_t>(count));
-}
-
-std::string pubchem_status_json(std::string_view status) {
-  return "{\"status\":" + json_string(status) + "}";
-}
-
-std::string build_pubchem_compound_info_payload_json(
-    std::string_view query,
-    std::string_view formula,
-    const double molecular_weight,
-    const bool has_density,
-    const double density,
-    const std::size_t property_count) {
-  const std::string_view normalized_query = trim_utf8_whitespace(query);
-  if (normalized_query.empty()) {
-    return pubchem_status_json("emptyQuery");
-  }
-  if (property_count == 0) {
-    return pubchem_status_json("notFound");
-  }
-  if (property_count > 1) {
-    return pubchem_status_json("ambiguous");
-  }
-
-  const std::string_view normalized_formula = trim_utf8_whitespace(formula);
-  if (
-      normalized_formula.empty() || !std::isfinite(molecular_weight) ||
-      molecular_weight <= 0.0) {
-    return pubchem_status_json("notFound");
-  }
-
-  std::string output = "{\"status\":\"ok\",\"name\":";
-  output += json_string(normalized_query);
-  output += ",\"formula\":";
-  output += json_string(normalized_formula);
-  output += ",\"molecularWeight\":";
-  output += json_double(molecular_weight);
-  output += ",\"density\":";
-  if (has_density && std::isfinite(density) && density > 0.0) {
-    output += json_double(density);
-  } else {
-    output += "null";
-  }
-  output += "}";
-  return output;
-}
-
-std::string normalize_ai_embedding_text(std::string_view text) {
-  const std::size_t truncated_size =
-      utf8_prefix_bytes_by_chars(text, kEmbeddingTextCharLimit);
-  return std::string(text.substr(0, truncated_size));
-}
-
-void fnv1a_append(std::uint64_t& hash, std::string_view value) {
-  for (const unsigned char ch : value) {
-    hash ^= static_cast<std::uint64_t>(ch);
-    hash *= kFnv1a64Prime;
-  }
-}
-
-void fnv1a_append_separator(std::uint64_t& hash) {
-  hash ^= 0xFFU;
-  hash *= kFnv1a64Prime;
-}
-
-std::string hex_u64(std::uint64_t value) {
-  char buffer[17]{};
-  std::snprintf(
-      buffer,
-      sizeof(buffer),
-      "%016llx",
-      static_cast<unsigned long long>(value));
-  return std::string(buffer);
-}
-
-std::string compute_ai_embedding_cache_key(
-    std::string_view base_url,
-    std::string_view model,
-    std::string_view text) {
-  std::uint64_t hash = kFnv1a64Offset;
-  fnv1a_append(hash, base_url);
-  fnv1a_append_separator(hash);
-  fnv1a_append(hash, model);
-  fnv1a_append_separator(hash);
-  fnv1a_append(hash, text);
-  return hex_u64(hash);
-}
-
-std::string build_ai_rag_context(
-    const char* const* note_names,
-    const std::size_t* note_name_sizes,
-    const char* const* note_contents,
-    const std::size_t* note_content_sizes,
-    const std::size_t note_count) {
-  std::string context;
-  std::size_t emitted_count = 0;
-  for (std::size_t index = 0; index < note_count; ++index) {
-    const std::string_view name(
-        note_names[index] == nullptr ? "" : note_names[index],
-        note_name_sizes[index]);
-    const std::string_view content(
-        note_contents[index] == nullptr ? "" : note_contents[index],
-        note_content_sizes[index]);
-    if (!has_non_whitespace_utf8(content)) {
-      continue;
-    }
-    const std::size_t truncated_size =
-        utf8_prefix_bytes_by_chars(content, kRagContextPerNoteChars);
-
-    context.append(utf8_literal(kAiRagNotePrefix));
-    ++emitted_count;
-    context.append(std::to_string(emitted_count));
-    context.append(utf8_literal(kAiRagNoteNameOpen));
-    context.append(name);
-    context.append(utf8_literal(kAiRagNoteNameClose));
-    context.append(content.substr(0, truncated_size));
-    context.append("\n\n");
-  }
-  return context;
-}
-
-std::string build_ai_rag_context_from_note_paths(
-    const char* const* note_paths,
-    const std::size_t* note_path_sizes,
-    const char* const* note_contents,
-    const std::size_t* note_content_sizes,
-    const std::size_t note_count) {
-  std::string context;
-  std::size_t emitted_count = 0;
-  for (std::size_t index = 0; index < note_count; ++index) {
-    const std::string_view path(
-        note_paths[index] == nullptr ? "" : note_paths[index],
-        note_path_sizes[index]);
-    const std::string_view name = rag_display_name_from_note_path(path);
-    const std::string_view content(
-        note_contents[index] == nullptr ? "" : note_contents[index],
-        note_content_sizes[index]);
-    if (!has_non_whitespace_utf8(content)) {
-      continue;
-    }
-    const std::size_t truncated_size =
-        utf8_prefix_bytes_by_chars(content, kRagContextPerNoteChars);
-
-    context.append(utf8_literal(kAiRagNotePrefix));
-    ++emitted_count;
-    context.append(std::to_string(emitted_count));
-    context.append(utf8_literal(kAiRagNoteNameOpen));
-    context.append(name);
-    context.append(utf8_literal(kAiRagNoteNameClose));
-    context.append(content.substr(0, truncated_size));
-    context.append("\n\n");
-  }
-  return context;
-}
-
-std::string build_ai_rag_system_content(std::string_view context) {
-  std::string content;
-  content.reserve(
-      utf8_literal(kAiRagSystemPrompt).size() +
-      utf8_literal(kAiRagContextHeader).size() + context.size() + 4);
-  content.append(utf8_literal(kAiRagSystemPrompt));
-  content.append("\n\n");
-  content.append(utf8_literal(kAiRagContextHeader));
-  content.append("\n\n");
-  content.append(context);
-  return content;
-}
-
-std::string build_ai_ponder_user_prompt(
-    std::string_view topic,
-    std::string_view context) {
-  std::string prompt;
-  prompt.reserve(
-      utf8_literal(kAiPonderTopicLabel).size() + topic.size() +
-      utf8_literal(kAiPonderContextLabel).size() + context.size() +
-      utf8_literal(kAiPonderInstruction).size() + 2);
-  prompt.append(utf8_literal(kAiPonderTopicLabel));
-  prompt.append(topic);
-  prompt.push_back('\n');
-  prompt.append(utf8_literal(kAiPonderContextLabel));
-  prompt.append(context);
-  prompt.push_back('\n');
-  prompt.append(utf8_literal(kAiPonderInstruction));
-  return prompt;
 }
 
 void add_value_for_attr(
@@ -1179,35 +677,35 @@ extern "C" kernel_status kernel_get_semantic_context_min_bytes(std::size_t* out_
 }
 
 extern "C" kernel_status kernel_get_rag_context_per_note_char_limit(std::size_t* out_chars) {
-  return write_size_limit(kRagContextPerNoteChars, out_chars);
+  return write_size_limit(kernel::core::product::rag_context_per_note_char_limit(), out_chars);
 }
 
 extern "C" kernel_status kernel_get_embedding_text_char_limit(std::size_t* out_chars) {
-  return write_size_limit(kEmbeddingTextCharLimit, out_chars);
+  return write_size_limit(kernel::core::product::embedding_text_char_limit(), out_chars);
 }
 
 extern "C" kernel_status kernel_get_ai_chat_timeout_secs(std::size_t* out_secs) {
-  return write_size_limit(kAiChatTimeoutSecs, out_secs);
+  return write_size_limit(kernel::core::product::ai_chat_timeout_secs(), out_secs);
 }
 
 extern "C" kernel_status kernel_get_ai_ponder_timeout_secs(std::size_t* out_secs) {
-  return write_size_limit(kAiPonderTimeoutSecs, out_secs);
+  return write_size_limit(kernel::core::product::ai_ponder_timeout_secs(), out_secs);
 }
 
 extern "C" kernel_status kernel_get_ai_embedding_request_timeout_secs(std::size_t* out_secs) {
-  return write_size_limit(kAiEmbeddingRequestTimeoutSecs, out_secs);
+  return write_size_limit(kernel::core::product::ai_embedding_request_timeout_secs(), out_secs);
 }
 
 extern "C" kernel_status kernel_get_ai_embedding_cache_limit(std::size_t* out_limit) {
-  return write_size_limit(kAiEmbeddingCacheLimit, out_limit);
+  return write_size_limit(kernel::core::product::ai_embedding_cache_limit(), out_limit);
 }
 
 extern "C" kernel_status kernel_get_ai_embedding_concurrency_limit(std::size_t* out_limit) {
-  return write_size_limit(kAiEmbeddingConcurrencyLimit, out_limit);
+  return write_size_limit(kernel::core::product::ai_embedding_concurrency_limit(), out_limit);
 }
 
 extern "C" kernel_status kernel_get_ai_rag_top_note_limit(std::size_t* out_limit) {
-  return write_size_limit(kAiRagTopNoteLimit, out_limit);
+  return write_size_limit(kernel::core::product::ai_rag_top_note_limit(), out_limit);
 }
 
 extern "C" kernel_status kernel_derive_file_extension_from_path(
@@ -1239,7 +737,7 @@ extern "C" kernel_status kernel_derive_note_display_name_from_path(
   out_buffer->size = 0;
 
   const std::string_view path_view(path == nullptr ? "" : path, path_size);
-  const std::string display_name(rag_display_name_from_note_path(path_view));
+  const std::string display_name(kernel::core::product::derive_note_display_name_from_path(path_view));
   if (!fill_owned_buffer(display_name, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
@@ -1333,7 +831,7 @@ extern "C" kernel_status kernel_build_paper_compile_plan_json(
   const std::string_view separator_view(
       resource_separator == nullptr ? "" : resource_separator,
       resource_separator_size);
-  const std::string plan = build_paper_compile_plan_json(
+  const std::string plan = kernel::core::product::build_paper_compile_plan_json(
       workspace_view,
       template_view,
       image_paths,
@@ -1355,7 +853,7 @@ extern "C" kernel_status kernel_get_default_paper_template(kernel_owned_buffer* 
   out_buffer->data = nullptr;
   out_buffer->size = 0;
 
-  if (!fill_owned_buffer(kDefaultPaperTemplate, out_buffer)) {
+  if (!fill_owned_buffer(kernel::core::product::default_paper_template(), out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);
@@ -1373,7 +871,8 @@ extern "C" kernel_status kernel_summarize_paper_compile_log_json(
   out_buffer->size = 0;
 
   const std::string_view raw(log == nullptr ? "" : log, log_size);
-  const std::string summary = build_paper_compile_log_summary_json(raw, log_char_limit);
+  const std::string summary =
+      kernel::core::product::build_paper_compile_log_summary_json(raw, log_char_limit);
   if (!fill_owned_buffer(summary, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
@@ -1391,7 +890,7 @@ extern "C" kernel_status kernel_normalize_pubchem_query(
   out_buffer->size = 0;
 
   const std::string_view raw(query == nullptr ? "" : query, query_size);
-  const std::string_view normalized = trim_utf8_whitespace(raw);
+  const std::string normalized = kernel::core::product::normalize_pubchem_query(raw);
   if (normalized.empty()) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
@@ -1421,7 +920,7 @@ extern "C" kernel_status kernel_build_pubchem_compound_info_json(
 
   const std::string_view query_view(query == nullptr ? "" : query, query_size);
   const std::string_view formula_view(formula == nullptr ? "" : formula, formula_size);
-  const std::string payload = build_pubchem_compound_info_payload_json(
+  const std::string payload = kernel::core::product::build_pubchem_compound_info_payload_json(
       query_view,
       formula_view,
       molecular_weight,
@@ -1445,8 +944,8 @@ extern "C" kernel_status kernel_normalize_ai_embedding_text(
   out_buffer->size = 0;
 
   const std::string_view raw(text == nullptr ? "" : text, text_size);
-  const std::string normalized = normalize_ai_embedding_text(raw);
-  if (!has_non_whitespace_utf8(normalized)) {
+  const std::string normalized = kernel::core::product::normalize_ai_embedding_text(raw);
+  if (!kernel::core::product::is_ai_embedding_text_indexable(normalized)) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
   if (!fill_owned_buffer(normalized, out_buffer)) {
@@ -1464,8 +963,9 @@ extern "C" kernel_status kernel_is_ai_embedding_text_indexable(
   }
 
   const std::string_view raw(text == nullptr ? "" : text, text_size);
-  const std::string normalized = normalize_ai_embedding_text(raw);
-  *out_is_indexable = static_cast<std::uint8_t>(has_non_whitespace_utf8(normalized));
+  const std::string normalized = kernel::core::product::normalize_ai_embedding_text(raw);
+  *out_is_indexable =
+      static_cast<std::uint8_t>(kernel::core::product::is_ai_embedding_text_indexable(normalized));
   return kernel::core::make_status(KERNEL_OK);
 }
 
@@ -1502,7 +1002,7 @@ extern "C" kernel_status kernel_compute_ai_embedding_cache_key(
   const std::string_view base_url_view(base_url == nullptr ? "" : base_url, base_url_size);
   const std::string_view model_view(model == nullptr ? "" : model, model_size);
   const std::string_view text_view(text == nullptr ? "" : text, text_size);
-  const std::string key = compute_ai_embedding_cache_key(
+  const std::string key = kernel::core::product::compute_ai_embedding_cache_key(
       base_url_view,
       model_view,
       text_view);
@@ -1600,7 +1100,7 @@ extern "C" kernel_status kernel_build_ai_rag_context(
     }
   }
 
-  const std::string context = build_ai_rag_context(
+  const std::string context = kernel::core::product::build_ai_rag_context(
       note_names,
       note_name_sizes,
       note_contents,
@@ -1637,7 +1137,7 @@ extern "C" kernel_status kernel_build_ai_rag_context_from_note_paths(
     }
   }
 
-  const std::string context = build_ai_rag_context_from_note_paths(
+  const std::string context = kernel::core::product::build_ai_rag_context_from_note_paths(
       note_paths,
       note_path_sizes,
       note_contents,
@@ -1660,7 +1160,7 @@ extern "C" kernel_status kernel_build_ai_rag_system_content(
   out_buffer->size = 0;
 
   const std::string_view context_view(context == nullptr ? "" : context, context_size);
-  const std::string content = build_ai_rag_system_content(context_view);
+  const std::string content = kernel::core::product::build_ai_rag_system_content(context_view);
   if (!fill_owned_buffer(content, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
@@ -1674,7 +1174,7 @@ extern "C" kernel_status kernel_get_ai_ponder_system_prompt(kernel_owned_buffer*
   out_buffer->data = nullptr;
   out_buffer->size = 0;
 
-  if (!fill_owned_buffer(utf8_literal(kAiPonderSystemPrompt), out_buffer)) {
+  if (!fill_owned_buffer(kernel::core::product::ai_ponder_system_prompt(), out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);
@@ -1696,7 +1196,8 @@ extern "C" kernel_status kernel_build_ai_ponder_user_prompt(
 
   const std::string_view topic_view(topic == nullptr ? "" : topic, topic_size);
   const std::string_view context_view(context == nullptr ? "" : context, context_size);
-  const std::string prompt = build_ai_ponder_user_prompt(topic_view, context_view);
+  const std::string prompt =
+      kernel::core::product::build_ai_ponder_user_prompt(topic_view, context_view);
   if (!fill_owned_buffer(prompt, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
@@ -1704,7 +1205,7 @@ extern "C" kernel_status kernel_build_ai_ponder_user_prompt(
 }
 
 extern "C" kernel_status kernel_get_ai_ponder_temperature(float* out_temperature) {
-  return write_float_value(kAiPonderTemperature, out_temperature);
+  return write_float_value(kernel::core::product::ai_ponder_temperature(), out_temperature);
 }
 
 extern "C" kernel_status kernel_compute_truth_state_from_activity(
