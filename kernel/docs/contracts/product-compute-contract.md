@@ -21,6 +21,10 @@ Current surface:
 - `kernel_normalize_database_column_type(column_type, column_type_size, out_buffer)`
 - `kernel_normalize_database_json(json, json_size, out_buffer)`
 - `kernel_build_paper_compile_plan_json(workspace, workspace_size, template_name, template_name_size, image_paths, image_path_sizes, image_path_count, csl_path, csl_path_size, bibliography_path, bibliography_path_size, resource_separator, resource_separator_size, out_buffer)`
+- `kernel_get_default_paper_template(out_buffer)`
+- `kernel_summarize_paper_compile_log_json(log, log_size, log_char_limit, out_buffer)`
+- `kernel_normalize_pubchem_query(query, query_size, out_buffer)`
+- `kernel_build_pubchem_compound_info_json(query, query_size, formula, formula_size, molecular_weight, has_density, density, property_count, out_buffer)`
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
@@ -88,6 +92,11 @@ Frozen rules:
 - the kernel owns publishing preflight compile-plan rules: paper template
   arguments, CSL/bibliography path trimming, and Pandoc resource-path parent
   extraction, dedupe, ordering, and joining
+- the kernel owns the publishing default template, LaTeX/Pandoc compile-log
+  highlight extraction, highlight cap, UTF-8-safe log-prefix truncation, and
+  truncation flag
+- the kernel owns PubChem query normalization and compound property result
+  classification for empty, missing, ambiguous, and valid property payloads
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
@@ -174,6 +183,11 @@ Frozen rules:
   normalization
 - hosts must not keep local paper template argument tables, CSL/bibliography
   path trim rules, or resource-path parent extraction/deduplication logic
+- hosts must not hard-code the default paper template or reimplement compile-log
+  highlight/truncation rules
+- hosts must not reimplement PubChem query trimming, property-count
+  classification, formula trimming, molecular-weight validity, or density
+  validity
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
 - hosts must not reimplement embedding input truncation, empty-text checks, or
@@ -269,6 +283,7 @@ Frozen rules:
 
 - `kernel_build_paper_compile_plan_json(...)` returns a JSON object with
   `templateArgs`, `cslPath`, `bibliographyPath`, and `resourcePath`
+- `kernel_get_default_paper_template(...)` returns `standard-thesis`
 - template matching trims ASCII whitespace and lower-cases ASCII before lookup
 - `acs` emits `-V papersize=letter`, `-V fontsize=10pt`, and
   `-V geometry:margin=1in`
@@ -291,6 +306,44 @@ Frozen rules:
   covered above
 - null non-empty path buffers, missing image-size arrays for non-empty image
   lists, null non-empty image path entries, and null output buffers are invalid
+
+## Paper Compile Log Summary
+
+Frozen rules:
+
+- `kernel_summarize_paper_compile_log_json(...)` returns `summary`,
+  `logPrefix`, and `truncated`
+- highlight extraction scans lines in order and matches `! `, `error`,
+  `undefined control sequence`, `missing`, `emergency stop`, and `fatal`
+  case-insensitively for ASCII
+- returned highlights are trimmed and capped at the first `12` matches
+- `logPrefix` is truncated at the caller-provided Unicode character limit
+  without splitting UTF-8 codepoints
+- `truncated` is true only when the original log extends beyond `logPrefix`
+- Tauri Rust may map an empty summary and a true truncation flag to localized
+  display text, but must not reimplement extraction or truncation
+- null non-empty log buffers and null output buffers are invalid
+
+## PubChem Compound Info
+
+Frozen rules:
+
+- `kernel_normalize_pubchem_query(...)` trims Unicode whitespace and rejects
+  empty-after-trim input
+- `kernel_build_pubchem_compound_info_json(...)` returns a JSON object with a
+  `status` field
+- empty normalized query returns `emptyQuery`
+- zero properties returns `notFound`
+- more than one property returns `ambiguous`
+- exactly one property returns `notFound` when the formula is empty after
+  Unicode trimming or the molecular weight is not finite and positive
+- exactly one valid property returns `ok`, the normalized query as `name`, the
+  trimmed formula, the molecular weight, and either a positive finite density or
+  `null`
+- Tauri Rust may own the HTTP request, PubChem response DTOs, URL construction,
+  status-code localization, and user-facing error strings, but must not
+  reimplement compound property classification
+- null non-empty query/formula buffers and null output buffers are invalid
 
 ## Semantic Context Rules
 

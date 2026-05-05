@@ -39,7 +39,7 @@ pub struct CompilePayload {
 }
 
 fn default_template() -> String {
-    "standard-thesis".to_string()
+    sealed_kernel::default_paper_template().unwrap_or_default()
 }
 
 impl CompilerState {
@@ -126,51 +126,26 @@ fn resource_path_separator() -> &'static str {
     }
 }
 
-fn trim_log(log: &str, limit: usize) -> String {
-    if log.chars().count() <= limit {
-        return log.to_string();
-    }
-    let mut trimmed = String::new();
-    for (idx, ch) in log.chars().enumerate() {
-        if idx >= limit {
-            break;
-        }
-        trimmed.push(ch);
-    }
-    trimmed.push_str("\n...（日志已截断）");
-    trimmed
-}
-
-fn extract_latex_error(log: &str) -> String {
-    let mut highlights: Vec<String> = Vec::new();
-    for line in log.lines() {
-        let lower = line.to_ascii_lowercase();
-        if lower.contains("! ")
-            || lower.contains("error")
-            || lower.contains("undefined control sequence")
-            || lower.contains("missing")
-            || lower.contains("emergency stop")
-            || lower.contains("fatal")
-        {
-            highlights.push(line.trim().to_string());
-        }
-        if highlights.len() >= 12 {
-            break;
-        }
-    }
-
-    if highlights.is_empty() {
-        "未提取到明确 LaTeX 关键报错，请查看完整编译日志。".to_string()
-    } else {
-        highlights.join("\n")
-    }
-}
-
 fn command_spawn_error(binary: &str, err: &str) -> String {
     format!(
         "无法启动 `{}`：{}。\n请确认已正确安装对应工具并可在终端直接运行。",
         binary, err
     )
+}
+
+fn compile_log_message(log: &str) -> Result<(String, String), String> {
+    let summary =
+        sealed_kernel::summarize_paper_compile_log(log, 7000).map_err(|err| err.to_string())?;
+    let highlights = if summary.summary.trim().is_empty() {
+        "未提取到明确 LaTeX 关键报错，请查看完整编译日志。".to_string()
+    } else {
+        summary.summary
+    };
+    let mut log_text = summary.log_prefix;
+    if summary.truncated {
+        log_text.push_str("\n...（日志已截断）");
+    }
+    Ok((highlights, log_text))
 }
 
 pub async fn compile_markdown_to_pdf(
@@ -261,7 +236,7 @@ pub async fn compile_markdown_to_pdf(
             } else {
                 stdout
             };
-            let extracted = extract_latex_error(&merged);
+            let (extracted, compile_log) = compile_log_message(&merged)?;
             let code = output
                 .status
                 .code()
@@ -269,9 +244,7 @@ pub async fn compile_markdown_to_pdf(
                 .unwrap_or_else(|| "unknown".to_string());
             return Err(format!(
                 "PDF 编译失败（exit code: {}）。\n{}\n\n--- 编译日志 ---\n{}",
-                code,
-                extracted,
-                trim_log(&merged, 7000)
+                code, extracted, compile_log
             ));
         }
 

@@ -1,5 +1,5 @@
 use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_float, c_int};
+use std::os::raw::{c_char, c_double, c_float, c_int};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -305,6 +305,35 @@ extern "C" {
         bibliography_path_size: u64,
         resource_separator_utf8: *const c_char,
         resource_separator_size: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_get_default_paper_template(
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_summarize_paper_compile_log_json(
+        log_utf8: *const c_char,
+        log_size: u64,
+        log_char_limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_normalize_pubchem_query_text(
+        query_utf8: *const c_char,
+        query_size: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_build_pubchem_compound_info_json(
+        query_utf8: *const c_char,
+        query_size: u64,
+        formula_utf8: *const c_char,
+        formula_size: u64,
+        molecular_weight: c_double,
+        has_density: u8,
+        density: c_double,
+        property_count: u64,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -860,6 +889,28 @@ pub struct PaperCompilePlan {
     pub csl_path: String,
     pub bibliography_path: String,
     pub resource_path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperCompileLogSummary {
+    pub summary: String,
+    pub log_prefix: String,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PubChemCompoundInfo {
+    pub status: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub formula: String,
+    #[serde(default)]
+    pub molecular_weight: f64,
+    #[serde(default)]
+    pub density: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -2279,6 +2330,116 @@ pub fn build_paper_compile_plan(
     serde_json::from_str(&value).map_err(|err| {
         AppError::Custom(format!(
             "sealed kernel paper compile plan JSON is invalid: {err}"
+        ))
+    })
+}
+
+pub fn default_paper_template() -> AppResult<String> {
+    let mut raw_template: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code =
+        unsafe { sealed_kernel_bridge_get_default_paper_template(&mut raw_template, &mut error) };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_get_default_paper_template",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_template))
+}
+
+pub fn summarize_paper_compile_log(
+    log: &str,
+    log_char_limit: u64,
+) -> AppResult<PaperCompileLogSummary> {
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_summarize_paper_compile_log_json(
+            log.as_ptr() as *const c_char,
+            log.len() as u64,
+            log_char_limit,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_summarize_paper_compile_log_json",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel paper compile log summary JSON is invalid: {err}"
+        ))
+    })
+}
+
+pub fn normalize_pubchem_query(query: &str) -> AppResult<String> {
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_normalize_pubchem_query_text(
+            query.as_ptr() as *const c_char,
+            query.len() as u64,
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_normalize_pubchem_query_text",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
+pub fn build_pubchem_compound_info(
+    query: &str,
+    formula: &str,
+    molecular_weight: f64,
+    density: Option<f64>,
+    property_count: u64,
+) -> AppResult<PubChemCompoundInfo> {
+    let (has_density, density_value) = match density {
+        Some(value) => (1u8, value),
+        None => (0u8, 0.0),
+    };
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_pubchem_compound_info_json(
+            query.as_ptr() as *const c_char,
+            query.len() as u64,
+            formula.as_ptr() as *const c_char,
+            formula.len() as u64,
+            molecular_weight,
+            has_density,
+            density_value,
+            property_count,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_build_pubchem_compound_info_json",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel PubChem compound info JSON is invalid: {err}"
         ))
     })
 }
@@ -4064,6 +4225,49 @@ mod tests {
             plan.resource_path,
             "E:\\tmp\\nexus-paper-1;C:\\vault\\figs;C:\\vault\\other"
         );
+    }
+
+    #[test]
+    fn paper_compile_defaults_and_log_summary_come_from_kernel() {
+        assert_eq!(default_paper_template().unwrap(), "standard-thesis");
+
+        let mut log = String::new();
+        for index in 1..=13 {
+            log.push_str(&format!("Error line {}\n", index));
+        }
+        let summary = summarize_paper_compile_log(&log, 9).unwrap();
+        assert!(summary.summary.contains("Error line 1"));
+        assert!(summary.summary.contains("Error line 12"));
+        assert!(!summary.summary.contains("Error line 13"));
+        assert_eq!(summary.log_prefix, "Error lin");
+        assert!(summary.truncated);
+
+        let unicode_summary = summarize_paper_compile_log("错误ABC\nfatal: issue\n", 3).unwrap();
+        assert_eq!(unicode_summary.log_prefix, "错误A");
+    }
+
+    #[test]
+    fn pubchem_query_and_compound_info_come_from_kernel() {
+        assert_eq!(normalize_pubchem_query("  Water  ").unwrap(), "Water");
+        assert!(normalize_pubchem_query("   ").is_err());
+
+        let info = build_pubchem_compound_info("Water", " H2O ", 18.015, Some(0.997), 1).unwrap();
+        assert_eq!(info.status, "ok");
+        assert_eq!(info.name, "Water");
+        assert_eq!(info.formula, "H2O");
+        assert_eq!(info.molecular_weight, 18.015);
+        assert_eq!(info.density, Some(0.997));
+
+        let missing_density =
+            build_pubchem_compound_info("Water", "H2O", 18.015, Some(-1.0), 1).unwrap();
+        assert_eq!(missing_density.status, "ok");
+        assert_eq!(missing_density.density, None);
+
+        let not_found = build_pubchem_compound_info("Water", "", 0.0, None, 0).unwrap();
+        assert_eq!(not_found.status, "notFound");
+
+        let ambiguous = build_pubchem_compound_info("Water", "H2O", 18.015, None, 2).unwrap();
+        assert_eq!(ambiguous.status, "ambiguous");
     }
 
     #[test]

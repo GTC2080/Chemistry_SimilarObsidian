@@ -3,100 +3,59 @@
 ## Current Split
 
 - `kernel/`
-  - sealed kernel platform
-- `apps/electron/`
-  - future Electron host entry
+  - sealed C++ kernel and the authoritative product/storage/compute surfaces
+- `apps/tauri/`
+  - the only desktop host path: Tauri startup, commands, bridge calls, plugins,
+    windows/dialogs, platform I/O, HTTP/process glue, and localized messages
+
+`apps/electron/` is intentionally retired from the working tree. Do not add new
+host code, renderer code, native bindings, or documentation under that path.
 
 ## Responsibility Split
 
-- kernel work continues inside `kernel/`
-- Electron host integration lands under `apps/electron/src/main/` and `apps/electron/src/preload/`
-- current Nexus renderer work lands under `apps/electron/src/renderer-react/`
-- legacy smoke-only renderer assets remain separate from the product renderer path
+- C++ kernel owns business truth, derived relationships, indexing/storage,
+  product compute rules, chemistry/crystal/symmetry compute, PDF storage/query,
+  file tree/catalog surfaces, graph/tag/search/backlink/tag-tree relations, and
+  all kernel contract tests.
+- Tauri Rust owns command registration, serde marshalling, sealed-kernel bridge
+  calls, app lifecycle, platform-specific filesystem watcher wiring, temporary
+  workspace/process execution, external HTTP calls, async task orchestration,
+  and localized user-facing error text.
+- Frontend code consumes Tauri commands and must not infer relationship,
+  catalog, graph, tag, or file-tree truth from raw storage or duplicate logic.
 
-## Current Rule
+## Current Integration Status
 
-This repository reorganization started with the Electron host shell baseline and now moves into real kernel adapter integration.
+- `apps/tauri/src-tauri/src/db/` has been removed.
+- Cargo manifests no longer depend on `rusqlite` or `sqlx`.
+- search, backlinks, tags, tag tree, graph, note catalog, file tree, vault entry,
+  PDF annotation/hash, AI embedding cache, study sessions, chemistry spectra,
+  stoichiometry, kinetics, retrosynthesis, molecular preview, crystal, and
+  symmetry surfaces route through the sealed kernel bridge.
+- Paper compile planning, default template selection, and compile-log
+  diagnostic summarization are kernel-owned; Rust only creates temp files and
+  spawns Pandoc/XeLaTeX.
+- PubChem query/result normalization is kernel-owned; Rust only performs HTTP
+  and localized status/error mapping.
+- `apps/electron/` and `apps/tauri/src-tauri/src/db/` are absent.
 
-The sealed kernel platform remains unchanged. Electron host integration consumes the sealed C ABI through a host-only adapter boundary.
+## Boundary Rule
 
-Current integration status:
+- If a rule decides product behavior, derived data, storage shape, relationship
+  truth, chemistry/math compute, limits, defaults, scoring, filtering, or
+  normalization, it belongs in `kernel/`.
+- If code exists only to talk to Tauri, the OS, a child process, the network, or
+  the UI command layer, it may remain in `apps/tauri/src-tauri`.
+- Every moved rule needs kernel API coverage plus the matching sealed bridge
+  test when it crosses into Tauri.
+- Every completed migration batch must leave stale Rust business code and stale
+  Electron references out of the working tree.
 
-- real native binding loading is in place
-- runtime/session are wired to the sealed kernel
-- read surfaces for search, attachments, PDF, and chemistry are wired through the host adapter
-- diagnostics export and rebuild start/status/wait are wired through the host adapter
-- host-side regression tests now cover adapter request shaping and native binding resolution
-- packaged-mode native binding resolution now has a dedicated readiness check
-- packaged-run smoke now validates a packaged Electron shell plus native adapter load path
+## Canonical Validation
 
-## Current Renderer Handoff: Content Workspace Baseline
+Use this minimum closure sequence for migration batches:
 
-Renderer has now moved past the launcher/dashboard stage and into a content-centric workspace baseline.
-
-Current renderer status:
-
-- Vault Launcher is usable and semantically separated from workspace mode
-- Workspace Shell is content-first rather than tool-first
-- Files owns the default center stage after vault open
-- Search / Attachments / Chemistry / Diagnostics remain reachable as tool surfaces
-- current content selection inside Files is now backed by host-facing Files baseline reads
-- Nexus-style renderer shell is active under `apps/electron/src/renderer-react/`
-- Attachments / PDF / Chemistry consume real host surfaces and keep raw contract fields behind developer-detail sections
-- Diagnostics / Rebuild are low-frequency support surfaces, not primary workspace content
-
-Current Files baseline integration status:
-
-- host now exposes:
-  - `window.hostShell.files.listEntries(...)`
-  - `window.hostShell.files.readNote(...)`
-  - `window.hostShell.files.listRecent(...)`
-- Files baseline stays host-truth-backed:
-  - renderer does not read vault files directly
-  - renderer does not infer note bodies from unrelated APIs
-  - renderer does not reconstruct a file tree from search or attachment surfaces
-
-This closes the three initial Files host gaps that blocked the content workspace baseline:
-
-- `EXPLICIT-HOST-GAP-FILES-TREE-SURFACE`
-- `EXPLICIT-HOST-GAP-CURRENT-FILE-READ-SURFACE`
-- `EXPLICIT-HOST-GAP-RECENT-CONTENT-SURFACE`
-
-## Current Renderer Boundary Rule
-
-With the Files baseline now present:
-
-- renderer owns layout, selection shell, and host-backed content presentation
-- no renderer workaround may bypass `window.hostShell.*`
-- no new Files semantics may be reverse-engineered from SQLite, disk layout, support bundle internals, or unrelated host APIs
-
-## Canonical Build Rule
-
-- all validation still runs from `kernel/`
-- all sealed-node verification still uses:
-  - `ctest`
-  - benchmark gates
-  - `kernel_phase_gate`
-
-## Real Adapter Execution Constraints
-
-- native binding mechanism is fixed to a Node-API addon
-- native binding build path is fixed to CMake so host integration stays on the existing Windows/MSVC/CMake toolchain
-- Windows native linking uses the Electron-version-matched `node.lib` from the official Electron headers distribution
-- raw binding is main-process only and never crosses into preload or renderer
-- main process holds a single adapter instance; renderer only consumes `window.hostShell.*`
-- execution model is fixed as:
-  - host runtime state and IPC stay in main process
-  - native kernel calls are treated as adapter-owned work and must not leak blocking semantics to renderer contracts
-  - adapter integration proceeds behind async host APIs; renderer never waits on raw C ABI calls directly
-  - long-running paths such as diagnostics export and rebuild wait are adapter-managed operations, not renderer-managed flows
-- C ABI memory ownership is fixed as:
-  - raw kernel-owned structs and buffers are converted to host models inside the adapter
-  - all `kernel_free_*` calls happen before the IPC envelope is returned
-  - preload and renderer never observe C ABI ownership or free semantics
-- `HOST_KERNEL_ADAPTER_UNAVAILABLE` is reserved for:
-  - binding not found
-  - binding load failure
-  - adapter not yet established
-- once the binding is loaded, unwired host surfaces must fail with more specific host-visible errors instead of reusing `HOST_KERNEL_ADAPTER_UNAVAILABLE`
-- once a binding is loaded but no vault session is active, host read surfaces must fail with `HOST_SESSION_NOT_OPEN`
+- `kernel/out/build/tests/Debug/kernel_api_tests.exe`
+- `cargo test` from `apps/tauri/src-tauri`
+- `npm test -- --run` from `apps/tauri`
+- `npx tauri build --debug` from `apps/tauri`

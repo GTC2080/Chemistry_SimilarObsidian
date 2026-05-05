@@ -289,6 +289,35 @@ int32_t sealed_kernel_bridge_build_paper_compile_plan_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_get_default_paper_template(
+    char** out_text,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_summarize_paper_compile_log_json(
+    const char* log_utf8,
+    uint64_t log_size,
+    uint64_t log_char_limit,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_normalize_pubchem_query_text(
+    const char* query_utf8,
+    uint64_t query_size,
+    char** out_text,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_build_pubchem_compound_info_json(
+    const char* query_utf8,
+    uint64_t query_size,
+    const char* formula_utf8,
+    uint64_t formula_size,
+    double molecular_weight,
+    uint8_t has_density,
+    double density,
+    uint64_t property_count,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error);

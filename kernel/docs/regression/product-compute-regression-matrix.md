@@ -88,6 +88,39 @@ The repository must retain regression coverage for:
 - Tauri Rust `normalize_database` asks the sealed bridge for complete payload
   normalization instead of retaining local column, row, or cell rules
 
+## Paper Compile Defaults And Diagnostics
+
+The repository must retain regression coverage for:
+
+- `kernel_get_default_paper_template(...)` returns `standard-thesis`
+- `kernel_build_paper_compile_plan_json(...)` keeps template argument selection,
+  CSL/bibliography trimming, and resource-path deduplication in the kernel
+- `kernel_summarize_paper_compile_log_json(...)` extracts ordered compile
+  highlights and caps them at `12` lines
+- `kernel_summarize_paper_compile_log_json(...)` truncates log prefixes by
+  Unicode character count without splitting UTF-8 codepoints
+- `kernel_summarize_paper_compile_log_json(...)` reports whether truncation
+  occurred
+- Tauri Rust `compiler.rs` asks the sealed bridge for the default template and
+  log summary instead of hard-coding `standard-thesis`, `trim_log`, or
+  `extract_latex_error`
+
+## PubChem Compound Info
+
+The repository must retain regression coverage for:
+
+- `kernel_normalize_pubchem_query(...)` trims query text and rejects blank input
+- `kernel_build_pubchem_compound_info_json(...)` returns `notFound` for empty
+  property lists
+- `kernel_build_pubchem_compound_info_json(...)` returns `ambiguous` for
+  multiple property rows
+- valid PubChem rows trim formulas, preserve positive finite molecular weights,
+  and include only positive finite density values
+- invalid formula or molecular-weight data is classified as `notFound`
+- Tauri Rust `chem_api.rs` keeps only HTTP, response DTO, and localized error
+  mapping responsibilities, with compound property classification delegated to
+  the sealed bridge
+
 ## Semantic Context
 
 The repository must retain regression coverage for:

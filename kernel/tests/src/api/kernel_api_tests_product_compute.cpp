@@ -426,6 +426,142 @@ void test_paper_compile_plan_json_is_kernel_owned() {
       "paper compile plan should reject null output");
 }
 
+void test_paper_compile_defaults_and_log_summary_are_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  require_ok_status(
+      kernel_get_default_paper_template(&buffer),
+      "default paper template");
+  require_true(
+      buffer_to_string(buffer) == "standard-thesis",
+      "default paper template should be kernel-owned");
+  kernel_free_buffer(&buffer);
+
+  std::string log;
+  for (int index = 1; index <= 13; ++index) {
+    log += "Error line " + std::to_string(index) + "\n";
+  }
+  require_ok_status(
+      kernel_summarize_paper_compile_log_json(log.data(), log.size(), 9, &buffer),
+      "paper compile log summary");
+  const std::string summary_json = buffer_to_string(buffer);
+  require_true(
+      summary_json.find("\"summary\":\"Error line 1\\nError line 2") != std::string::npos,
+      "paper compile log summary should preserve ordered error highlights");
+  require_true(
+      summary_json.find("Error line 12") != std::string::npos,
+      "paper compile log summary should keep the first twelve highlights");
+  require_true(
+      summary_json.find("Error line 13") == std::string::npos,
+      "paper compile log summary should cap highlights in the kernel");
+  require_true(
+      summary_json.find("\"logPrefix\":\"Error lin\"") != std::string::npos,
+      "paper compile log prefix should be trimmed by character limit");
+  require_true(
+      summary_json.find("\"truncated\":true") != std::string::npos,
+      "paper compile log summary should report truncation");
+  kernel_free_buffer(&buffer);
+
+  const std::string unicode_log =
+      "\xE9\x94\x99"
+      "\xE8\xAF\xAF"
+      "ABC\nfatal: issue\n";
+  require_ok_status(
+      kernel_summarize_paper_compile_log_json(
+          unicode_log.data(),
+          unicode_log.size(),
+          3,
+          &buffer),
+      "paper compile unicode log summary");
+  const std::string unicode_json = buffer_to_string(buffer);
+  require_true(
+      unicode_json.find(
+          "\"logPrefix\":\"\xE9\x94\x99"
+          "\xE8\xAF\xAF"
+          "A\"") !=
+          std::string::npos,
+      "paper compile log prefix should not split UTF-8 codepoints");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_get_default_paper_template(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "default paper template should reject null output");
+  require_true(
+      kernel_summarize_paper_compile_log_json(nullptr, 1, 9, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "paper compile log summary should reject null non-empty log");
+}
+
+void test_pubchem_query_and_compound_normalization_are_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string query = "  Water  ";
+  require_ok_status(
+      kernel_normalize_pubchem_query(query.data(), query.size(), &buffer),
+      "normalize PubChem query");
+  require_true(
+      buffer_to_string(buffer) == "Water",
+      "PubChem query trimming should be kernel-owned");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_normalize_pubchem_query("   ", 3, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "PubChem query normalization should reject blank input");
+
+  const std::string formula = " H2O ";
+  require_ok_status(
+      kernel_build_pubchem_compound_info_json(
+          "Water",
+          5,
+          formula.data(),
+          formula.size(),
+          18.015,
+          1,
+          0.997,
+          1,
+          &buffer),
+      "normalize PubChem compound info");
+  require_true(
+      buffer_to_string(buffer) ==
+          "{\"status\":\"ok\",\"name\":\"Water\",\"formula\":\"H2O\","
+          "\"molecularWeight\":18.015,\"density\":0.997}",
+      "PubChem compound info should normalize formula, molecular weight, and density");
+  kernel_free_buffer(&buffer);
+
+  require_ok_status(
+      kernel_build_pubchem_compound_info_json("Water", 5, "H2O", 3, 18.015, 1, -1.0, 1, &buffer),
+      "normalize PubChem compound info without positive density");
+  require_true(
+      buffer_to_string(buffer).find("\"density\":null") != std::string::npos,
+      "PubChem density should be omitted when not finite and positive");
+  kernel_free_buffer(&buffer);
+
+  require_ok_status(
+      kernel_build_pubchem_compound_info_json("Water", 5, nullptr, 0, 0.0, 0, 0.0, 0, &buffer),
+      "PubChem not found classification");
+  require_true(
+      buffer_to_string(buffer) == "{\"status\":\"notFound\"}",
+      "empty PubChem properties should be classified in the kernel");
+  kernel_free_buffer(&buffer);
+
+  require_ok_status(
+      kernel_build_pubchem_compound_info_json("Water", 5, "H2O", 3, 18.015, 0, 0.0, 2, &buffer),
+      "PubChem ambiguous classification");
+  require_true(
+      buffer_to_string(buffer) == "{\"status\":\"ambiguous\"}",
+      "multiple PubChem properties should be classified in the kernel");
+  kernel_free_buffer(&buffer);
+
+  require_ok_status(
+      kernel_build_pubchem_compound_info_json("Water", 5, "  ", 2, 18.015, 0, 0.0, 1, &buffer),
+      "PubChem invalid property classification");
+  require_true(
+      buffer_to_string(buffer) == "{\"status\":\"notFound\"}",
+      "blank PubChem formula should be classified as not found in the kernel");
+  kernel_free_buffer(&buffer);
+}
+
 void test_note_display_name_derivation_is_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -1247,6 +1383,8 @@ void run_product_compute_tests() {
   test_database_column_type_normalization_is_kernel_owned();
   test_database_payload_normalization_json_is_kernel_owned();
   test_paper_compile_plan_json_is_kernel_owned();
+  test_paper_compile_defaults_and_log_summary_are_kernel_owned();
+  test_pubchem_query_and_compound_normalization_are_kernel_owned();
   test_note_display_name_derivation_is_kernel_owned();
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();

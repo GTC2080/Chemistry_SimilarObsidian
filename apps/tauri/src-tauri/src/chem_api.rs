@@ -77,12 +77,10 @@ fn build_pubchem_url(query: &str) -> Result<Url, String> {
 }
 
 pub async fn fetch_compound_info(query: String) -> Result<CompoundInfo, String> {
-    let query = query.trim();
-    if query.is_empty() {
-        return Err("请输入化合物名称".to_string());
-    }
+    let query = crate::sealed_kernel::normalize_pubchem_query(&query)
+        .map_err(|_| "请输入化合物名称".to_string())?;
 
-    let url = build_pubchem_url(query)?;
+    let url = build_pubchem_url(&query)?;
     let client = create_client()?;
     let response = client
         .get(url)
@@ -106,33 +104,34 @@ pub async fn fetch_compound_info(query: String) -> Result<CompoundInfo, String> 
         .property_table
         .map(|table| table.properties)
         .unwrap_or_default();
-    if properties.is_empty() {
-        return Err("未找到该化合物".to_string());
-    }
-    if properties.len() > 1 {
-        return Err("匹配结果不唯一，请补充化合物名称".to_string());
-    }
-    let first = &properties[0];
-
+    let first = properties.first();
     let formula = first
-        .molecular_formula
-        .clone()
-        .unwrap_or_default()
-        .trim()
-        .to_string();
-    let molecular_weight = first.molecular_weight.unwrap_or_default();
-    let density = first.density.filter(|v| v.is_finite() && *v > 0.0);
-
-    if formula.is_empty() || !molecular_weight.is_finite() || molecular_weight <= 0.0 {
-        return Err("未找到该化合物".to_string());
-    }
-
-    Ok(CompoundInfo {
-        name: query.to_string(),
+        .and_then(|property| property.molecular_formula.as_deref())
+        .unwrap_or("");
+    let molecular_weight = first
+        .and_then(|property| property.molecular_weight)
+        .unwrap_or_default();
+    let density = first.and_then(|property| property.density);
+    let normalized = crate::sealed_kernel::build_pubchem_compound_info(
+        &query,
         formula,
         molecular_weight,
         density,
-    })
+        properties.len() as u64,
+    )
+    .map_err(|err| err.to_string())?;
+
+    match normalized.status.as_str() {
+        "ok" => Ok(CompoundInfo {
+            name: normalized.name,
+            formula: normalized.formula,
+            molecular_weight: normalized.molecular_weight,
+            density: normalized.density,
+        }),
+        "ambiguous" => Err("匹配结果不唯一，请补充化合物名称".to_string()),
+        "emptyQuery" => Err("请输入化合物名称".to_string()),
+        _ => Err("未找到该化合物".to_string()),
+    }
 }
 
 fn retrosynthesize_target_from_kernel(

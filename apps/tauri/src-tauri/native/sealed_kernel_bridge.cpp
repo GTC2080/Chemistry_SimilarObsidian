@@ -2514,6 +2514,132 @@ int32_t sealed_kernel_bridge_build_paper_compile_plan_json(
   return CopyKernelOwnedText(buffer, out_json, out_error);
 }
 
+int32_t sealed_kernel_bridge_get_default_paper_template(
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (out_text == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_get_default_paper_template(&buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_get_default_paper_template", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
+int32_t sealed_kernel_bridge_summarize_paper_compile_log_json(
+    const char* log_utf8,
+    uint64_t log_size,
+    uint64_t log_char_limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  const auto exceeds_size_t = [](uint64_t value) {
+    return value > (std::numeric_limits<size_t>::max)();
+  };
+  if (
+      out_json == nullptr || (log_size > 0 && log_utf8 == nullptr) ||
+      exceeds_size_t(log_size) || exceeds_size_t(log_char_limit)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_summarize_paper_compile_log_json(
+      log_utf8,
+      static_cast<size_t>(log_size),
+      static_cast<size_t>(log_char_limit),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_summarize_paper_compile_log_json", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_json, out_error);
+}
+
+int32_t sealed_kernel_bridge_normalize_pubchem_query_text(
+    const char* query_utf8,
+    uint64_t query_size,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (
+      out_text == nullptr || (query_size > 0 && query_utf8 == nullptr) ||
+      query_size > (std::numeric_limits<size_t>::max)()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_normalize_pubchem_query(
+      query_utf8,
+      static_cast<size_t>(query_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_normalize_pubchem_query", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
+int32_t sealed_kernel_bridge_build_pubchem_compound_info_json(
+    const char* query_utf8,
+    uint64_t query_size,
+    const char* formula_utf8,
+    uint64_t formula_size,
+    double molecular_weight,
+    uint8_t has_density,
+    double density,
+    uint64_t property_count,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  const auto exceeds_size_t = [](uint64_t value) {
+    return value > (std::numeric_limits<size_t>::max)();
+  };
+  if (
+      out_json == nullptr || (query_size > 0 && query_utf8 == nullptr) ||
+      (formula_size > 0 && formula_utf8 == nullptr) || exceeds_size_t(query_size) ||
+      exceeds_size_t(formula_size) || exceeds_size_t(property_count)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_build_pubchem_compound_info_json(
+      query_utf8,
+      static_cast<size_t>(query_size),
+      formula_utf8,
+      static_cast<size_t>(formula_size),
+      molecular_weight,
+      has_density,
+      density,
+      static_cast<size_t>(property_count),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_build_pubchem_compound_info_json", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_json, out_error);
+}
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error) {

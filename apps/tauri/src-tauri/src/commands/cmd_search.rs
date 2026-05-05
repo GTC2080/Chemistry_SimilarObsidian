@@ -93,10 +93,10 @@ pub fn get_notes_by_tag(
 }
 
 // ──────────────────────────────────────────
-// 性能优化：从前端迁移到 Rust 的命令
+// Host commands backed by kernel-owned search and context rules.
 // ──────────────────────────────────────────
 
-/// 接收原始笔记内容，在 Rust 端做语义上下文提取 + embedding 搜索
+/// 接收原始笔记内容，通过 kernel 构造语义上下文，再由 host 侧触发 embedding 搜索。
 #[tauri::command]
 pub async fn get_related_notes_raw(
     raw_content: String,
@@ -127,14 +127,14 @@ pub async fn get_related_notes_raw(
     )
 }
 
-/// 返回预构建的标签树结构（替代前端 buildTagTree）
+/// 返回 kernel 预构建的标签树结构（替代前端 buildTagTree）。
 #[tauri::command]
 pub fn get_tag_tree(sealed_kernel: State<SealedKernelState>) -> Result<Vec<TagTreeNode>, AppError> {
     let limit = sealed_kernel::tag_tree_default_limit()?;
     sealed_kernel::query_tag_tree(sealed_kernel.inner(), limit)
 }
 
-/// 返回增强版图谱数据，包含预计算的邻接索引（替代前端 useMemo 构建）
+/// 返回 kernel 增强版图谱数据，包含预计算的邻接索引（替代前端 useMemo 构建）。
 #[tauri::command]
 pub fn get_enriched_graph_data(
     sealed_kernel: State<SealedKernelState>,

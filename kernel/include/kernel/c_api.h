@@ -272,6 +272,26 @@ kernel_status kernel_build_paper_compile_plan_json(
     const char* resource_separator,
     size_t resource_separator_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_get_default_paper_template(kernel_owned_buffer* out_buffer);
+kernel_status kernel_summarize_paper_compile_log_json(
+    const char* log,
+    size_t log_size,
+    size_t log_char_limit,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_normalize_pubchem_query(
+    const char* query,
+    size_t query_size,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_build_pubchem_compound_info_json(
+    const char* query,
+    size_t query_size,
+    const char* formula,
+    size_t formula_size,
+    double molecular_weight,
+    uint8_t has_density,
+    double density,
+    size_t property_count,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_get_semantic_context_min_bytes(size_t* out_bytes);
 kernel_status kernel_get_rag_context_per_note_char_limit(size_t* out_chars);
 kernel_status kernel_get_embedding_text_char_limit(size_t* out_chars);

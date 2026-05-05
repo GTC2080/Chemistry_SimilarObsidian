@@ -49,9 +49,12 @@ constexpr std::size_t kStudyHeatmapDaysPerWeek = 7;
 constexpr std::int64_t kStudyWeekLookbackDays = 6;
 constexpr std::int64_t kStudyLegacyHeatmapLookbackDays = 179;
 constexpr std::size_t kStudyFolderRankLimit = 5;
+constexpr std::size_t kPaperCompileHighlightLimit = 12;
+constexpr char kDefaultPaperTemplate[] = "standard-thesis";
 
 bool is_ascii_space(char ch);
 std::string_view trim_ascii(std::string_view value);
+std::size_t utf8_prefix_bytes_by_chars(std::string_view value, std::size_t char_limit);
 
 constexpr char8_t kAiRagSystemPrompt[] =
     u8"\u4F60\u662F\u4E00\u4E2A\u79C1\u4EBA\u77E5\u8BC6\u5E93\u7684"
@@ -686,6 +689,65 @@ void append_template_args_json(std::string& output, std::string_view template_na
   output += "\"-V\",\"documentclass=article\",\"-V\",\"fontsize=11pt\"";
 }
 
+bool is_paper_compile_highlight_line(std::string_view line) {
+  const std::string lower = to_lower_ascii(line);
+  return (
+      lower.find("! ") != std::string::npos ||
+      lower.find("error") != std::string::npos ||
+      lower.find("undefined control sequence") != std::string::npos ||
+      lower.find("missing") != std::string::npos ||
+      lower.find("emergency stop") != std::string::npos ||
+      lower.find("fatal") != std::string::npos);
+}
+
+std::string summarize_paper_compile_highlights(std::string_view log) {
+  std::string summary;
+  std::size_t start = 0;
+  std::size_t count = 0;
+  while (start <= log.size()) {
+    const std::size_t end = log.find('\n', start);
+    std::string_view line =
+        end == std::string_view::npos ? log.substr(start) : log.substr(start, end - start);
+    if (!line.empty() && line.back() == '\r') {
+      line.remove_suffix(1);
+    }
+
+    const std::string_view trimmed = trim_ascii(line);
+    if (!trimmed.empty() && is_paper_compile_highlight_line(trimmed)) {
+      if (!summary.empty()) {
+        summary.push_back('\n');
+      }
+      summary.append(trimmed);
+      ++count;
+      if (count >= kPaperCompileHighlightLimit) {
+        break;
+      }
+    }
+
+    if (end == std::string_view::npos) {
+      break;
+    }
+    start = end + 1;
+  }
+  return summary;
+}
+
+std::string build_paper_compile_log_summary_json(
+    std::string_view log,
+    const std::size_t log_char_limit) {
+  const std::size_t prefix_size = utf8_prefix_bytes_by_chars(log, log_char_limit);
+  const bool truncated = prefix_size < log.size();
+
+  std::string output = "{\"summary\":";
+  output += json_string(summarize_paper_compile_highlights(log));
+  output += ",\"logPrefix\":";
+  output += json_string(log.substr(0, prefix_size));
+  output += ",\"truncated\":";
+  output += truncated ? "true" : "false";
+  output += "}";
+  return output;
+}
+
 std::string build_resource_path(
     std::string_view workspace,
     const char* const* image_paths,
@@ -1140,6 +1202,88 @@ bool has_non_whitespace_utf8(std::string_view value) {
     index += width;
   }
   return false;
+}
+
+std::string_view trim_utf8_whitespace(std::string_view value) {
+  std::size_t start = 0;
+  while (start < value.size()) {
+    std::size_t width = 1;
+    const std::uint32_t codepoint = utf8_codepoint_at(value, start, &width);
+    if (!is_unicode_whitespace(codepoint)) {
+      break;
+    }
+    start += width;
+  }
+
+  std::size_t end = value.size();
+  while (end > start) {
+    std::size_t previous = end - 1;
+    while (previous > start && (static_cast<unsigned char>(value[previous]) & 0xC0U) == 0x80U) {
+      --previous;
+    }
+    std::size_t width = 1;
+    const std::uint32_t codepoint = utf8_codepoint_at(value, previous, &width);
+    if (previous + width != end || !is_unicode_whitespace(codepoint)) {
+      break;
+    }
+    end = previous;
+  }
+
+  return value.substr(start, end - start);
+}
+
+std::string json_double(const double value) {
+  char buffer[64]{};
+  const int count = std::snprintf(buffer, sizeof(buffer), "%.15g", value);
+  if (count <= 0) {
+    return "0";
+  }
+  return std::string(buffer, static_cast<std::size_t>(count));
+}
+
+std::string pubchem_status_json(std::string_view status) {
+  return "{\"status\":" + json_string(status) + "}";
+}
+
+std::string build_pubchem_compound_info_payload_json(
+    std::string_view query,
+    std::string_view formula,
+    const double molecular_weight,
+    const bool has_density,
+    const double density,
+    const std::size_t property_count) {
+  const std::string_view normalized_query = trim_utf8_whitespace(query);
+  if (normalized_query.empty()) {
+    return pubchem_status_json("emptyQuery");
+  }
+  if (property_count == 0) {
+    return pubchem_status_json("notFound");
+  }
+  if (property_count > 1) {
+    return pubchem_status_json("ambiguous");
+  }
+
+  const std::string_view normalized_formula = trim_utf8_whitespace(formula);
+  if (
+      normalized_formula.empty() || !std::isfinite(molecular_weight) ||
+      molecular_weight <= 0.0) {
+    return pubchem_status_json("notFound");
+  }
+
+  std::string output = "{\"status\":\"ok\",\"name\":";
+  output += json_string(normalized_query);
+  output += ",\"formula\":";
+  output += json_string(normalized_formula);
+  output += ",\"molecularWeight\":";
+  output += json_double(molecular_weight);
+  output += ",\"density\":";
+  if (has_density && std::isfinite(density) && density > 0.0) {
+    output += json_double(density);
+  } else {
+    output += "null";
+  }
+  output += "}";
+  return output;
 }
 
 std::string normalize_ai_embedding_text(std::string_view text) {
@@ -1671,6 +1815,92 @@ extern "C" kernel_status kernel_build_paper_compile_plan_json(
       bibliography_view,
       separator_view);
   if (!fill_owned_buffer(plan, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_get_default_paper_template(kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  if (!fill_owned_buffer(kDefaultPaperTemplate, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_summarize_paper_compile_log_json(
+    const char* log,
+    const std::size_t log_size,
+    const std::size_t log_char_limit,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (log_size > 0 && log == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view raw(log == nullptr ? "" : log, log_size);
+  const std::string summary = build_paper_compile_log_summary_json(raw, log_char_limit);
+  if (!fill_owned_buffer(summary, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_normalize_pubchem_query(
+    const char* query,
+    const std::size_t query_size,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr || (query_size > 0 && query == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view raw(query == nullptr ? "" : query, query_size);
+  const std::string_view normalized = trim_utf8_whitespace(raw);
+  if (normalized.empty()) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  if (!fill_owned_buffer(normalized, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_build_pubchem_compound_info_json(
+    const char* query,
+    const std::size_t query_size,
+    const char* formula,
+    const std::size_t formula_size,
+    const double molecular_weight,
+    const std::uint8_t has_density,
+    const double density,
+    const std::size_t property_count,
+    kernel_owned_buffer* out_buffer) {
+  if (
+      out_buffer == nullptr || (query_size > 0 && query == nullptr) ||
+      (formula_size > 0 && formula == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  const std::string_view query_view(query == nullptr ? "" : query, query_size);
+  const std::string_view formula_view(formula == nullptr ? "" : formula, formula_size);
+  const std::string payload = build_pubchem_compound_info_payload_json(
+      query_view,
+      formula_view,
+      molecular_weight,
+      has_density != 0,
+      density,
+      property_count);
+  if (!fill_owned_buffer(payload, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);
