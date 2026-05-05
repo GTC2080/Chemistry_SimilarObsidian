@@ -30,11 +30,16 @@ add_library(
   impl/core/chemistry/kernel_chemistry_retrosynthesis_public_api.cpp
   impl/core/chemistry/kernel_chemistry_spectroscopy_public_api.cpp
   impl/core/chemistry/kernel_chemistry_molecular_preview_public_api.cpp
-  impl/core/product/ai/kernel_product_ai.cpp
+  impl/core/product/ai/kernel_product_ai_embedding.cpp
+  impl/core/product/ai/kernel_product_ai_embedding_blob_public_api.cpp
   impl/core/product/ai/kernel_product_ai_embedding_public_api.cpp
+  impl/core/product/ai/kernel_product_ai_ponder.cpp
   impl/core/product/ai/kernel_product_ai_ponder_public_api.cpp
+  impl/core/product/ai/kernel_product_ai_rag.cpp
   impl/core/product/ai/kernel_product_ai_rag_public_api.cpp
+  impl/core/product/ai/kernel_product_ai_settings.cpp
   impl/core/product/ai/kernel_product_ai_settings_public_api.cpp
+  impl/core/product/ai/kernel_product_ai_text.cpp
   impl/core/product/context/kernel_product_context.cpp
   impl/core/product/context/kernel_product_context_public_api.cpp
   impl/core/product/database/kernel_product_database.cpp
@@ -50,7 +55,13 @@ add_library(
   impl/core/product/study/kernel_product_study_public_api.cpp
   impl/core/product/truth/kernel_product_truth.cpp
   impl/core/product/truth/kernel_product_truth_public_api.cpp
-  impl/core/ai/kernel_ai_embedding_cache_api.cpp
+  impl/core/ai/kernel_ai_embedding_cache_shared.cpp
+  impl/core/ai/kernel_ai_embedding_changed_refresh_jobs_api.cpp
+  impl/core/ai/kernel_ai_embedding_metadata_api.cpp
+  impl/core/ai/kernel_ai_embedding_mutation_api.cpp
+  impl/core/ai/kernel_ai_embedding_query_api.cpp
+  impl/core/ai/kernel_ai_embedding_refresh_jobs_api.cpp
+  impl/core/ai/kernel_ai_embedding_refresh_jobs_shared.cpp
   impl/core/study/kernel_study_session_api.cpp
   impl/core/crystal/kernel_crystal_public_api.cpp
   impl/core/symmetry/kernel_symmetry_public_api.cpp
