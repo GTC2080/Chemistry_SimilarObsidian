@@ -297,6 +297,21 @@ void AppendNoteHitJson(
   json += "\"mtime_ns\":" + std::to_string(mtime_ns) + "}";
 }
 
+void AppendAiEmbeddingRefreshJobJson(
+    std::string& json,
+    const kernel_ai_embedding_refresh_job& job) {
+  const std::string rel_path_utf8 = ActiveCodePageToUtf8(job.rel_path);
+  const std::string absolute_path_utf8 = ActiveCodePageToUtf8(job.absolute_path);
+  const std::string content =
+      job.content == nullptr ? std::string() : std::string(job.content, job.content_size);
+  json += "{\"relPath\":\"" + JsonEscape(rel_path_utf8.c_str()) + "\",";
+  json += "\"title\":\"" + JsonEscape(job.title) + "\",";
+  json += "\"absolutePath\":\"" + JsonEscape(absolute_path_utf8.c_str()) + "\",";
+  json += "\"createdAt\":" + std::to_string(job.created_at) + ",";
+  json += "\"updatedAt\":" + std::to_string(job.updated_at) + ",";
+  json += "\"content\":\"" + JsonEscape(content.c_str()) + "\"}";
+}
+
 void AppendFileTreeNoteJson(std::string& json, const kernel_file_tree_note& note) {
   const std::string rel_path_utf8 = ActiveCodePageToUtf8(note.rel_path);
   const std::string name_utf8 = ActiveCodePageToUtf8(note.name);
@@ -1396,6 +1411,56 @@ int32_t sealed_kernel_bridge_read_note_json(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_read_vault_file_bytes(
+    sealed_kernel_bridge_session* session,
+    const char* host_path_utf8,
+    uint64_t host_path_size,
+    uint8_t** out_bytes,
+    uint64_t* out_size,
+    char** out_error) {
+  if (out_bytes != nullptr) {
+    *out_bytes = nullptr;
+  }
+  if (out_size != nullptr) {
+    *out_size = 0;
+  }
+  if (
+      session == nullptr || session->handle == nullptr || out_bytes == nullptr ||
+      out_size == nullptr || (host_path_size > 0 && host_path_utf8 == nullptr) ||
+      host_path_size > (std::numeric_limits<std::size_t>::max)()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string host_path_utf8_value =
+      host_path_utf8 == nullptr
+          ? std::string()
+          : std::string(host_path_utf8, static_cast<std::size_t>(host_path_size));
+  const std::string host_path = Utf8ToActiveCodePage(host_path_utf8_value.c_str());
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_read_vault_file(
+      session->handle,
+      host_path.c_str(),
+      host_path.size(),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_read_vault_file", out_error);
+  }
+
+  auto* copied = CopyBytes(buffer.data, buffer.size);
+  const std::size_t copied_size = buffer.size;
+  kernel_free_buffer(&buffer);
+  if (copied == nullptr && copied_size != 0) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+
+  *out_bytes = copied;
+  *out_size = static_cast<uint64_t>(copied_size);
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_write_note_json(
     sealed_kernel_bridge_session* session,
     const char* rel_path_utf8,
@@ -2361,58 +2426,6 @@ int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
   return CopyKernelOwnedText(buffer, out_text, out_error);
 }
 
-int32_t sealed_kernel_bridge_is_ai_embedding_text_indexable(
-    const char* text_utf8,
-    uint64_t text_size,
-    uint8_t* out_is_indexable,
-    char** out_error) {
-  if (out_is_indexable != nullptr) {
-    *out_is_indexable = 0;
-  }
-  if (out_is_indexable == nullptr || (text_size > 0 && text_utf8 == nullptr)) {
-    SetError(out_error, "invalid_argument");
-    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
-  }
-
-  const kernel_status status = kernel_is_ai_embedding_text_indexable(
-      text_utf8,
-      static_cast<size_t>(text_size),
-      out_is_indexable);
-  if (status.code != KERNEL_OK) {
-    SetError(out_error, "embedding_text_indexability_failed");
-    return static_cast<int32_t>(status.code);
-  }
-
-  return static_cast<int32_t>(KERNEL_OK);
-}
-
-int32_t sealed_kernel_bridge_should_refresh_ai_embedding_note(
-    int64_t note_updated_at,
-    uint8_t has_existing_updated_at,
-    int64_t existing_updated_at,
-    uint8_t* out_should_refresh,
-    char** out_error) {
-  if (out_should_refresh != nullptr) {
-    *out_should_refresh = 0;
-  }
-  if (out_should_refresh == nullptr) {
-    SetError(out_error, "invalid_argument");
-    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
-  }
-
-  const kernel_status status = kernel_should_refresh_ai_embedding_note(
-      note_updated_at,
-      has_existing_updated_at,
-      existing_updated_at,
-      out_should_refresh);
-  if (status.code != KERNEL_OK) {
-    SetError(out_error, "embedding_note_refresh_failed");
-    return static_cast<int32_t>(status.code);
-  }
-
-  return static_cast<int32_t>(KERNEL_OK);
-}
-
 int32_t sealed_kernel_bridge_normalize_vault_relative_path_text(
     const char* rel_path_utf8,
     uint64_t rel_path_size,
@@ -2564,73 +2577,91 @@ int32_t sealed_kernel_bridge_parse_ai_embedding_blob(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
-int32_t sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
+int32_t sealed_kernel_bridge_prepare_ai_embedding_refresh_jobs_json(
     sealed_kernel_bridge_session* session,
-    const char* rel_path_utf8,
-    const char* title_utf8,
-    const char* absolute_path_utf8,
-    int64_t created_at,
-    int64_t updated_at,
-    char** out_error) {
-  if (session == nullptr || session->handle == nullptr || rel_path_utf8 == nullptr ||
-      title_utf8 == nullptr || absolute_path_utf8 == nullptr) {
-    SetError(out_error, "invalid_argument");
-    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
-  }
-
-  const std::string rel_path = Utf8ToActiveCodePage(rel_path_utf8);
-  const std::string absolute_path = Utf8ToActiveCodePage(absolute_path_utf8);
-  if (rel_path.empty()) {
-    SetError(out_error, "invalid_argument");
-    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
-  }
-
-  const kernel_ai_embedding_note_metadata metadata{
-      rel_path.c_str(),
-      title_utf8,
-      absolute_path.c_str(),
-      created_at,
-      updated_at};
-  const kernel_status status =
-      kernel_upsert_ai_embedding_note_metadata(session->handle, &metadata);
-  if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_upsert_ai_embedding_note_metadata", out_error);
-  }
-  return static_cast<int32_t>(KERNEL_OK);
-}
-
-int32_t sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
-    sealed_kernel_bridge_session* session,
+    const char* ignored_roots_utf8,
+    uint64_t limit,
+    uint8_t force_refresh,
     char** out_json,
     char** out_error) {
   if (out_json != nullptr) {
     *out_json = nullptr;
   }
-  if (session == nullptr || session->handle == nullptr || out_json == nullptr) {
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0 ||
+      limit > (std::numeric_limits<std::size_t>::max)()) {
     SetError(out_error, "invalid_argument");
     return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  kernel_ai_embedding_timestamp_list timestamps{};
-  const kernel_status status =
-      kernel_query_ai_embedding_note_timestamps(session->handle, &timestamps);
+  const std::string ignored_roots = Utf8ToActiveCodePage(ignored_roots_utf8);
+  kernel_ai_embedding_refresh_job_list jobs{};
+  const kernel_status status = kernel_prepare_ai_embedding_refresh_jobs(
+      session->handle,
+      ignored_roots.empty() ? nullptr : ignored_roots.c_str(),
+      static_cast<size_t>(limit),
+      force_refresh,
+      &jobs);
   if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_query_ai_embedding_note_timestamps", out_error);
+    return ReturnKernelError(status, "kernel_prepare_ai_embedding_refresh_jobs", out_error);
   }
 
-  std::string json = "{\"timestamps\":[";
-  for (size_t index = 0; index < timestamps.count; ++index) {
+  std::string json = "{\"jobs\":[";
+  for (size_t index = 0; index < jobs.count; ++index) {
     if (index != 0) {
       json += ",";
     }
-    const std::string rel_path_utf8 =
-        ActiveCodePageToUtf8(timestamps.records[index].rel_path);
-    json += "{\"relPath\":\"" + JsonEscape(rel_path_utf8.c_str()) + "\",";
-    json += "\"updatedAt\":" + std::to_string(timestamps.records[index].updated_at) + "}";
+    AppendAiEmbeddingRefreshJobJson(json, jobs.jobs[index]);
   }
-  json += "],\"count\":" + std::to_string(timestamps.count) + "}";
+  json += "],\"count\":" + std::to_string(jobs.count) + "}";
 
-  kernel_free_ai_embedding_timestamp_list(&timestamps);
+  kernel_free_ai_embedding_refresh_job_list(&jobs);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_prepare_changed_ai_embedding_refresh_jobs_json(
+    sealed_kernel_bridge_session* session,
+    const char* changed_paths_lf_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0 ||
+      limit > (std::numeric_limits<std::size_t>::max)()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string changed_paths = Utf8ToActiveCodePage(changed_paths_lf_utf8);
+  kernel_ai_embedding_refresh_job_list jobs{};
+  const kernel_status status = kernel_prepare_changed_ai_embedding_refresh_jobs(
+      session->handle,
+      changed_paths.c_str(),
+      static_cast<size_t>(limit),
+      &jobs);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(
+        status,
+        "kernel_prepare_changed_ai_embedding_refresh_jobs",
+        out_error);
+  }
+
+  std::string json = "{\"jobs\":[";
+  for (size_t index = 0; index < jobs.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendAiEmbeddingRefreshJobJson(json, jobs.jobs[index]);
+  }
+  json += "],\"count\":" + std::to_string(jobs.count) + "}";
+
+  kernel_free_ai_embedding_refresh_job_list(&jobs);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "allocation_failed");

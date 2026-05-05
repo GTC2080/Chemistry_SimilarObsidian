@@ -1,6 +1,3 @@
-use std::fs;
-use std::path::Path;
-
 use tauri::State;
 
 use crate::models::{MolecularPreview, SpectroscopyData};
@@ -65,19 +62,13 @@ fn indexed_markdown_rel_path(note_id: &str) -> Result<Option<String>, AppError> 
 }
 
 #[tauri::command]
-pub async fn read_binary_file(file_path: String) -> Result<Vec<u8>, AppError> {
+pub async fn read_binary_file(
+    file_path: String,
+    sealed_kernel: State<'_, SealedKernelState>,
+) -> Result<Vec<u8>, AppError> {
+    let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())?;
     tauri::async_runtime::spawn_blocking(move || {
-        let path = Path::new(&file_path);
-        if !path.exists() {
-            return Err(AppError::Custom(format!("文件不存在: {}", file_path)));
-        }
-        if !path.is_file() {
-            return Err(AppError::Custom(format!(
-                "指定路径不是一个文件: {}",
-                file_path
-            )));
-        }
-        fs::read(path).map_err(Into::into)
+        sealed_kernel::read_vault_file_bytes_for_session(kernel_session, &file_path)
     })
     .await
     .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?

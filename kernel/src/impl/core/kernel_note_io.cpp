@@ -19,6 +19,26 @@ namespace {
 
 constexpr auto kWatcherSuppressionTtl = std::chrono::milliseconds(500);
 
+bool fill_owned_buffer(std::string_view bytes, kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr) {
+    return false;
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+  if (bytes.empty()) {
+    return true;
+  }
+
+  auto* owned = new (std::nothrow) char[bytes.size()];
+  if (owned == nullptr) {
+    return false;
+  }
+  std::memcpy(owned, bytes.data(), bytes.size());
+  out_buffer->data = owned;
+  out_buffer->size = bytes.size();
+  return true;
+}
+
 void suppress_watcher_path(
     kernel_handle* handle,
     std::string_view normalized_rel_path,
@@ -66,6 +86,46 @@ extern "C" kernel_status kernel_read_note(
       file.stat,
       kernel::vault::compute_content_revision(file.bytes),
       out_metadata);
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_read_vault_file(
+    kernel_handle* handle,
+    const char* host_path,
+    const std::size_t host_path_size,
+    kernel_owned_buffer* out_buffer) {
+  if (handle == nullptr || out_buffer == nullptr || (host_path_size > 0 && host_path == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  kernel_owned_buffer rel_path_buffer{};
+  const kernel_status rel_status =
+      kernel_relativize_vault_path(handle, host_path, host_path_size, 0, &rel_path_buffer);
+  if (rel_status.code != KERNEL_OK) {
+    kernel_free_buffer(&rel_path_buffer);
+    return rel_status;
+  }
+
+  const std::string rel_path(
+      rel_path_buffer.data == nullptr ? "" : std::string(rel_path_buffer.data, rel_path_buffer.size));
+  kernel_free_buffer(&rel_path_buffer);
+  if (!kernel::core::is_valid_relative_path(rel_path.c_str())) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel::platform::ReadFileResult file;
+  const std::error_code ec =
+      kernel::platform::read_file(kernel::core::resolve_note_path(handle, rel_path.c_str()), file);
+  if (ec) {
+    return kernel::core::make_status(kernel::core::map_error(ec));
+  }
+
+  if (!fill_owned_buffer(file.bytes, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
   return kernel::core::make_status(KERNEL_OK);
 }
 

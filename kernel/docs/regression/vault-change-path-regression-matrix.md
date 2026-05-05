@@ -30,6 +30,11 @@ Required coverage:
   `allow_empty == 0`
 - `kernel_relativize_vault_path(...)` accepts the vault root and returns an
   empty kernel-owned buffer when `allow_empty != 0`
+- `kernel_read_vault_file(...)` reads exact raw bytes for files inside the
+  opened vault root
+- `kernel_read_vault_file(...)` preserves embedded NUL bytes
+- `kernel_read_vault_file(...)` rejects paths outside the opened vault root
+- `kernel_read_vault_file(...)` rejects null output and null handles
 - duplicate paths are removed after normalization
 - first-seen order is preserved
 - original path case is preserved
@@ -63,5 +68,7 @@ Tauri bridge coverage:
 - by-path note and vault entry commands use
   `kernel_relativize_vault_path(...)` instead of rebuilding vault-root
   `strip_prefix`, separator normalization, or parent-segment checks in Rust
+- `read_binary_file` uses `kernel_read_vault_file(...)` instead of Rust
+  `fs::read(...)` plus local file existence/type checks
 - watcher event classification uses `kernel_relativize_vault_path(...)` instead
   of rebuilding vault-root `strip_prefix` checks in Rust

@@ -37,7 +37,6 @@ struct SealedKernelBridgeStateSnapshot {
 extern "C" {
     fn sealed_kernel_bridge_info_json() -> *mut c_char;
     fn sealed_kernel_bridge_free_string(value: *mut c_char);
-    #[cfg(test)]
     fn sealed_kernel_bridge_free_bytes(value: *mut u8);
     #[cfg(test)]
     fn sealed_kernel_bridge_free_float_array(value: *mut c_float);
@@ -103,6 +102,14 @@ extern "C" {
         session: *mut SealedKernelBridgeSession,
         rel_path_utf8: *const c_char,
         out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_read_vault_file_bytes(
+        session: *mut SealedKernelBridgeSession,
+        host_path_utf8: *const c_char,
+        host_path_size: u64,
+        out_bytes: *mut *mut u8,
+        out_size: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_write_note_json(
@@ -294,19 +301,6 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_is_ai_embedding_text_indexable(
-        text_utf8: *const c_char,
-        text_size: u64,
-        out_is_indexable: *mut u8,
-        out_error: *mut *mut c_char,
-    ) -> c_int;
-    fn sealed_kernel_bridge_should_refresh_ai_embedding_note(
-        note_updated_at: i64,
-        has_existing_updated_at: u8,
-        existing_updated_at: i64,
-        out_should_refresh: *mut u8,
-        out_error: *mut *mut c_char,
-    ) -> c_int;
     fn sealed_kernel_bridge_compute_ai_embedding_cache_key(
         base_url_utf8: *const c_char,
         base_url_size: u64,
@@ -333,17 +327,18 @@ extern "C" {
         out_count: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
+    fn sealed_kernel_bridge_prepare_ai_embedding_refresh_jobs_json(
         session: *mut SealedKernelBridgeSession,
-        rel_path_utf8: *const c_char,
-        title_utf8: *const c_char,
-        absolute_path_utf8: *const c_char,
-        created_at: i64,
-        updated_at: i64,
+        ignored_roots_utf8: *const c_char,
+        limit: u64,
+        force_refresh: u8,
+        out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
+    fn sealed_kernel_bridge_prepare_changed_ai_embedding_refresh_jobs_json(
         session: *mut SealedKernelBridgeSession,
+        changed_paths_lf_utf8: *const c_char,
+        limit: u64,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -611,17 +606,22 @@ struct SealedKernelNoteRecord {
     mtime_ns: u64,
 }
 
-#[derive(Deserialize)]
-struct SealedKernelAiEmbeddingTimestampCatalog {
-    timestamps: Vec<SealedKernelAiEmbeddingTimestampRecord>,
+#[derive(Debug, Clone)]
+pub struct AiEmbeddingRefreshJob {
+    pub id: String,
+    pub content: String,
 }
 
 #[derive(Deserialize)]
-struct SealedKernelAiEmbeddingTimestampRecord {
+struct SealedKernelAiEmbeddingRefreshJobCatalog {
+    jobs: Vec<SealedKernelAiEmbeddingRefreshJob>,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelAiEmbeddingRefreshJob {
     #[serde(rename = "relPath")]
     rel_path: String,
-    #[serde(rename = "updatedAt")]
-    updated_at: i64,
+    content: String,
 }
 
 #[derive(Deserialize)]
@@ -1984,52 +1984,6 @@ pub fn normalize_ai_embedding_text(text: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
-pub fn is_ai_embedding_text_indexable(text: &str) -> AppResult<bool> {
-    let mut is_indexable = 0u8;
-    let mut error: *mut c_char = std::ptr::null_mut();
-    let code = unsafe {
-        sealed_kernel_bridge_is_ai_embedding_text_indexable(
-            text.as_ptr() as *const c_char,
-            text.len() as u64,
-            &mut is_indexable,
-            &mut error,
-        )
-    };
-    if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_is_ai_embedding_text_indexable",
-            code,
-            error,
-        ));
-    }
-    Ok(is_indexable != 0)
-}
-
-pub fn should_refresh_ai_embedding_note(
-    note_updated_at: i64,
-    existing_updated_at: Option<i64>,
-) -> AppResult<bool> {
-    let mut should_refresh = 0u8;
-    let mut error: *mut c_char = std::ptr::null_mut();
-    let code = unsafe {
-        sealed_kernel_bridge_should_refresh_ai_embedding_note(
-            note_updated_at,
-            u8::from(existing_updated_at.is_some()),
-            existing_updated_at.unwrap_or_default(),
-            &mut should_refresh,
-            &mut error,
-        )
-    };
-    if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_should_refresh_ai_embedding_note",
-            code,
-            error,
-        ));
-    }
-    Ok(should_refresh != 0)
-}
-
 pub fn derive_file_extension_from_path(path: &str) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -2222,68 +2176,83 @@ pub fn parse_ai_embedding_blob(blob: &[u8]) -> AppResult<Vec<f32>> {
     Ok(values)
 }
 
-pub fn upsert_ai_embedding_note_metadata_for_session(
-    session: usize,
-    note: &NoteInfo,
-) -> AppResult<()> {
-    let session = session_from_token(session)?;
-    let rel_path = cstring_arg(note.id.clone(), "note_rel_path")?;
-    let title = cstring_arg(note.name.clone(), "note_title")?;
-    let absolute_path = cstring_arg(note.path.clone(), "absolute_path")?;
-    call_status_operation(
-        "sealed_kernel_upsert_ai_embedding_note_metadata",
-        |error| unsafe {
-            sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
-                session,
-                rel_path.as_ptr(),
-                title.as_ptr(),
-                absolute_path.as_ptr(),
-                note.created_at,
-                note.updated_at,
-                error,
-            )
-        },
-    )
+fn parse_ai_embedding_refresh_jobs_json(value: String) -> AppResult<Vec<AiEmbeddingRefreshJob>> {
+    let catalog: SealedKernelAiEmbeddingRefreshJobCatalog =
+        serde_json::from_str(&value).map_err(|err| {
+            AppError::Custom(format!(
+                "sealed kernel AI embedding refresh jobs JSON is invalid: {err}"
+            ))
+        })?;
+    Ok(catalog
+        .jobs
+        .into_iter()
+        .map(|job| AiEmbeddingRefreshJob {
+            id: job.rel_path.replace('\\', "/"),
+            content: job.content,
+        })
+        .collect())
 }
 
-pub fn upsert_ai_embedding_note_metadata(
-    note: &NoteInfo,
+pub fn prepare_ai_embedding_refresh_jobs(
+    ignored_roots: &str,
+    force_refresh: bool,
     state: &SealedKernelState,
-) -> AppResult<()> {
-    upsert_ai_embedding_note_metadata_for_session(active_session_token(state)?, note)
-}
-
-pub fn ai_embedding_note_timestamps(state: &SealedKernelState) -> AppResult<HashMap<String, i64>> {
+) -> AppResult<Vec<AiEmbeddingRefreshJob>> {
     let session = active_session(state)?;
+    let limit = note_catalog_default_limit()?;
+    let ignored_roots = cstring_arg(ignored_roots.to_string(), "ignored_roots")?;
     let mut raw_json: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
     let code = unsafe {
-        sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
+        sealed_kernel_bridge_prepare_ai_embedding_refresh_jobs_json(
             session,
+            ignored_roots.as_ptr(),
+            limit,
+            u8::from(force_refresh),
             &mut raw_json,
             &mut error,
         )
     };
     if code != 0 {
         return Err(bridge_error(
-            "sealed_kernel_query_ai_embedding_note_timestamps",
+            "sealed_kernel_prepare_ai_embedding_refresh_jobs",
             code,
             error,
         ));
     }
+    parse_ai_embedding_refresh_jobs_json(take_bridge_string(raw_json))
+}
 
-    let value = take_bridge_string(raw_json);
-    let catalog: SealedKernelAiEmbeddingTimestampCatalog =
-        serde_json::from_str(&value).map_err(|err| {
-            AppError::Custom(format!(
-                "sealed kernel AI embedding timestamp JSON is invalid: {err}"
-            ))
-        })?;
-    Ok(catalog
-        .timestamps
-        .into_iter()
-        .map(|record| (record.rel_path.replace('\\', "/"), record.updated_at))
-        .collect())
+pub fn prepare_changed_ai_embedding_refresh_jobs(
+    paths: &[String],
+    state: &SealedKernelState,
+) -> AppResult<Vec<AiEmbeddingRefreshJob>> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let session = active_session(state)?;
+    let limit = note_catalog_default_limit()?;
+    let changed_paths = cstring_arg(paths.join("\n"), "changed_paths")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_prepare_changed_ai_embedding_refresh_jobs_json(
+            session,
+            changed_paths.as_ptr(),
+            limit,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_prepare_changed_ai_embedding_refresh_jobs",
+            code,
+            error,
+        ));
+    }
+    parse_ai_embedding_refresh_jobs_json(take_bridge_string(raw_json))
 }
 
 pub fn update_ai_embedding_for_session(
@@ -3157,6 +3126,43 @@ pub fn read_note_by_rel_path(rel_path: &str, state: &SealedKernelState) -> AppRe
     Ok(parsed.content)
 }
 
+pub fn read_vault_file_bytes_for_session(session: usize, file_path: &str) -> AppResult<Vec<u8>> {
+    let session = session_from_token(session)?;
+    let mut raw_bytes: *mut u8 = std::ptr::null_mut();
+    let mut byte_count = 0u64;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_read_vault_file_bytes(
+            session,
+            file_path.as_ptr() as *const c_char,
+            file_path.len() as u64,
+            &mut raw_bytes,
+            &mut byte_count,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error("sealed_kernel_read_vault_file", code, error));
+    }
+
+    let Ok(byte_count) = usize::try_from(byte_count) else {
+        unsafe {
+            sealed_kernel_bridge_free_bytes(raw_bytes);
+        }
+        return Err(AppError::Custom(
+            "kernel file read result is too large to copy.".to_string(),
+        ));
+    };
+    if raw_bytes.is_null() || byte_count == 0 {
+        return Ok(Vec::new());
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(raw_bytes, byte_count).to_vec() };
+    unsafe {
+        sealed_kernel_bridge_free_bytes(raw_bytes);
+    }
+    Ok(bytes)
+}
+
 pub fn write_note_by_file_path(
     vault_path: &str,
     file_path: &str,
@@ -3680,14 +3686,6 @@ mod tests {
 
         let err = normalize_ai_embedding_text(" \t\n").expect_err("empty embedding input");
         assert_eq!(err.to_string(), "文本内容为空，跳过向量化");
-    }
-
-    #[test]
-    fn ai_embedding_note_refresh_decision_comes_from_kernel() {
-        assert!(should_refresh_ai_embedding_note(200, None).unwrap());
-        assert!(should_refresh_ai_embedding_note(200, Some(199)).unwrap());
-        assert!(!should_refresh_ai_embedding_note(200, Some(200)).unwrap());
-        assert!(!should_refresh_ai_embedding_note(199, Some(200)).unwrap());
     }
 
     #[test]

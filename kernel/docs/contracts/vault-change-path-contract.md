@@ -11,6 +11,7 @@ Current surface:
 - `kernel_filter_supported_vault_paths_filtered(changed_paths_lf, ignored_roots_csv, out_paths)`
 - `kernel_normalize_vault_relative_path(rel_path, rel_path_size, out_buffer)`
 - `kernel_relativize_vault_path(handle, host_path, host_path_size, allow_empty, out_buffer)`
+- `kernel_read_vault_file(handle, host_path, host_path_size, out_buffer)`
 - `kernel_free_path_list(out_paths)`
 - `kernel_free_buffer(out_buffer)`
 
@@ -21,6 +22,9 @@ incremental vault event fanout and Markdown note scan/index work.
 The host-path relativization surface accepts one absolute host path plus an
 opened vault kernel handle, then returns the canonical vault-relative path that
 may be used by by-path note, entry, and watcher event commands.
+The vault file read surface accepts one absolute host path plus an opened vault
+kernel handle, applies the same vault-root boundary, and returns raw file bytes
+for host media previews.
 
 ## Ownership
 
@@ -34,6 +38,8 @@ may be used by by-path note, entry, and watcher event commands.
 - the kernel owns relativized relative path text returned by
   `kernel_relativize_vault_path(...)`
 - callers release relativized relative path text with `kernel_free_buffer(...)`
+- the kernel owns file bytes returned by `kernel_read_vault_file(...)`
+- callers release file bytes with `kernel_free_buffer(...)`
 - null output returns `KERNEL_ERROR_INVALID_ARGUMENT`
 
 ## Frozen Semantics
@@ -95,6 +101,17 @@ All path filters:
 - validates non-empty outputs with `kernel_normalize_vault_relative_path(...)`
   semantics before returning
 
+`kernel_read_vault_file(...)`:
+
+- requires an opened kernel handle with a vault root
+- accepts only host paths inside the opened vault root
+- rejects null output, null handle, null non-empty input, empty host paths,
+  embedded NUL bytes, and the vault root itself
+- resolves the accepted host path through the canonical vault-relative path
+  before reading
+- returns exact raw file bytes, including embedded NUL bytes
+- maps missing files and directories to the kernel file-read error path
+
 ## Host Boundary
 
 Tauri Rust may still:
@@ -119,12 +136,15 @@ Tauri Rust may still:
 - pass absolute host paths from by-path note and entry commands through
   `kernel_relativize_vault_path(...)` before calling kernel read/write/delete,
   rename, move, or create-folder surfaces
+- pass absolute host paths for media binary previews through
+  `kernel_read_vault_file(...)`
 
 Tauri Rust must not reimplement supported-extension filtering, changed-entry
 Markdown filtering, hidden segment filtering, ignored-root filtering,
 ignored-root normalization, path deduplication, or one-off vault relative path
 validation/normalization. It must also not reimplement vault-root
 relativization, `strip_prefix` checks, separator normalization, parent-segment
-checks, or root-folder allowance rules for by-path operations.
+checks, root-folder allowance rules for by-path operations, or vault-root checks
+before media binary reads.
 Watcher event classification must also not use Rust `strip_prefix` to decide
 vault membership or produce relative event paths.

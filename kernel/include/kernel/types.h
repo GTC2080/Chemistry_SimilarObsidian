@@ -91,6 +91,21 @@ typedef struct kernel_ai_embedding_timestamp_list {
   size_t count;
 } kernel_ai_embedding_timestamp_list;
 
+typedef struct kernel_ai_embedding_refresh_job {
+  char* rel_path;
+  char* title;
+  char* absolute_path;
+  int64_t created_at;
+  int64_t updated_at;
+  char* content;
+  size_t content_size;
+} kernel_ai_embedding_refresh_job;
+
+typedef struct kernel_ai_embedding_refresh_job_list {
+  kernel_ai_embedding_refresh_job* jobs;
+  size_t count;
+} kernel_ai_embedding_refresh_job_list;
+
 typedef struct kernel_note_metadata {
   uint64_t file_size;
   uint64_t mtime_ns;

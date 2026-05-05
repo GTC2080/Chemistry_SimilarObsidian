@@ -47,11 +47,12 @@ The note catalog is the host-facing metadata surface for active Markdown notes.
 ## Host Boundary
 
 Tauri Rust may still attach host-specific absolute paths for existing frontend
-DTOs and orchestrate external AI embedding requests. AI embedding cache
-metadata and vector persistence are kernel-owned.
+DTOs and orchestrate external AI embedding requests. AI embedding refresh job
+planning, cache metadata, and vector persistence are kernel-owned.
 
 Tauri Rust must not rebuild note catalog truth, ignored-root filtering, or
 embeddable-note extension truth from raw note rows. It must also not retain a
 duplicate default scan/index catalog limit or fast vault metadata scan limit.
-It must also not store note embedding metadata in a Rust-owned compatibility
-table once the kernel `ai_embedding_cache` surface is available.
+It must also not read note content, compare timestamps, or store note embedding
+metadata in a Rust-owned compatibility table once the kernel `ai_embedding_cache`
+refresh job surface is available.

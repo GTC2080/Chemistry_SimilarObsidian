@@ -22,6 +22,11 @@ kernel_status kernel_read_note(
     const char* rel_path,
     kernel_owned_buffer* out_buffer,
     kernel_note_metadata* out_metadata);
+kernel_status kernel_read_vault_file(
+    kernel_handle* handle,
+    const char* host_path,
+    size_t host_path_size,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_query_notes(
     kernel_handle* handle,
     size_t limit,
@@ -264,6 +269,17 @@ kernel_status kernel_upsert_ai_embedding_note_metadata(
 kernel_status kernel_query_ai_embedding_note_timestamps(
     kernel_handle* handle,
     kernel_ai_embedding_timestamp_list* out_timestamps);
+kernel_status kernel_prepare_ai_embedding_refresh_jobs(
+    kernel_handle* handle,
+    const char* ignored_roots_csv,
+    size_t limit,
+    uint8_t force_refresh,
+    kernel_ai_embedding_refresh_job_list* out_jobs);
+kernel_status kernel_prepare_changed_ai_embedding_refresh_jobs(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    size_t limit,
+    kernel_ai_embedding_refresh_job_list* out_jobs);
 kernel_status kernel_update_ai_embedding(
     kernel_handle* handle,
     const char* note_rel_path,
@@ -509,6 +525,7 @@ kernel_status kernel_export_diagnostics(kernel_handle* handle, const char* outpu
 void kernel_free_buffer(kernel_owned_buffer* buffer);
 void kernel_free_float_buffer(kernel_float_buffer* buffer);
 void kernel_free_ai_embedding_timestamp_list(kernel_ai_embedding_timestamp_list* timestamps);
+void kernel_free_ai_embedding_refresh_job_list(kernel_ai_embedding_refresh_job_list* jobs);
 void kernel_free_note_list(kernel_note_list* notes);
 void kernel_free_path_list(kernel_path_list* paths);
 void kernel_free_file_tree(kernel_file_tree* tree);

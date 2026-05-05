@@ -303,6 +303,39 @@ void test_relativize_vault_path_applies_kernel_boundary() {
   close_and_cleanup(handle, vault);
 }
 
+void test_read_vault_file_applies_kernel_boundary_and_reads_bytes() {
+  const auto vault = make_temp_vault();
+  std::filesystem::create_directories(vault / "assets");
+  write_file_bytes(vault / "assets" / "diagram.bin", std::string("bin\0payload", 11));
+  write_file_bytes(vault.parent_path() / "outside.bin", "outside");
+
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  const std::string file_path = (vault / "assets" / "diagram.bin").string();
+  kernel_owned_buffer buffer{};
+  expect_ok(kernel_read_vault_file(handle, file_path.data(), file_path.size(), &buffer));
+  require_true(buffer.size == 11, "vault binary read should preserve byte length");
+  require_true(
+      std::string(buffer.data, buffer.size) == std::string("bin\0payload", 11),
+      "vault binary read should preserve embedded NUL bytes");
+  kernel_free_buffer(&buffer);
+  require_true(buffer.data == nullptr && buffer.size == 0, "vault binary read buffer free should reset output");
+
+  const std::string outside_path = (vault.parent_path() / "outside.bin").string();
+  require_true(
+      kernel_read_vault_file(handle, outside_path.data(), outside_path.size(), &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault binary read should reject paths outside the vault root");
+  require_true(
+      kernel_read_vault_file(handle, file_path.data(), file_path.size(), nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault binary read should require output pointer");
+
+  close_and_cleanup(handle, vault);
+  std::filesystem::remove(vault.parent_path() / "outside.bin");
+}
+
 }  // namespace
 
 void run_kernel_api_core_vault_entry_contract_tests() {
@@ -315,4 +348,5 @@ void run_kernel_api_core_vault_entry_contract_tests() {
   test_filter_supported_vault_paths_filtered_applies_hidden_and_ignored_roots();
   test_normalize_vault_relative_path_applies_host_path_rules();
   test_relativize_vault_path_applies_kernel_boundary();
+  test_read_vault_file_applies_kernel_boundary_and_reads_bytes();
 }

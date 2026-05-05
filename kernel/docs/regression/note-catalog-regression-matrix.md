@@ -27,9 +27,10 @@ Tauri bridge coverage:
 - `scan_vault` consumes `kernel_query_notes_filtered(...)`
 - `scan_vault` reads its fast metadata scan limit through the sealed kernel
   bridge instead of a duplicate Rust constant
-- `index_vault_content` consumes `kernel_query_notes_filtered(...)` before note
-  content reads
+- `index_vault_content` obtains embedding refresh jobs from the kernel instead
+  of consuming note catalog rows and reading note content in Rust
 - scan/index catalog queries read their default limit through the sealed kernel
   bridge instead of a duplicate Rust constant
 - AI embedding refresh treats kernel note catalog rows as the Markdown
-  embeddable note surface instead of applying a duplicate Rust extension gate
+  embeddable note surface through the kernel refresh job planner instead of
+  applying a duplicate Rust extension gate

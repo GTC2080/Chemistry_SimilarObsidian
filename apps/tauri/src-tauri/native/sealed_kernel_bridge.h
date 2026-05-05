@@ -85,6 +85,14 @@ int32_t sealed_kernel_bridge_read_note_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_read_vault_file_bytes(
+    sealed_kernel_bridge_session* session,
+    const char* host_path_utf8,
+    uint64_t host_path_size,
+    uint8_t** out_bytes,
+    uint64_t* out_size,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_write_note_json(
     sealed_kernel_bridge_session* session,
     const char* rel_path_utf8,
@@ -274,19 +282,6 @@ int32_t sealed_kernel_bridge_normalize_ai_embedding_text(
     char** out_text,
     char** out_error);
 
-int32_t sealed_kernel_bridge_is_ai_embedding_text_indexable(
-    const char* text_utf8,
-    uint64_t text_size,
-    uint8_t* out_is_indexable,
-    char** out_error);
-
-int32_t sealed_kernel_bridge_should_refresh_ai_embedding_note(
-    int64_t note_updated_at,
-    uint8_t has_existing_updated_at,
-    int64_t existing_updated_at,
-    uint8_t* out_should_refresh,
-    char** out_error);
-
 int32_t sealed_kernel_bridge_compute_ai_embedding_cache_key(
     const char* base_url_utf8,
     uint64_t base_url_size,
@@ -311,17 +306,18 @@ int32_t sealed_kernel_bridge_parse_ai_embedding_blob(
     uint64_t* out_count,
     char** out_error);
 
-int32_t sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
+int32_t sealed_kernel_bridge_prepare_ai_embedding_refresh_jobs_json(
     sealed_kernel_bridge_session* session,
-    const char* rel_path_utf8,
-    const char* title_utf8,
-    const char* absolute_path_utf8,
-    int64_t created_at,
-    int64_t updated_at,
+    const char* ignored_roots_utf8,
+    uint64_t limit,
+    uint8_t force_refresh,
+    char** out_json,
     char** out_error);
 
-int32_t sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
+int32_t sealed_kernel_bridge_prepare_changed_ai_embedding_refresh_jobs_json(
     sealed_kernel_bridge_session* session,
+    const char* changed_paths_lf_utf8,
+    uint64_t limit,
     char** out_json,
     char** out_error);
 
