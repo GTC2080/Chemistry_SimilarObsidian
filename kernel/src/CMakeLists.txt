@@ -30,26 +30,26 @@ add_library(
   impl/core/chemistry/kernel_chemistry_retrosynthesis_public_api.cpp
   impl/core/chemistry/kernel_chemistry_spectroscopy_public_api.cpp
   impl/core/chemistry/kernel_chemistry_molecular_preview_public_api.cpp
-  impl/core/product/kernel_product_ai.cpp
-  impl/core/product/kernel_product_ai_embedding_public_api.cpp
-  impl/core/product/kernel_product_ai_ponder_public_api.cpp
-  impl/core/product/kernel_product_ai_rag_public_api.cpp
-  impl/core/product/kernel_product_ai_settings_public_api.cpp
-  impl/core/product/kernel_product_context.cpp
-  impl/core/product/kernel_product_context_public_api.cpp
-  impl/core/product/kernel_product_database.cpp
-  impl/core/product/kernel_product_database_public_api.cpp
-  impl/core/product/kernel_product_json.cpp
-  impl/core/product/kernel_product_paper.cpp
-  impl/core/product/kernel_product_paper_public_api.cpp
-  impl/core/product/kernel_product_pubchem.cpp
-  impl/core/product/kernel_product_pubchem_public_api.cpp
-  impl/core/product/kernel_product_study.cpp
-  impl/core/product/kernel_product_study_calendar.cpp
-  impl/core/product/kernel_product_study_heatmap.cpp
-  impl/core/product/kernel_product_study_public_api.cpp
-  impl/core/product/kernel_product_truth.cpp
-  impl/core/product/kernel_product_truth_public_api.cpp
+  impl/core/product/ai/kernel_product_ai.cpp
+  impl/core/product/ai/kernel_product_ai_embedding_public_api.cpp
+  impl/core/product/ai/kernel_product_ai_ponder_public_api.cpp
+  impl/core/product/ai/kernel_product_ai_rag_public_api.cpp
+  impl/core/product/ai/kernel_product_ai_settings_public_api.cpp
+  impl/core/product/context/kernel_product_context.cpp
+  impl/core/product/context/kernel_product_context_public_api.cpp
+  impl/core/product/database/kernel_product_database.cpp
+  impl/core/product/database/kernel_product_database_public_api.cpp
+  impl/core/product/paper/kernel_product_paper.cpp
+  impl/core/product/paper/kernel_product_paper_public_api.cpp
+  impl/core/product/pubchem/kernel_product_pubchem.cpp
+  impl/core/product/pubchem/kernel_product_pubchem_public_api.cpp
+  impl/core/product/shared/kernel_product_json.cpp
+  impl/core/product/study/kernel_product_study.cpp
+  impl/core/product/study/kernel_product_study_calendar.cpp
+  impl/core/product/study/kernel_product_study_heatmap.cpp
+  impl/core/product/study/kernel_product_study_public_api.cpp
+  impl/core/product/truth/kernel_product_truth.cpp
+  impl/core/product/truth/kernel_product_truth_public_api.cpp
   impl/core/ai/kernel_ai_embedding_cache_api.cpp
   impl/core/study/kernel_study_session_api.cpp
   impl/core/crystal/kernel_crystal_public_api.cpp
