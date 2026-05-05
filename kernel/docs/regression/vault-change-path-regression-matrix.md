@@ -56,7 +56,7 @@ Tauri bridge coverage:
 - `ask_vault` uses kernel-filtered relative paths before reading RAG note
   content from the kernel
 - `remove_deleted_entries` uses kernel-filtered relative paths before deleting
-  legacy embedding cache rows
+  kernel `ai_embedding_cache` rows
 - one-off note read/write and chemistry reference commands use
   `kernel_normalize_vault_relative_path(...)` instead of rebuilding relative
   path validation rules in Rust

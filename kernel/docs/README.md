@@ -51,6 +51,8 @@
   - [contracts/symmetry-compute-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/symmetry-compute-contract.md)
 - product compute
   - [contracts/product-compute-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/product-compute-contract.md)
+- AI embedding cache
+  - [contracts/ai-embedding-cache-contract.md](/E:/测试/Chemistry_Obsidian/kernel/docs/contracts/ai-embedding-cache-contract.md)
 
 ## Regression Matrices
 
@@ -63,3 +65,4 @@
 - [regression/crystal-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/crystal-regression-matrix.md)
 - [regression/symmetry-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/symmetry-regression-matrix.md)
 - [regression/product-compute-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/product-compute-regression-matrix.md)
+- [regression/ai-embedding-cache-regression-matrix.md](/E:/测试/Chemistry_Obsidian/kernel/docs/regression/ai-embedding-cache-regression-matrix.md)

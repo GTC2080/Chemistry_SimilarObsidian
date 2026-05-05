@@ -31,6 +31,7 @@ add_library(
   impl/core/kernel_chemistry_spectroscopy_public_api.cpp
   impl/core/kernel_chemistry_molecular_preview_public_api.cpp
   impl/core/kernel_product_compute_public_api.cpp
+  impl/core/kernel_ai_embedding_cache_api.cpp
   impl/core/kernel_crystal_public_api.cpp
   impl/core/kernel_symmetry_public_api.cpp
   impl/core/kernel_symmetry_atom_parser_public_api.cpp
@@ -108,6 +109,7 @@ add_library(
   impl/storage/storage_sqlite_helpers.cpp
   impl/storage/storage_connection.cpp
   impl/storage/storage_schema.cpp
+  impl/storage/storage_ai_embedding_cache.cpp
   impl/storage/storage_note_upsert.cpp
   impl/storage/storage_note_delete_rename.cpp
   impl/storage/storage_attachment_state.cpp

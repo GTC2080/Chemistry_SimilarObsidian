@@ -113,7 +113,6 @@ pub fn run() {
                 conn: Arc::new(Mutex::new(placeholder_conn)),
             });
             app.manage(ai::EmbeddingRuntimeState::default());
-            app.manage(ai::VectorCacheState::default());
             app.manage(compiler::CompilerState::detect());
             app.manage(watcher::WatcherState::new());
             app.manage(sealed_kernel::SealedKernelState::default());

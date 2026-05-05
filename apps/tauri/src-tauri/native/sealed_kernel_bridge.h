@@ -311,6 +311,46 @@ int32_t sealed_kernel_bridge_parse_ai_embedding_blob(
     uint64_t* out_count,
     char** out_error);
 
+int32_t sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
+    sealed_kernel_bridge_session* session,
+    const char* rel_path_utf8,
+    const char* title_utf8,
+    const char* absolute_path_utf8,
+    int64_t created_at,
+    int64_t updated_at,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
+    sealed_kernel_bridge_session* session,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_update_ai_embedding(
+    sealed_kernel_bridge_session* session,
+    const char* rel_path_utf8,
+    const float* values,
+    uint64_t value_count,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_clear_ai_embeddings(
+    sealed_kernel_bridge_session* session,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_delete_ai_embedding_note(
+    sealed_kernel_bridge_session* session,
+    const char* rel_path_utf8,
+    uint8_t* out_deleted,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_query_ai_embedding_top_notes_json(
+    sealed_kernel_bridge_session* session,
+    const float* query_values,
+    uint64_t query_value_count,
+    const char* exclude_rel_path_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
     const char* context_utf8,
     uint64_t context_size,

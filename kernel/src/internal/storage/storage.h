@@ -5,6 +5,7 @@
 #include "parser/parser.h"
 #include "platform/platform.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <system_error>
@@ -51,6 +52,19 @@ struct NoteCatalogRecord {
   std::uint64_t file_size = 0;
   std::uint64_t mtime_ns = 0;
   std::string content_revision;
+};
+
+struct AiEmbeddingNoteMetadataRecord {
+  std::string rel_path;
+  std::string title;
+  std::string absolute_path;
+  std::int64_t created_at = 0;
+  std::int64_t updated_at = 0;
+};
+
+struct AiEmbeddingTimestampRecord {
+  std::string rel_path;
+  std::int64_t updated_at = 0;
 };
 
 struct AttachmentMetadataRecord {
@@ -174,6 +188,29 @@ std::error_code list_note_catalog_records(
     Database& db,
     std::size_t limit,
     std::vector<NoteCatalogRecord>& out_records);
+std::error_code upsert_ai_embedding_note_metadata(
+    Database& db,
+    const AiEmbeddingNoteMetadataRecord& metadata);
+std::error_code list_ai_embedding_note_timestamps(
+    Database& db,
+    std::vector<AiEmbeddingTimestampRecord>& out_records);
+std::error_code update_ai_embedding(
+    Database& db,
+    std::string_view rel_path,
+    const float* values,
+    std::size_t value_count);
+std::error_code clear_ai_embeddings(Database& db);
+std::error_code delete_ai_embedding_note(
+    Database& db,
+    std::string_view rel_path,
+    bool& out_deleted);
+std::error_code list_top_ai_embedding_notes(
+    Database& db,
+    const float* query_values,
+    std::size_t query_value_count,
+    std::string_view exclude_rel_path,
+    std::size_t limit,
+    std::vector<NoteListHit>& out_hits);
 std::error_code upsert_attachment_metadata(
     Database& db,
     std::string_view rel_path,

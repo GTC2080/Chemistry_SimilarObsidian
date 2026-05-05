@@ -1,7 +1,6 @@
 use tauri::{AppHandle, State};
 
 use crate::ai;
-use crate::db::DbState;
 use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::read_ai_config;
 use crate::AppError;
@@ -59,25 +58,18 @@ pub async fn ask_vault(
     active_note_id: Option<String>,
     on_event: tauri::ipc::Channel<String>,
     app: AppHandle,
-    db: State<'_, DbState>,
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
-    vector_cache: State<'_, ai::VectorCacheState>,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<(), AppError> {
     let config = read_ai_config(&app)?;
     let query_embedding =
         ai::fetch_embedding_cached(&question, &config, embedding_runtime.inner()).await?;
-    sealed_kernel::active_vault_path(sealed_kernel.inner())?;
-
-    let top_notes = {
-        let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        vector_cache.top_k(
-            &query_embedding,
-            sealed_kernel::ai_rag_top_note_limit()?,
-            active_note_id.as_deref(),
-            &conn,
-        )?
-    };
+    let top_notes = sealed_kernel::query_ai_embedding_top_note_infos(
+        &query_embedding,
+        sealed_kernel::ai_rag_top_note_limit()? as u64,
+        active_note_id.as_deref(),
+        sealed_kernel.inner(),
+    )?;
 
     let related_ids = top_notes.iter().map(|note| note.id.clone());
     let note_contents = collect_rag_note_contents(

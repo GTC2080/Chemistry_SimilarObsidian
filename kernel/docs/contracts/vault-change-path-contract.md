@@ -106,7 +106,8 @@ Tauri Rust may still:
 - use returned relative paths to emit supported vault file-change events
 - use the same kernel path filter to validate one-off indexed Markdown note
   reads
-- use the same kernel path filter before deleting legacy embedding cache rows
+- use the same kernel path filter before deleting kernel `ai_embedding_cache`
+  rows
   for removed Markdown notes
 - ignore directory events as a platform watcher concern before calling the
   kernel path filter

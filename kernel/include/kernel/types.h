@@ -73,6 +73,24 @@ typedef struct kernel_float_buffer {
   size_t count;
 } kernel_float_buffer;
 
+typedef struct kernel_ai_embedding_note_metadata {
+  const char* rel_path;
+  const char* title;
+  const char* absolute_path;
+  int64_t created_at;
+  int64_t updated_at;
+} kernel_ai_embedding_note_metadata;
+
+typedef struct kernel_ai_embedding_timestamp_record {
+  char* rel_path;
+  int64_t updated_at;
+} kernel_ai_embedding_timestamp_record;
+
+typedef struct kernel_ai_embedding_timestamp_list {
+  kernel_ai_embedding_timestamp_record* records;
+  size_t count;
+} kernel_ai_embedding_timestamp_list;
+
 typedef struct kernel_note_metadata {
   uint64_t file_size;
   uint64_t mtime_ns;

@@ -37,7 +37,9 @@ struct SealedKernelBridgeStateSnapshot {
 extern "C" {
     fn sealed_kernel_bridge_info_json() -> *mut c_char;
     fn sealed_kernel_bridge_free_string(value: *mut c_char);
+    #[cfg(test)]
     fn sealed_kernel_bridge_free_bytes(value: *mut u8);
+    #[cfg(test)]
     fn sealed_kernel_bridge_free_float_array(value: *mut c_float);
     fn sealed_kernel_bridge_open_vault_utf8(
         vault_path_utf8: *const c_char,
@@ -315,6 +317,7 @@ extern "C" {
         out_key: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_serialize_ai_embedding_blob(
         values: *const c_float,
         value_count: u64,
@@ -322,11 +325,52 @@ extern "C" {
         out_size: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_parse_ai_embedding_blob(
         blob: *const u8,
         blob_size: u64,
         out_values: *mut *mut c_float,
         out_count: *mut u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
+        session: *mut SealedKernelBridgeSession,
+        rel_path_utf8: *const c_char,
+        title_utf8: *const c_char,
+        absolute_path_utf8: *const c_char,
+        created_at: i64,
+        updated_at: i64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
+        session: *mut SealedKernelBridgeSession,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_update_ai_embedding(
+        session: *mut SealedKernelBridgeSession,
+        rel_path_utf8: *const c_char,
+        values: *const c_float,
+        value_count: u64,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_clear_ai_embeddings(
+        session: *mut SealedKernelBridgeSession,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_delete_ai_embedding_note(
+        session: *mut SealedKernelBridgeSession,
+        rel_path_utf8: *const c_char,
+        out_deleted: *mut u8,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_ai_embedding_top_notes_json(
+        session: *mut SealedKernelBridgeSession,
+        query_values: *const c_float,
+        query_value_count: u64,
+        exclude_rel_path_utf8: *const c_char,
+        limit: u64,
+        out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_build_ai_rag_system_content_text(
@@ -565,6 +609,19 @@ struct SealedKernelNoteRecord {
     title: String,
     #[serde(default)]
     mtime_ns: u64,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelAiEmbeddingTimestampCatalog {
+    timestamps: Vec<SealedKernelAiEmbeddingTimestampRecord>,
+}
+
+#[derive(Deserialize)]
+struct SealedKernelAiEmbeddingTimestampRecord {
+    #[serde(rename = "relPath")]
+    rel_path: String,
+    #[serde(rename = "updatedAt")]
+    updated_at: i64,
 }
 
 #[derive(Deserialize)]
@@ -879,6 +936,19 @@ fn active_session(state: &SealedKernelState) -> AppResult<*mut SealedKernelBridg
     session
         .map(|value| value as *mut SealedKernelBridgeSession)
         .ok_or_else(|| AppError::Custom("sealed kernel session is not open.".to_string()))
+}
+
+pub fn active_session_token(state: &SealedKernelState) -> AppResult<usize> {
+    Ok(active_session(state)? as usize)
+}
+
+fn session_from_token(session: usize) -> AppResult<*mut SealedKernelBridgeSession> {
+    if session == 0 {
+        return Err(AppError::Custom(
+            "sealed kernel session is not open.".to_string(),
+        ));
+    }
+    Ok(session as *mut SealedKernelBridgeSession)
 }
 
 pub fn active_vault_path(state: &SealedKernelState) -> AppResult<String> {
@@ -2073,6 +2143,7 @@ pub fn compute_ai_embedding_cache_key(
     Ok(take_bridge_string(raw_key))
 }
 
+#[cfg(test)]
 pub fn serialize_ai_embedding_blob(values: &[f32]) -> AppResult<Vec<u8>> {
     let mut raw_bytes: *mut u8 = std::ptr::null_mut();
     let mut byte_count = 0u64;
@@ -2111,6 +2182,7 @@ pub fn serialize_ai_embedding_blob(values: &[f32]) -> AppResult<Vec<u8>> {
     Ok(bytes)
 }
 
+#[cfg(test)]
 pub fn parse_ai_embedding_blob(blob: &[u8]) -> AppResult<Vec<f32>> {
     let mut raw_values: *mut c_float = std::ptr::null_mut();
     let mut value_count = 0u64;
@@ -2148,6 +2220,165 @@ pub fn parse_ai_embedding_blob(blob: &[u8]) -> AppResult<Vec<f32>> {
         sealed_kernel_bridge_free_float_array(raw_values);
     }
     Ok(values)
+}
+
+pub fn upsert_ai_embedding_note_metadata_for_session(
+    session: usize,
+    note: &NoteInfo,
+) -> AppResult<()> {
+    let session = session_from_token(session)?;
+    let rel_path = cstring_arg(note.id.clone(), "note_rel_path")?;
+    let title = cstring_arg(note.name.clone(), "note_title")?;
+    let absolute_path = cstring_arg(note.path.clone(), "absolute_path")?;
+    call_status_operation(
+        "sealed_kernel_upsert_ai_embedding_note_metadata",
+        |error| unsafe {
+            sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
+                session,
+                rel_path.as_ptr(),
+                title.as_ptr(),
+                absolute_path.as_ptr(),
+                note.created_at,
+                note.updated_at,
+                error,
+            )
+        },
+    )
+}
+
+pub fn upsert_ai_embedding_note_metadata(
+    note: &NoteInfo,
+    state: &SealedKernelState,
+) -> AppResult<()> {
+    upsert_ai_embedding_note_metadata_for_session(active_session_token(state)?, note)
+}
+
+pub fn ai_embedding_note_timestamps(state: &SealedKernelState) -> AppResult<HashMap<String, i64>> {
+    let session = active_session(state)?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
+            session,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_query_ai_embedding_note_timestamps",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    let catalog: SealedKernelAiEmbeddingTimestampCatalog =
+        serde_json::from_str(&value).map_err(|err| {
+            AppError::Custom(format!(
+                "sealed kernel AI embedding timestamp JSON is invalid: {err}"
+            ))
+        })?;
+    Ok(catalog
+        .timestamps
+        .into_iter()
+        .map(|record| (record.rel_path.replace('\\', "/"), record.updated_at))
+        .collect())
+}
+
+pub fn update_ai_embedding_for_session(
+    session: usize,
+    note_id: &str,
+    embedding: &[f32],
+) -> AppResult<()> {
+    if embedding.is_empty() {
+        return Err(AppError::Custom(
+            "embedding vector must not be empty.".to_string(),
+        ));
+    }
+    let session = session_from_token(session)?;
+    let note_id = cstring_arg(note_id.to_string(), "note_rel_path")?;
+    call_status_operation("sealed_kernel_update_ai_embedding", |error| unsafe {
+        sealed_kernel_bridge_update_ai_embedding(
+            session,
+            note_id.as_ptr(),
+            embedding.as_ptr(),
+            embedding.len() as u64,
+            error,
+        )
+    })
+}
+
+pub fn clear_ai_embeddings(state: &SealedKernelState) -> AppResult<()> {
+    let session = active_session(state)?;
+    call_status_operation("sealed_kernel_clear_ai_embeddings", |error| unsafe {
+        sealed_kernel_bridge_clear_ai_embeddings(session, error)
+    })
+}
+
+pub fn delete_ai_embedding_note(note_id: &str, state: &SealedKernelState) -> AppResult<bool> {
+    let session = active_session(state)?;
+    let note_id = cstring_arg(note_id.to_string(), "note_rel_path")?;
+    let mut deleted = 0u8;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_delete_ai_embedding_note(
+            session,
+            note_id.as_ptr(),
+            &mut deleted,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_delete_ai_embedding_note",
+            code,
+            error,
+        ));
+    }
+    Ok(deleted != 0)
+}
+
+pub fn query_ai_embedding_top_note_infos(
+    query_embedding: &[f32],
+    limit: u64,
+    exclude_id: Option<&str>,
+    state: &SealedKernelState,
+) -> AppResult<Vec<NoteInfo>> {
+    if query_embedding.is_empty() || limit == 0 {
+        return Err(AppError::Custom(
+            "embedding query and limit must be non-empty.".to_string(),
+        ));
+    }
+    let vault_path = active_vault_path(state)?;
+    let exclude_id_c = exclude_id
+        .map(|value| cstring_arg(value.to_string(), "exclude_rel_path"))
+        .transpose()?;
+    let exclude_ptr = exclude_id_c
+        .as_ref()
+        .map_or(std::ptr::null(), |value| value.as_ptr());
+
+    let catalog = query_note_records_with_json(
+        "sealed_kernel_query_ai_embedding_top_notes",
+        state,
+        |session, raw_json, error| unsafe {
+            sealed_kernel_bridge_query_ai_embedding_top_notes_json(
+                session,
+                query_embedding.as_ptr(),
+                query_embedding.len() as u64,
+                exclude_ptr,
+                limit,
+                raw_json,
+                error,
+            )
+        },
+    )?;
+
+    Ok(catalog
+        .notes
+        .into_iter()
+        .map(|record| note_info_from_record(&vault_path, record))
+        .collect())
 }
 
 pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {

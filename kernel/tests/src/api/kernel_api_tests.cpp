@@ -108,6 +108,7 @@ int main() {
     run_domain_diagnostics_tests();
     run_pdf_surface_tests();
     run_product_compute_tests();
+    run_ai_embedding_cache_tests();
     run_search_public_surface_tests();
     run_kernel_api_watcher_smoke_tests();
     run_rebuild_runtime_tests();

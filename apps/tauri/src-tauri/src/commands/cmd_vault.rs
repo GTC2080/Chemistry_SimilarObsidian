@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::Arc;
 
 use futures_util::stream::{self, StreamExt};
 use tauri::{AppHandle, State};
@@ -17,14 +16,12 @@ use crate::AppError;
 pub fn init_vault(
     vault_path: String,
     db: State<DbState>,
-    vector_cache: State<ai::VectorCacheState>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<(), AppError> {
     sealed_kernel::ensure_vault_open(&vault_path, sealed_kernel.inner())?;
     let new_conn = db::init_db(&vault_path)?;
     let mut conn = db.conn.lock().map_err(|_| AppError::Lock)?;
     *conn = new_conn;
-    vector_cache.clear();
     Ok(())
 }
 
@@ -154,52 +151,42 @@ fn collect_kernel_changed_upserts(
     Ok(pending_upserts)
 }
 
-fn write_note_cache(db: &DbState, pending_upserts: &[PendingUpsert]) -> Result<(), AppError> {
+fn write_note_cache(
+    kernel_state: &SealedKernelState,
+    pending_upserts: &[PendingUpsert],
+) -> Result<(), AppError> {
     if pending_upserts.is_empty() {
         return Ok(());
     }
 
-    let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-    conn.execute_batch("BEGIN")?;
     for upsert in pending_upserts {
-        db::upsert_embedding_note_metadata(
-            &conn,
-            &upsert.id,
-            &upsert.name,
-            &upsert.abs_path,
-            upsert.created_at,
-            upsert.updated_at,
-        )?;
+        let note = NoteInfo {
+            id: upsert.id.clone(),
+            name: upsert.name.clone(),
+            path: upsert.abs_path.clone(),
+            created_at: upsert.created_at,
+            updated_at: upsert.updated_at,
+            file_extension: upsert.ext.clone(),
+        };
+        sealed_kernel::upsert_ai_embedding_note_metadata(&note, kernel_state)?;
     }
-    conn.execute_batch("COMMIT")?;
     Ok(())
 }
 
 fn spawn_embedding_tasks(
     pending_upserts: Vec<PendingUpsert>,
     ai_config: Option<ai::AiConfig>,
-    db: State<DbState>,
+    kernel_session: usize,
     embedding_runtime: State<ai::EmbeddingRuntimeState>,
-    vector_cache: State<ai::VectorCacheState>,
 ) {
     let Some(config) = ai_config else {
         return;
     };
 
     for upsert in pending_upserts {
-        let db_conn = Arc::clone(&db.conn);
         let embedding_runtime = embedding_runtime.inner().clone();
-        let vector_cache = vector_cache.inner().clone();
         let note_id = upsert.id;
         let text_for_embedding = upsert.content;
-        let note_info = NoteInfo {
-            id: note_id.clone(),
-            name: upsert.name,
-            path: upsert.abs_path,
-            created_at: upsert.created_at,
-            updated_at: upsert.updated_at,
-            file_extension: upsert.ext,
-        };
         let config = config.clone();
         let version = embedding_runtime.bump_version(&note_id);
 
@@ -211,13 +198,14 @@ fn spawn_embedding_tasks(
                         eprintln!("[向量化] 跳过过期结果 [{}] v{}", note_id, version);
                         return;
                     }
-                    if let Ok(conn) = db_conn.lock() {
-                        if let Err(e) = db::update_note_embedding(&conn, &note_id, &embedding) {
-                            eprintln!("[向量化] 写入失败 [{}]: {}", note_id, e);
-                        } else {
-                            vector_cache.upsert(note_info, embedding.clone());
-                            eprintln!("[向量化] 成功 [{}]: {}维向量", note_id, embedding.len());
-                        }
+                    if let Err(e) = sealed_kernel::update_ai_embedding_for_session(
+                        kernel_session,
+                        &note_id,
+                        &embedding,
+                    ) {
+                        eprintln!("[向量化] 写入失败 [{}]: {}", note_id, e);
+                    } else {
+                        eprintln!("[向量化] 成功 [{}]: {}维向量", note_id, embedding.len());
                     }
                 }
                 Err(e) => eprintln!("[向量化] 跳过 [{}]: {}", note_id, e),
@@ -257,26 +245,20 @@ pub fn scan_vault(
 // index_vault_content — background content indexing (Phase 2)
 // ---------------------------------------------------------------------------
 
-/// Refresh the AI compatibility cache from the kernel note catalog and spawn
-/// embedding tasks. The kernel is the content source; the Rust DB only stores
-/// legacy embedding rows until semantic retrieval moves behind the kernel too.
+/// Refresh the kernel-owned AI embedding cache from the kernel note catalog and
+/// spawn embedding tasks. Rust no longer stores note embedding rows.
 #[tauri::command]
 pub fn index_vault_content(
     vault_path: String,
     ignored_folders: Option<String>,
     app: AppHandle,
-    db: State<DbState>,
     embedding_runtime: State<ai::EmbeddingRuntimeState>,
-    vector_cache: State<ai::VectorCacheState>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<u32, AppError> {
     let ai_config = read_ai_config(&app)
         .ok()
         .filter(|config| !config.api_key.trim().is_empty());
-    let existing_timestamps = {
-        let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        db::get_embedding_note_timestamps(&conn)?
-    };
+    let existing_timestamps = sealed_kernel::ai_embedding_note_timestamps(sealed_kernel.inner())?;
 
     let pending_upserts = collect_kernel_note_upserts(
         &vault_path,
@@ -286,13 +268,13 @@ pub fn index_vault_content(
     )?;
 
     let indexed_count = pending_upserts.len() as u32;
-    write_note_cache(db.inner(), &pending_upserts)?;
+    write_note_cache(sealed_kernel.inner(), &pending_upserts)?;
+    let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())?;
     spawn_embedding_tasks(
         pending_upserts,
         ai_config,
-        db,
+        kernel_session,
         embedding_runtime,
-        vector_cache,
     );
 
     Ok(indexed_count)
@@ -301,13 +283,9 @@ pub fn index_vault_content(
 #[tauri::command]
 pub async fn rebuild_vector_index(
     app: AppHandle,
-    db: State<'_, DbState>,
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
-    vector_cache: State<'_, ai::VectorCacheState>,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<u32, AppError> {
-    // 清空内存缓存，重建完成后下次查询会重新加载
-    vector_cache.clear();
     let config = read_ai_config(&app)?;
     if config.api_key.trim().is_empty() {
         return Err(AppError::Custom(
@@ -323,23 +301,9 @@ pub async fn rebuild_vector_index(
         .map(|note| (note.id.clone(), note.content.clone()))
         .collect();
 
-    // Lock optimization: refresh the compatibility cache and clear embeddings in one lock.
-    {
-        let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        db::clear_all_embeddings(&conn)?;
-        conn.execute_batch("BEGIN")?;
-        for upsert in &pending_upserts {
-            db::upsert_embedding_note_metadata(
-                &conn,
-                &upsert.id,
-                &upsert.name,
-                &upsert.abs_path,
-                upsert.created_at,
-                upsert.updated_at,
-            )?;
-        }
-        conn.execute_batch("COMMIT")?;
-    }
+    sealed_kernel::clear_ai_embeddings(sealed_kernel.inner())?;
+    write_note_cache(sealed_kernel.inner(), &pending_upserts)?;
+    let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())?;
 
     // Process embeddings concurrently with buffer_unordered(4)
     let results: Vec<_> = stream::iter(all_notes)
@@ -361,13 +325,9 @@ pub async fn rebuild_vector_index(
         .collect()
         .await;
 
-    // Batch write all embeddings in one lock + transaction
-    let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-    conn.execute_batch("BEGIN")?;
     for (id, embedding) in &results {
-        db::update_note_embedding(&conn, id, embedding)?;
+        sealed_kernel::update_ai_embedding_for_session(kernel_session, id, embedding)?;
     }
-    conn.execute_batch("COMMIT")?;
 
     Ok(results.len() as u32)
 }
@@ -377,7 +337,6 @@ pub async fn write_note(
     vault_path: String,
     file_path: String,
     content: String,
-    vector_cache: State<'_, ai::VectorCacheState>,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<(), AppError> {
     sealed_kernel::write_note_by_file_path(
@@ -386,7 +345,6 @@ pub async fn write_note(
         &content,
         sealed_kernel.inner(),
     )?;
-    vector_cache.clear();
     Ok(())
 }
 
@@ -422,19 +380,14 @@ pub fn index_changed_entries(
     vault_path: String,
     paths: Vec<String>,
     app: AppHandle,
-    db: State<DbState>,
     embedding_runtime: State<ai::EmbeddingRuntimeState>,
-    vector_cache: State<ai::VectorCacheState>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<u32, AppError> {
     let ai_config = read_ai_config(&app)
         .ok()
         .filter(|config| !config.api_key.trim().is_empty());
 
-    let existing_timestamps = {
-        let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-        db::get_embedding_note_timestamps(&conn)?
-    };
+    let existing_timestamps = sealed_kernel::ai_embedding_note_timestamps(sealed_kernel.inner())?;
 
     let pending_upserts = collect_kernel_changed_upserts(
         &vault_path,
@@ -444,13 +397,13 @@ pub fn index_changed_entries(
     )?;
 
     let indexed_count = pending_upserts.len() as u32;
-    write_note_cache(db.inner(), &pending_upserts)?;
+    write_note_cache(sealed_kernel.inner(), &pending_upserts)?;
+    let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())?;
     spawn_embedding_tasks(
         pending_upserts,
         ai_config,
-        db,
+        kernel_session,
         embedding_runtime,
-        vector_cache,
     );
 
     Ok(indexed_count)
@@ -460,15 +413,12 @@ pub fn index_changed_entries(
 #[tauri::command]
 pub fn remove_deleted_entries(
     paths: Vec<String>,
-    db: State<DbState>,
-    vector_cache: State<ai::VectorCacheState>,
+    sealed_kernel: State<SealedKernelState>,
 ) -> Result<u32, AppError> {
     let rel_paths = deleted_markdown_rel_paths(&paths)?;
-    let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
     let mut removed = 0u32;
     for rel in &rel_paths {
-        if db::delete_note_by_id(&conn, rel).is_ok() {
-            vector_cache.remove(rel);
+        if sealed_kernel::delete_ai_embedding_note(rel, sealed_kernel.inner())? {
             removed += 1;
         }
     }

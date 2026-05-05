@@ -33,6 +33,8 @@ Current surface:
 - `kernel_compute_ai_embedding_cache_key(base_url, base_url_size, model, model_size, text, text_size, out_buffer)`
 - `kernel_serialize_ai_embedding_blob(values, value_count, out_buffer)`
 - `kernel_parse_ai_embedding_blob(blob, blob_size, out_values)`
+- handle-bound AI embedding metadata/vector storage and top-k retrieval are
+  documented in `contracts/ai-embedding-cache-contract.md`
 - `kernel_build_ai_rag_context(note_names, note_name_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
 - `kernel_build_ai_rag_context_from_note_paths(note_paths, note_path_sizes, note_contents, note_content_sizes, note_count, out_buffer)`
 - `kernel_build_ai_rag_system_content(context, context_size, out_buffer)`
@@ -77,10 +79,10 @@ Frozen rules:
 - the kernel owns AI embedding input normalization, Unicode character
   truncation, empty-after-truncation rejection, indexability preflight, and
   cache-key derivation
-- the kernel owns the AI embedding note refresh decision used by host
-  compatibility caches
-- the kernel owns the stable AI embedding vector BLOB codec used by legacy
-  host compatibility caches
+- the kernel owns the AI embedding note refresh decision used by embedding
+  indexing workflows
+- the kernel owns the stable AI embedding vector BLOB codec used by embedding
+  storage
 - the kernel owns AI RAG note context formatting, note display-name derivation
   from note paths, note numbering, note separators, and per-note Unicode
   character truncation
@@ -158,6 +160,8 @@ Frozen rules:
   cache metadata should refresh
 - hosts must not reinterpret `float` memory, hand-roll little-endian f32 BLOB
   serialization, or locally decide malformed embedding BLOB validity
+- hosts must not create, query, mutate, or rank a host-owned embedding SQL/cache
+  store once the kernel `ai_embedding_cache` surface is available
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache,
   concurrency, or RAG top-note defaults
 - hosts must not hard-code AI RAG note context headers, note display-name

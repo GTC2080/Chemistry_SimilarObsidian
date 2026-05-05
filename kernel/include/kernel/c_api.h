@@ -258,6 +258,29 @@ kernel_status kernel_parse_ai_embedding_blob(
     const uint8_t* blob,
     size_t blob_size,
     kernel_float_buffer* out_values);
+kernel_status kernel_upsert_ai_embedding_note_metadata(
+    kernel_handle* handle,
+    const kernel_ai_embedding_note_metadata* metadata);
+kernel_status kernel_query_ai_embedding_note_timestamps(
+    kernel_handle* handle,
+    kernel_ai_embedding_timestamp_list* out_timestamps);
+kernel_status kernel_update_ai_embedding(
+    kernel_handle* handle,
+    const char* note_rel_path,
+    const float* values,
+    size_t value_count);
+kernel_status kernel_clear_ai_embeddings(kernel_handle* handle);
+kernel_status kernel_delete_ai_embedding_note(
+    kernel_handle* handle,
+    const char* note_rel_path,
+    uint8_t* out_deleted);
+kernel_status kernel_query_ai_embedding_top_notes(
+    kernel_handle* handle,
+    const float* query_values,
+    size_t query_value_count,
+    const char* exclude_rel_path,
+    size_t limit,
+    kernel_search_results* out_results);
 kernel_status kernel_build_ai_rag_context(
     const char* const* note_names,
     const size_t* note_name_sizes,
@@ -485,6 +508,7 @@ kernel_status kernel_rebuild_index(kernel_handle* handle);
 kernel_status kernel_export_diagnostics(kernel_handle* handle, const char* output_path);
 void kernel_free_buffer(kernel_owned_buffer* buffer);
 void kernel_free_float_buffer(kernel_float_buffer* buffer);
+void kernel_free_ai_embedding_timestamp_list(kernel_ai_embedding_timestamp_list* timestamps);
 void kernel_free_note_list(kernel_note_list* notes);
 void kernel_free_path_list(kernel_path_list* paths);
 void kernel_free_file_tree(kernel_file_tree* tree);

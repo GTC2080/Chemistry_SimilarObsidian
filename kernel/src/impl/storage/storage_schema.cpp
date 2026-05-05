@@ -93,6 +93,14 @@ std::error_code ensure_schema_v1(Database& db) {
       "  preview_text TEXT NOT NULL,"
       "  PRIMARY KEY(note_id, ordinal)"
       ");"
+      "CREATE TABLE IF NOT EXISTS ai_embedding_cache("
+      "  note_rel_path TEXT PRIMARY KEY,"
+      "  note_title TEXT NOT NULL,"
+      "  absolute_path TEXT NOT NULL,"
+      "  created_at INTEGER NOT NULL,"
+      "  updated_at INTEGER NOT NULL,"
+      "  embedding BLOB"
+      ");"
       "CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(title, body, tokenize='unicode61');"
       "CREATE INDEX IF NOT EXISTS idx_notes_is_deleted_rel_path ON notes(is_deleted, rel_path);"
       "CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);"
@@ -103,7 +111,9 @@ std::error_code ensure_schema_v1(Database& db) {
       "CREATE INDEX IF NOT EXISTS idx_note_pdf_source_refs_pdf_rel_path_note_ordinal "
       "ON note_pdf_source_refs(pdf_rel_path, note_id, ordinal);"
       "CREATE INDEX IF NOT EXISTS idx_note_chem_spectrum_refs_attachment_note_ordinal "
-      "ON note_chem_spectrum_refs(attachment_rel_path, note_id, ordinal);");
+      "ON note_chem_spectrum_refs(attachment_rel_path, note_id, ordinal);"
+      "CREATE INDEX IF NOT EXISTS idx_ai_embedding_cache_has_embedding "
+      "ON ai_embedding_cache(note_rel_path) WHERE embedding IS NOT NULL;");
   if (ec) {
     return ec;
   }
@@ -111,7 +121,7 @@ std::error_code ensure_schema_v1(Database& db) {
   sqlite3_stmt* stmt = nullptr;
   ec = detail::prepare(
       db.connection,
-      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '8');",
+      "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', '9');",
       &stmt);
   if (ec) {
     return ec;
@@ -121,7 +131,7 @@ std::error_code ensure_schema_v1(Database& db) {
     return ec;
   }
 
-  return detail::exec(db.connection, "PRAGMA user_version=8;");
+  return detail::exec(db.connection, "PRAGMA user_version=9;");
 }
 
 }  // namespace kernel::storage

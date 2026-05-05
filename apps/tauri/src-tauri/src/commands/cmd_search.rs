@@ -1,7 +1,6 @@
 use tauri::{AppHandle, State};
 
 use crate::ai;
-use crate::db::DbState;
 use crate::models::{EnrichedGraphData, GraphData, NoteInfo, TagInfo, TagTreeNode};
 use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::read_ai_config;
@@ -30,16 +29,22 @@ pub async fn semantic_search(
     query: String,
     limit: usize,
     app: AppHandle,
-    db: State<'_, DbState>,
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
-    vector_cache: State<'_, ai::VectorCacheState>,
+    sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
     let config = read_ai_config(&app)?;
     let query_embedding =
         ai::fetch_embedding_cached(&query, &config, embedding_runtime.inner()).await?;
 
-    let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-    vector_cache.top_k(&query_embedding, limit, None, &conn)
+    sealed_kernel::query_ai_embedding_top_note_infos(
+        &query_embedding,
+        limit as u64,
+        None,
+        sealed_kernel.inner(),
+    )
 }
 
 #[tauri::command]
@@ -48,16 +53,22 @@ pub async fn get_related_notes(
     current_note_id: String,
     limit: usize,
     app: AppHandle,
-    db: State<'_, DbState>,
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
-    vector_cache: State<'_, ai::VectorCacheState>,
+    sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
     let config = read_ai_config(&app)?;
     let context_embedding =
         ai::fetch_embedding_cached(&context_text, &config, embedding_runtime.inner()).await?;
 
-    let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-    vector_cache.top_k(&context_embedding, limit, Some(&current_note_id), &conn)
+    sealed_kernel::query_ai_embedding_top_note_infos(
+        &context_embedding,
+        limit as u64,
+        Some(&current_note_id),
+        sealed_kernel.inner(),
+    )
 }
 
 #[tauri::command]
@@ -92,10 +103,12 @@ pub async fn get_related_notes_raw(
     current_note_id: String,
     limit: usize,
     app: AppHandle,
-    db: State<'_, DbState>,
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
-    vector_cache: State<'_, ai::VectorCacheState>,
+    sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
     let context_text = crate::commands::cmd_compute::build_semantic_context(raw_content);
     let min_context_bytes = sealed_kernel::semantic_context_min_bytes()?;
     if context_text.len() < min_context_bytes {
@@ -106,8 +119,12 @@ pub async fn get_related_notes_raw(
     let context_embedding =
         ai::fetch_embedding_cached(&context_text, &config, embedding_runtime.inner()).await?;
 
-    let conn = db.conn.lock().map_err(|_| AppError::Lock)?;
-    vector_cache.top_k(&context_embedding, limit, Some(&current_note_id), &conn)
+    sealed_kernel::query_ai_embedding_top_note_infos(
+        &context_embedding,
+        limit as u64,
+        Some(&current_note_id),
+        sealed_kernel.inner(),
+    )
 }
 
 /// 返回预构建的标签树结构（替代前端 buildTagTree）

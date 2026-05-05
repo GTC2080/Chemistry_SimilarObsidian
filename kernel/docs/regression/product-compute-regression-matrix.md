@@ -172,9 +172,11 @@ The repository must retain regression coverage for:
 - Tauri Rust vault indexing delegates embedding note refresh decisions to the
   sealed bridge instead of comparing `note.updated_at` and cached timestamps
   locally
-- Tauri Rust legacy embedding cache storage delegates f32 vector BLOB encode /
-  decode to the sealed bridge instead of using `from_raw_parts`,
-  `chunks_exact`, or local endian conversion
+- kernel embedding storage continues to use the kernel-owned f32 vector BLOB
+  codec instead of host code using `from_raw_parts`, `chunks_exact`, or local
+  endian conversion
+- Tauri Rust embedding storage and semantic top-k retrieval are covered by
+  `regression/ai-embedding-cache-regression-matrix.md`
 
 ## AI Prompt Shape
 

@@ -42,8 +42,9 @@
 
 ## 最近更新
 
+- **v1.0.6-dev** — legacy embedding DB 全面迁入 C++ kernel：`ai_embedding_cache` 表、metadata/timestamp/vector 写入、clear/delete 与 semantic top-k 检索由 kernel 拥有；`semantic_search` / `get_related_notes` / `ask_vault` 通过 sealed bridge 查询 kernel top-k；Rust 不再保留本地 embedding SQL、内存向量索引或余弦排序模块。
 - **v1.0.6-dev** — legacy embedding cache 刷新决策继续内核化：`index_vault_content` / `index_changed_entries` 的 note timestamp 是否需要刷新改走 `kernel_should_refresh_ai_embedding_note(...)`；Rust 不再用 `note.updated_at > cached_updated_at` 持有 embedding cache metadata 的刷新规则。
-- **v1.0.6-dev** — legacy embedding cache BLOB codec 继续内核化：`db/embeddings.rs` 的 `Vec<f32>` 与 SQLite BLOB 互转改走 `kernel_serialize_ai_embedding_blob(...)` / `kernel_parse_ai_embedding_blob(...)`；Rust 不再用 unsafe `from_raw_parts`、`chunks_exact` 或本地 endian 转换持有向量存储格式规则。
+- **v1.0.6-dev** — embedding BLOB codec 继续内核化：`Vec<f32>` 与 SQLite BLOB 互转格式由 `kernel_serialize_ai_embedding_blob(...)` / `kernel_parse_ai_embedding_blob(...)` 固化；Rust 不再用 unsafe `from_raw_parts`、`chunks_exact` 或本地 endian 转换持有向量存储格式规则。
 - **v1.0.6-dev** — vault host path 边界继续内核化：`read_note_by_file_path` / `write_note_by_file_path` / create/delete/rename/move by-path entry commands 和 watcher notify 事件的绝对宿主路径到 vault 相对路径转换改走 `kernel_relativize_vault_path(...)`；Rust 不再用 `strip_prefix`、反斜杠替换或 `..` 检查持有 vault-root 归属规则。
 - **v1.0.6-dev** — AI embedding indexing 预判继续内核化：`index_vault_content` / `index_changed_entries` 的正文是否值得进入 embedding 队列改走 `kernel_is_ai_embedding_text_indexable(...)`；Rust 不再用 `content.trim().is_empty()` 复制空白文本与截断后空文本规则。
 - **v1.0.6-dev** — 产品计算面继续内核化：`compute_truth_diff` 改为通过 sealed C++ bridge 调用 `kernel_compute_truth_diff(...)`，`build_semantic_context` 改为通过 sealed C++ bridge 调用 `kernel_build_semantic_context(...)`；TRUTH_SYSTEM 经验归因、reason key、代码块语言增量、分子编辑行数规则和 AI 语义上下文裁剪由 C++ sealed kernel 统一提供。Tauri Rust 只保留 DTO 映射和中文 reason 文案，不再保留 product compute C ABI mirror / unsafe 拷贝循环或 truth award reason 整数镜像。
@@ -56,7 +57,6 @@
 - **v1.0.6-dev** — AI RAG context shape 继续内核化：RAG note header、1-based 编号、note 分隔符和每条 note 的 Unicode 字符截断由 `kernel_build_ai_rag_context(...)` 提供；Rust `build_rag_context` 只调用 sealed bridge，不再拼接 note 上下文格式。
 - **v1.0.6-dev** — AI RAG note display name 继续内核化：`ask_vault` 只把 kernel rel path 与正文交给 `kernel_build_ai_rag_context_from_note_paths(...)`；最终路径段、扩展名剥离和 RAG block 展示名由 kernel 统一派生。
 - **v1.0.6-dev** — media 文件扩展名派生继续内核化：`parse_spectroscopy` / `read_molecular_preview` 只把原始 file path 交给 `kernel_derive_file_extension_from_path(...)`；最终路径段识别、大小写归一和父目录点号忽略由 kernel 统一提供。
-- **v1.0.6-dev** — legacy embedding cache 元数据继续瘦身：`db/common.rs` 的文件扩展名派生改走 `kernel_derive_file_extension_from_path(...)`，Rust 不再用 `Path::extension().to_lowercase()` 保留一套扩展名规则。
 - **v1.0.6-dev** — note catalog DTO 映射继续瘦身：`sealed_kernel.rs` 将 kernel note record 转为前端 `NoteInfo` 时，`file_extension` 也改走 `kernel_derive_file_extension_from_path(...)`，Rust 不再在 bridge 层保留 `Path::extension().to_lowercase()` 语义。
 - **v1.0.6-dev** — note catalog display name 继续内核化：`sealed_kernel.rs` 将 kernel note record 转为前端 `NoteInfo` 时，`name` 改走 `kernel_derive_note_display_name_from_path(...)`；最终路径段、扩展名剥离、无扩展名与 dotfile 展示名规则由 kernel 统一提供。
 - **v1.0.6-dev** — tag tree 结构继续内核化：`get_tag_tree` 改走 `kernel_query_tag_tree(...)`，slash-separated tag hierarchy、`fullPath`、exact tag count 与 synthetic parent count 由 kernel 统一派生；Rust 不再用 `split('/')` 现场拼标签树。
@@ -66,7 +66,7 @@
 - **v1.0.6-dev** — study heatmap 网格继续内核化：`get_heatmap_cells` 只在 Rust 读取 SQLite daily activity rows，26x7 网格大小、UTC 日期格式化、周一对齐、cell 坐标和 max_secs 由 `kernel_build_study_heatmap_grid(...)` 提供。
 - **v1.0.6-dev** — study streak 连续天数规则继续内核化：Rust 只从 SQLite 读取 active session timestamp，day bucket 计算、重复 bucket 去重、从今天向前连续计数和缺失当天归零规则由 `kernel_compute_study_streak_days_from_timestamps(...)` 提供。
 - **v1.0.6-dev** — AI RAG 笔记读取继续瘦身：`ask_vault` 的候选 note id 先交给 `kernel_filter_changed_markdown_paths(...)` 做 Markdown 过滤、路径归一和去重，Rust 只负责按 kernel rel path 读取正文并拼接上下文。
-- **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文与 media 文本读取走 kernel note read surface；全量 note catalog 与 `build_file_tree` 的 ignored root 过滤分别由 `kernel_query_notes_filtered(...)`、`kernel_query_file_tree_filtered(...)` 提供，增量 changed-entry 的 Markdown 路径归一/过滤/去重由 `kernel_filter_changed_markdown_paths(...)` 提供。Tauri Rust 只保留命令编排、embedding 兼容缓存写入和后台任务调度。
+- **v1.0.6-dev** — 内容/文件工作流继续收口到 C++ sealed kernel：`scan_vault`、`scan_changed_entries`、`index_vault_content`、`index_changed_entries` 的笔记元数据统一来自 kernel note catalog，正文与 media 文本读取走 kernel note read surface；全量 note catalog 与 `build_file_tree` 的 ignored root 过滤分别由 `kernel_query_notes_filtered(...)`、`kernel_query_file_tree_filtered(...)` 提供，增量 changed-entry 的 Markdown 路径归一/过滤/去重由 `kernel_filter_changed_markdown_paths(...)` 提供。Tauri Rust 只保留命令编排、embedding 网络请求和后台任务调度。
 - **v1.0.6-dev** — note catalog 扫描默认上限改由 `kernel_get_note_catalog_default_limit(...)` 提供，`scan_vault` 快速元数据预览上限改由 `kernel_get_vault_scan_default_limit(...)` 提供；`scan_vault` / `index_vault_content` 不再在 Rust command 中保留重复的 catalog limit 常量。
 - **v1.0.6-dev** — 直接 note catalog 查询的宿主默认页大小改由 `kernel_get_note_query_default_limit(...)` 提供；`sealed_kernel_query_notes` 不再用 Rust `unwrap_or(512)` 持有查询默认值。
 - **v1.0.6-dev** — file tree 默认 source catalog 上限改由 `kernel_get_file_tree_default_limit(...)` 提供；`build_file_tree` 不再在 Rust command 中保留重复的 file-tree limit 常量。
@@ -79,7 +79,7 @@
 - **v1.0.6-dev** — 对称性计算管线继续内核化：`calculate_symmetry` 现在通过 sealed C++ bridge 单点调用 `kernel_calculate_symmetry(...)`，由 kernel 完成 `XYZ` / `PDB` / simple `CIF` 原子解析、形状分析、主轴计算、候选生成、操作匹配、点群分类和渲染几何；Rust 只保留命令 DTO 与 localized error 映射，不再保留对称性 C ABI mirror / unsafe 拷贝循环。
 - **v1.0.6-dev** — PDF ink smoothing 继续瘦身：`smooth_ink_strokes` 通过 sealed C++ bridge 调用 `kernel_smooth_ink_strokes(...)`，默认容差通过 `kernel_get_pdf_ink_default_tolerance(...)` 查询，由 bridge 序列化 kernel-owned strokes/points 为 JSON。Rust `pdf/ink.rs` 只保留前端 DTO 与薄 wrapper，不再保留 ink C ABI mirror / unsafe 拷贝循环。
 - **v1.0.6-dev** — PDF annotation 哈希与路径边界继续内核化：批注存储 key 通过 `kernel_compute_pdf_annotation_storage_key(...)` 生成，轻量 PDF 内容 hash 通过 `kernel_compute_pdf_lightweight_hash(...)` 生成；`load_pdf_annotations` / `save_pdf_annotations` 先用 `kernel_relativize_vault_path(...)` 把 viewer 绝对路径转成 vault-relative `pdfPath`，Rust `pdf/annotations.rs` 只保留文件 seek/read、JSON 持久化和 DTO。
-- **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、`VectorCacheState` top-k 修复、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
+- **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
 ## 技术栈
@@ -110,28 +110,31 @@
 - `index_vault_content` / `index_changed_entries` -> `kernel_query_notes(...)` + `kernel_read_note(...)`
 - `index_vault_content` / `index_changed_entries` embedding eligibility -> `kernel_is_ai_embedding_text_indexable(...)`
 - `index_vault_content` / `index_changed_entries` embedding refresh decision -> `kernel_should_refresh_ai_embedding_note(...)`
-- legacy embedding cache BLOB codec -> `kernel_serialize_ai_embedding_blob(...)` + `kernel_parse_ai_embedding_blob(...)`
+- `index_vault_content` / `index_changed_entries` embedding timestamps -> `kernel_query_ai_embedding_note_timestamps(...)`
+- `index_vault_content` / `index_changed_entries` / `write_note` embedding metadata -> `kernel_upsert_ai_embedding_note_metadata(...)`
+- `index_vault_content` / `index_changed_entries` / `rebuild_vector_index` embedding vectors -> `kernel_update_ai_embedding(...)`
+- `rebuild_vector_index` cache reset -> `kernel_clear_ai_embeddings(...)`
+- `semantic_search` / `get_related_notes` / `get_related_notes_raw` / `ask_vault` semantic top-k -> `kernel_query_ai_embedding_top_notes(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
 - `ask_vault` RAG note content -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
-- `remove_deleted_entries` -> `kernel_filter_changed_markdown_paths(...)` + legacy embedding cache delete
+- `remove_deleted_entries` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_delete_ai_embedding_note(...)`
 - `parse_spectroscopy` / `read_molecular_preview` -> `kernel_read_note(...)` + `kernel_derive_file_extension_from_path(...)` + sealed C++ bridge over chemistry kernel compute ABI
 - `write_note` -> `kernel_write_note(...)`
 - `load_pdf_annotations` / `save_pdf_annotations` -> `kernel_relativize_vault_path(...)` + `kernel_compute_pdf_annotation_storage_key(...)` + `kernel_compute_pdf_lightweight_hash(...)`
 
-Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 兼容缓存和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
+Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 网络请求和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
 `scan_vault` 的快速元数据预览上限与 `index_vault_content` 的默认 note catalog 拉取上限从 kernel 查询，不再由 Rust command 持有业务边界常量。
 `sealed_kernel_query_notes` 的直接查询默认页大小从 kernel 查询，不影响 scan/index 使用的全量 catalog 默认上限。
 `build_file_tree` 的默认 source catalog 上限从 kernel 查询，不再由 Rust command 持有 file-tree limit 常量。
-Legacy embedding cache 里的 `NoteInfo.file_extension` 元数据也通过 `kernel_derive_file_extension_from_path(...)` 派生，避免 `db/common.rs` 保留本地路径/大小写规则。
-Legacy embedding cache 里的向量 BLOB 格式通过 `kernel_serialize_ai_embedding_blob(...)` / `kernel_parse_ai_embedding_blob(...)` 编解码，避免 Rust DB 层保留 f32 内存布局、little-endian 和 malformed blob 判定规则。
-Legacy embedding cache metadata 的刷新决策通过 `kernel_should_refresh_ai_embedding_note(...)` 判定，避免 `cmd_vault.rs` 保留本地 timestamp 比较规则。
+AI embedding cache 的 metadata、timestamp、vector BLOB、clear/delete 与 semantic top-k 检索由 kernel `ai_embedding_cache` surface 拥有；Rust 不再创建或读取本地 embedding SQL 表，也不再维护本地语义向量缓存。
+AI embedding cache metadata 的刷新决策通过 `kernel_should_refresh_ai_embedding_note(...)` 判定，避免 `cmd_vault.rs` 保留本地 timestamp 比较规则。
 Kernel note catalog 映射到前端 `NoteInfo` 时同样通过 `kernel_derive_file_extension_from_path(...)` 派生 `file_extension`，避免 sealed bridge 层重新拥有扩展名大小写语义。
 Kernel note catalog 映射到前端 `NoteInfo` 时也通过 `kernel_derive_note_display_name_from_path(...)` 派生 `name`，避免 sealed bridge 层重新拥有路径展示名规则。
 Rust watcher 只保留 notify 事件分类、平台目录事件判断、原始 ignored-root CSV 透传和 IPC 发送；notify 绝对路径到 vault-relative path 的相对化由 `kernel_relativize_vault_path(...)` 判定，隐藏路径、ignored root 解析/归一、支持扩展名、路径归一化与去重规则由 kernel path filter 统一判定。
 `read_note` / `write_note` / chemistry reference commands 的单路径校验与标准化由 `kernel_normalize_vault_relative_path(...)` 统一判定，Rust 只把 kernel 返回的 rel path 继续交给 read/write/reference bridge。
 `read_note_by_file_path` / `write_note_by_file_path` / create/delete/rename/move by-path entry commands 的绝对宿主路径归属、vault-root 相对化、分隔符标准化和 root-folder 空路径许可由 `kernel_relativize_vault_path(...)` 统一判定，Rust 只保留中文错误外壳和命令编排。
 PDF annotation load/save 的绝对 viewer file path 同样先由 `kernel_relativize_vault_path(...)` 判定 vault 归属；annotation JSON 的 `pdfPath` 与 storage key 使用同一个 vault-relative path，绝对路径只用于实际 PDF 文件 I/O。
-Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单。
+Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单；语义检索的排序与 active note 排除也由 kernel top-k surface 统一提供。
 
 已收口到 kernel 的关系读面：
 
@@ -362,14 +365,12 @@ src-tauri/src/          # Rust 后端
 ├── kinetics.rs         # 高分子动力学 kernel bridge
 ├── db.rs               # SQLite 数据库管理
 ├── db/                 # 数据库子模块
-│   ├── schema.rs       # 表结构与迁移
-│   ├── embeddings.rs   # 向量索引、Embedding 存储与 embedding cache metadata
+│   ├── schema.rs       # study 表结构与迁移
 │   ├── study.rs        # 学习模块入口（子模块: session / stats / truth）
 │   ├── study/          # 学习模块子目录
 │   │   ├── session.rs  # 会话 CRUD（start / tick / end）
 │   │   ├── stats.rs    # 统计聚合查询（热力图/每日/排行）
 │   │   └── truth.rs    # TruthState 经验等级推导
-│   ├── lifecycle.rs    # 初始化/清理/维护流程
 │   └── common.rs       # DB 公共工具
 ├── shared/             # 公共 helper 与跨模块共享逻辑
 ├── services/           # 领域服务层
@@ -381,9 +382,7 @@ src-tauri/src/          # Rust 后端
 ├── ai/                 # AI 模块（按职责拆分）
 │   ├── mod.rs          # AiConfig 定义与统一 re-export
 │   ├── embedding.rs    # Embedding 请求、LRU 缓存与并发控制
-│   ├── chat.rs         # 流式 RAG 对话与 Ponder 节点生成
-│   ├── similarity.rs   # 余弦相似度计算
-│   └── vector_cache.rs # 向量内存缓存与 top-k BinaryHeap 查询
+│   └── chat.rs         # 流式 RAG 对话与 Ponder 节点生成
 ├── error.rs            # 类型化错误处理（AppError / AppResult）
 ├── models.rs           # 数据模型
 └── lib.rs              # 应用入口
@@ -392,7 +391,7 @@ src-tauri/src/          # Rust 后端
 ## 架构演进（近期）
 
 - **PDF 渲染引擎迁移（v1.0.5）**：PDFium → pdf.js，渲染完全在前端 Canvas 完成（零 IPC），秒开体验；移除 pdfium-render / webp / base64 三个 crate，二进制更小编译更快；新增手绘涂写批注（Pointer Events + 压感），笔迹平滑算法（Douglas-Peucker 简化 + Catmull-Rom 插值）由 Tauri `spawn_blocking` 调用 sealed C++ bridge 并在 C++ kernel 执行；PDF Viewer 模块化拆分为纯渲染壳层 + 4 个子 hook + 7 个 CSS 子文件
-- **全量性能优化（v1.0.5）**：15 项优化，补齐 `VectorCacheState` top-k 堆顺序与缓存生命周期同步，纳入晶格引擎。包括保存队列 Map 化、增量监听链路替代全库扫描、向量检索内存缓存 + top-k BinaryHeap、面板拖拽 CSS var 零渲染、图谱/文件树 FNV-1a 指纹修正；晶格计算后续已收口为 C++ kernel full-result ABI
+- **全量性能优化（v1.0.5）**：15 项优化并纳入晶格引擎。包括保存队列 Map 化、增量监听链路替代全库扫描、面板拖拽 CSS var 零渲染、图谱/文件树 FNV-1a 指纹修正；晶格计算后续已收口为 C++ kernel full-result ABI，语义向量检索也已在 v1.0.6-dev 迁入 C++ kernel
 - **计算层 Rust 迁移（v1.0.4）**：6 项前端重计算（语义提取、标签树、图谱索引、热力图、化学计量、数据库归一化）下沉到 Rust 后端，新增 7 个 Tauri 命令
 - **架构级优化（v1.0.4）**：修复双重 scan_vault、事件驱动替代轮询、全局笔记缓存、乐观 UI、批量 SQL、复合索引、FTS 延迟填充
 - **渲染层优化（v1.0.4）**：CSS hover 替代 DOM 操作、关键组件 memo、文件树 memoize

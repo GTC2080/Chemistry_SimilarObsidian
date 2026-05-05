@@ -2564,6 +2564,196 @@ int32_t sealed_kernel_bridge_parse_ai_embedding_blob(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_upsert_ai_embedding_note_metadata(
+    sealed_kernel_bridge_session* session,
+    const char* rel_path_utf8,
+    const char* title_utf8,
+    const char* absolute_path_utf8,
+    int64_t created_at,
+    int64_t updated_at,
+    char** out_error) {
+  if (session == nullptr || session->handle == nullptr || rel_path_utf8 == nullptr ||
+      title_utf8 == nullptr || absolute_path_utf8 == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string rel_path = Utf8ToActiveCodePage(rel_path_utf8);
+  const std::string absolute_path = Utf8ToActiveCodePage(absolute_path_utf8);
+  if (rel_path.empty()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_ai_embedding_note_metadata metadata{
+      rel_path.c_str(),
+      title_utf8,
+      absolute_path.c_str(),
+      created_at,
+      updated_at};
+  const kernel_status status =
+      kernel_upsert_ai_embedding_note_metadata(session->handle, &metadata);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_upsert_ai_embedding_note_metadata", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_ai_embedding_note_timestamps_json(
+    sealed_kernel_bridge_session* session,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_ai_embedding_timestamp_list timestamps{};
+  const kernel_status status =
+      kernel_query_ai_embedding_note_timestamps(session->handle, &timestamps);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_query_ai_embedding_note_timestamps", out_error);
+  }
+
+  std::string json = "{\"timestamps\":[";
+  for (size_t index = 0; index < timestamps.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const std::string rel_path_utf8 =
+        ActiveCodePageToUtf8(timestamps.records[index].rel_path);
+    json += "{\"relPath\":\"" + JsonEscape(rel_path_utf8.c_str()) + "\",";
+    json += "\"updatedAt\":" + std::to_string(timestamps.records[index].updated_at) + "}";
+  }
+  json += "],\"count\":" + std::to_string(timestamps.count) + "}";
+
+  kernel_free_ai_embedding_timestamp_list(&timestamps);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_update_ai_embedding(
+    sealed_kernel_bridge_session* session,
+    const char* rel_path_utf8,
+    const float* values,
+    uint64_t value_count,
+    char** out_error) {
+  if (session == nullptr || session->handle == nullptr || rel_path_utf8 == nullptr ||
+      values == nullptr || value_count == 0 ||
+      value_count > (std::numeric_limits<std::size_t>::max)()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string rel_path = Utf8ToActiveCodePage(rel_path_utf8);
+  const kernel_status status =
+      kernel_update_ai_embedding(
+          session->handle,
+          rel_path.c_str(),
+          values,
+          static_cast<size_t>(value_count));
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_update_ai_embedding", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_clear_ai_embeddings(
+    sealed_kernel_bridge_session* session,
+    char** out_error) {
+  if (session == nullptr || session->handle == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_clear_ai_embeddings(session->handle);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_clear_ai_embeddings", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_delete_ai_embedding_note(
+    sealed_kernel_bridge_session* session,
+    const char* rel_path_utf8,
+    uint8_t* out_deleted,
+    char** out_error) {
+  if (out_deleted != nullptr) {
+    *out_deleted = 0;
+  }
+  if (session == nullptr || session->handle == nullptr || rel_path_utf8 == nullptr ||
+      out_deleted == nullptr) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string rel_path = Utf8ToActiveCodePage(rel_path_utf8);
+  const kernel_status status =
+      kernel_delete_ai_embedding_note(session->handle, rel_path.c_str(), out_deleted);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_delete_ai_embedding_note", out_error);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_ai_embedding_top_notes_json(
+    sealed_kernel_bridge_session* session,
+    const float* query_values,
+    uint64_t query_value_count,
+    const char* exclude_rel_path_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr ||
+      query_values == nullptr || query_value_count == 0 || limit == 0 ||
+      query_value_count > (std::numeric_limits<std::size_t>::max)() ||
+      limit > (std::numeric_limits<std::size_t>::max)()) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string exclude_rel_path = Utf8ToActiveCodePage(exclude_rel_path_utf8);
+  kernel_search_results results{};
+  const kernel_status status =
+      kernel_query_ai_embedding_top_notes(
+          session->handle,
+          query_values,
+          static_cast<size_t>(query_value_count),
+          exclude_rel_path.empty() ? nullptr : exclude_rel_path.c_str(),
+          static_cast<size_t>(limit),
+          &results);
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_query_ai_embedding_top_notes", out_error);
+  }
+
+  std::string json = "{\"notes\":[";
+  for (size_t index = 0; index < results.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    AppendNoteHitJson(json, results.hits[index].rel_path, results.hits[index].title);
+  }
+  json += "],\"count\":" + std::to_string(results.count) + "}";
+
+  kernel_free_search_results(&results);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "allocation_failed");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 int32_t sealed_kernel_bridge_build_ai_rag_system_content_text(
     const char* context_utf8,
     uint64_t context_size,

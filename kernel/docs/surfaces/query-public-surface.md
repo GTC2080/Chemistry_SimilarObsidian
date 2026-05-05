@@ -45,7 +45,8 @@ Current Tauri host wiring:
 
 Host rule:
 
-- hosts may keep compatibility caches such as embedding rows, but they must not rebuild note metadata truth from their own filesystem walk or legacy Rust DB rows when a kernel note catalog entry is available
+- hosts must not rebuild note metadata truth from their own filesystem walk or legacy Rust DB rows when a kernel note catalog entry is available
+- AI embedding metadata, vector persistence, timestamp refresh data, clears, deletes, and semantic top-k note retrieval must use the kernel-owned `ai_embedding_cache` surface rather than a host-owned store
 
 ## Kernel-Owned Query Defaults
 

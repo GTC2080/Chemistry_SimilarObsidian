@@ -28,7 +28,7 @@
 - **Chemistry-native workspace** — Ketcher 2D editor, 3D molecular viewer, symmetry analysis, crystal lattice tools, spectroscopy, and polymer kinetics
 - **Publishing pipeline** — `.paper` workspace for drag-and-drop assembly plus Pandoc + XeLaTeX PDF generation
 - **Relationship-driven navigation** — file tree, tag tree, knowledge graph, and study timeline work together for writing and review
-- **Desktop performance focus** — Tauri + Rust handle heavy compute and I/O; recent work includes incremental vault watching, in-memory vector retrieval, leaner PDF rendering, and smoother panel resizing
+- **Desktop performance focus** — Tauri hosts the shell while the C++ sealed kernel owns core vault/query/embedding retrieval surfaces; recent work includes incremental vault watching, leaner PDF rendering, and smoother panel resizing
 - **Polished app shell** — onboarding, themes, bilingual UI, resizable layout, and the TRUTH_SYSTEM dashboard are already integrated
 
 ## Current Status
@@ -37,10 +37,12 @@
 - **Release focus**: chemistry-heavy today, while the Markdown, search, graph, and AI layers remain general-purpose
 - **Data policy**: local-first by default, with vault content and SQLite data kept on the user's machine
 - **Optimization direction**: large-vault responsiveness, low-blocking I/O, fast interaction feedback, and stable semantic retrieval
+- **Backend boundary**: core note IO, search, tags, backlinks, graph, file tree, and AI embedding cache retrieval are owned by `kernel/`; Tauri Rust keeps command registration, bridge wiring, platform glue, and thin orchestration
 
 ## Recent Updates
 
-- **v1.0.5** — the current unreleased target now combines the 15-item performance pass, the `VectorCacheState` top-k heap-order and cache-lifecycle fixes, and the crystal-lattice feature set; this includes save-queue safety, incremental watcher flow, in-memory vector cache, PDF path rendering, zero-rerender resize, `.cif` tri-view support, supercell generation, and Miller-plane slicing
+- **v1.0.6-dev** — the legacy embedding DB has moved into the C++ kernel: `ai_embedding_cache` now owns metadata, timestamps, vectors, clear/delete, and semantic top-k retrieval; Rust no longer keeps a local embedding SQL layer or local cosine-similarity cache
+- **v1.0.5** — the current unreleased target combines the 15-item performance pass and the crystal-lattice feature set; this includes save-queue safety, incremental watcher flow, PDF path rendering, zero-rerender resize, `.cif` tri-view support, supercell generation, and Miller-plane slicing
 - **v1.0.4** — moved multiple hot-path computations from the frontend into Rust to improve startup, switching, and heavy-view responsiveness
 
 ## Tech Stack
@@ -50,7 +52,7 @@
 | Framework | Tauri 2 |
 | Frontend | React 19 + TypeScript + Tailwind CSS 4 |
 | Editor | TipTap 3 + KaTeX + 3Dmol.js + Ketcher |
-| Backend | Rust + SQLite (rusqlite) |
+| Backend | Tauri Rust shell + C++ sealed kernel + SQLite |
 | AI | OpenAI-compatible API (Chat + Embedding) |
 | Build | Vite 6 |
 
@@ -194,31 +196,22 @@ src-tauri/src/          # Rust backend
 │   ├── cmd_symmetry.rs # Molecular symmetry analysis commands (point group / axes / planes)
 │   └── cmd_crystal.rs  # Crystal lattice parsing and Miller plane commands (CIF → supercell → slicing plane)
 ├── commands.rs         # Command registration entry
-├── crystal/            # Crystal lattice engine
-│   ├── mod.rs          # Public interface (parse_and_build_lattice / calculate_miller_plane)
-│   ├── types.rs        # Lattice data protocol (LatticeData / UnitCellBox / AtomNode / MillerPlaneData)
-│   ├── parse.rs        # Full CIF parser (cell params / fractional coords / symmetry operations)
-│   ├── supercell.rs    # Symmetry expansion + HashSet O(1) dedup + supercell generation
-│   └── miller.rs       # Miller indices → reciprocal-lattice normal + d-spacing + visualization vertices
-├── kinetics.rs         # Polymer kinetics solver (Method of Moments + RK4)
+├── crystal/            # Crystal lattice command DTOs
+│   ├── mod.rs          # DTO re-export; full-result compute runs through sealed kernel bridge
+│   └── types.rs        # Lattice data protocol (LatticeData / UnitCellBox / AtomNode / MillerPlaneData)
+├── kinetics.rs         # Polymer kinetics kernel bridge
 ├── db.rs               # SQLite database management
 ├── db/                 # DB submodules
-│   ├── schema.rs       # Schema definitions and migrations
-│   ├── notes.rs        # Note read/write operations
-│   ├── embeddings.rs   # Vector index and embedding storage
-│   ├── relations.rs    # Bidirectional link relation maintenance
-│   ├── parsing.rs      # Tag/link extraction and parsing
-│   ├── graph.rs        # Graph queries (wikilink + tag co-occurrence + folder proximity)
+│   ├── schema.rs       # Study schema and migrations
 │   ├── study.rs        # Study module entry (submodules: session / stats / truth)
 │   ├── study/          # Study module subdir
 │   │   ├── session.rs  # Session CRUD (start / tick / end)
 │   │   ├── stats.rs    # Statistics aggregation queries (heatmap / daily / ranking)
 │   │   └── truth.rs    # TruthState experience-level derivation
-│   ├── lifecycle.rs    # Initialization/cleanup/maintenance flows
 │   └── common.rs       # Shared DB utilities
 ├── shared/             # Shared helpers across command and service modules
 ├── services/           # Domain service layer
-├── symmetry/           # Symmetry engine modules (parse/geometry/search/classify/render)
+├── symmetry/           # Symmetry command DTOs; compute runs through sealed kernel bridge
 ├── watcher/            # Incremental file system watcher
 │   ├── mod.rs          # WatcherState lifecycle (start/stop)
 │   ├── filter.rs       # Path filtering (hidden files / extension whitelist / ignored folders)
@@ -226,9 +219,7 @@ src-tauri/src/          # Rust backend
 ├── ai/                 # AI module (split by responsibility)
 │   ├── mod.rs          # AiConfig definition and unified re-exports
 │   ├── embedding.rs    # Embedding requests, LRU cache, and concurrency control
-│   ├── chat.rs         # Streaming RAG chat and Ponder node generation
-│   ├── similarity.rs   # Cosine similarity computation
-│   └── vector_cache.rs # In-memory vector cache with top-k BinaryHeap query
+│   └── chat.rs         # Streaming RAG chat and Ponder node generation
 ├── error.rs            # Typed error handling (AppError / AppResult)
 ├── models.rs           # Data models
 └── lib.rs              # App entry point
@@ -236,7 +227,8 @@ src-tauri/src/          # Rust backend
 
 ## Architecture Evolution (Recent)
 
-- **Full performance optimization pass (target release v1.0.5)**: the current unreleased target combines 15 items across P0-P3, the follow-up `VectorCacheState` top-k heap-order and `upsert / remove / clear` lifecycle fixes, and the crystal-engine work. That includes save queue safety, incremental watcher flow, in-memory vector cache + top-k BinaryHeap, PDF fallback/path rendering improvements, zero-rerender resize, graph/file-tree FNV-1a fingerprints, perf baseline tooling, and the Rust `crystal/` module for CIF parsing, symmetry expansion, supercell generation, and Miller-plane calculation
+- **Kernel embedding cache migration (v1.0.6-dev)**: semantic search, related notes, and RAG candidate retrieval now call kernel top-k over `ai_embedding_cache`; Rust only schedules embedding requests and maps command DTOs.
+- **Full performance optimization pass (target release v1.0.5)**: the current unreleased target combines 15 items across P0-P3 and the crystal-engine work. That includes save queue safety, incremental watcher flow, PDF fallback/path rendering improvements, zero-rerender resize, graph/file-tree FNV-1a fingerprints, and perf baseline tooling.
 - **Extreme performance optimization (v1.0.4)**:
   - Rust `scan_vault` restructured from per-file locking to batch timestamp pre-read + single-transaction writes, reducing Mutex overhead by ~99%
   - `rebuild_vector_index` changed from sequential to 4-way concurrent streaming with batched DB writes
