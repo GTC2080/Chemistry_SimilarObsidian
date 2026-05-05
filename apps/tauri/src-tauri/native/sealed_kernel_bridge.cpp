@@ -2342,6 +2342,32 @@ int32_t sealed_kernel_bridge_normalize_database_column_type_text(
   return CopyKernelOwnedText(buffer, out_text, out_error);
 }
 
+int32_t sealed_kernel_bridge_normalize_database_json(
+    const char* json_utf8,
+    uint64_t json_size,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (out_json == nullptr || (json_size > 0 && json_utf8 == nullptr)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_normalize_database_json(
+      json_utf8,
+      static_cast<size_t>(json_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_normalize_database_json", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_json, out_error);
+}
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error) {

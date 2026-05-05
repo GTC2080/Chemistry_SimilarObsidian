@@ -265,10 +265,17 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_normalize_database_column_type_text(
         column_type_utf8: *const c_char,
         column_type_size: u64,
         out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_normalize_database_json(
+        json_utf8: *const c_char,
+        json_size: u64,
+        out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_get_semantic_context_min_bytes(
@@ -2137,6 +2144,7 @@ pub fn derive_note_display_name_from_path(path: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
+#[cfg(test)]
 pub fn normalize_database_column_type(column_type: &str) -> AppResult<String> {
     let mut raw_text: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
@@ -2156,6 +2164,34 @@ pub fn normalize_database_column_type(column_type: &str) -> AppResult<String> {
         ));
     }
     Ok(take_bridge_string(raw_text))
+}
+
+pub fn normalize_database_json<T>(input: &Value) -> AppResult<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let raw = serde_json::to_string(input)
+        .map_err(|err| AppError::Custom(format!("database payload JSON is invalid: {err}")))?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_normalize_database_json(
+            raw.as_ptr() as *const c_char,
+            raw.len() as u64,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_normalize_database_json",
+            code,
+            error,
+        ));
+    }
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value)
+        .map_err(|err| AppError::Custom(format!("sealed kernel database JSON is invalid: {err}")))
 }
 
 pub fn compute_ai_embedding_cache_key(
@@ -3928,6 +3964,7 @@ mod tests {
     fn ai_rag_context_shape_comes_from_kernel() {
         let context = build_ai_rag_context_from_note_paths(&[
             ("Alpha.md".to_string(), "first".to_string()),
+            ("Blank.md".to_string(), " \n\t ".to_string()),
             ("Beta.md".to_string(), "second".to_string()),
         ])
         .unwrap();

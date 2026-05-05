@@ -13,10 +13,7 @@ fn collect_rag_note_contents(
 
     for rel_path in rag_note_rel_paths(note_ids)? {
         match sealed_kernel::read_note_by_rel_path(&rel_path, kernel_state) {
-            Ok(content) if !content.trim().is_empty() => {
-                contents.push((rel_path, content));
-            }
-            Ok(_) => {}
+            Ok(content) => contents.push((rel_path, content)),
             Err(err) => eprintln!("[ask_vault] 跳过 RAG 笔记 [{}]: {}", rel_path, err),
         }
     }

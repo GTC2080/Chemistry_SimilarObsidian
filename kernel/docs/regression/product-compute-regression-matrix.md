@@ -2,7 +2,7 @@
 
 # Product Compute Regression Matrix
 
-Last updated: `2026-05-03`
+Last updated: `2026-05-05`
 
 ## Truth Diff Awards
 
@@ -67,16 +67,26 @@ The repository must retain regression coverage for:
 - Tauri Rust note catalog DTO mapping asks the sealed bridge for `NoteInfo.name`
   instead of deriving it with Rust path helpers
 
-## Database Column Type Normalization
+## Database Grid Normalization
 
 The repository must retain regression coverage for:
 
+- `kernel_normalize_database_json(...)` trims string column ids and names
+- non-string or empty column names normalize to `Untitled`
 - `kernel_normalize_database_column_type(...)` preserves `text`, `number`,
   `select`, and `tags`
-- unknown and empty column types fall back to `text`
-- null non-empty input buffers and null output pointers are rejected
-- Tauri Rust `normalize_database` asks the sealed bridge for column type
-  normalization instead of retaining a local allow-list
+- payload column types use the same kernel allow-list, with unknown and empty
+  types falling back to `text`
+- missing valid columns generate `Name`, `Tags`, and `Notes` defaults
+- string row ids are trimmed, non-object rows are skipped, and generated row ids
+  remain kernel-owned
+- row cells are emitted only for normalized column ids in column order
+- missing cells normalize to an empty string and extra input cells are dropped
+- valid scalar/array/object/null cell JSON shapes are preserved
+- invalid JSON, null non-empty input buffers, and null output pointers are
+  rejected
+- Tauri Rust `normalize_database` asks the sealed bridge for complete payload
+  normalization instead of retaining local column, row, or cell rules
 
 ## Semantic Context
 
@@ -184,6 +194,8 @@ The repository must retain regression coverage for:
 
 - `kernel_build_ai_rag_context(...)` preserves note headers, 1-based note
   numbering, note names, note content, and blank-line separators
+- `kernel_build_ai_rag_context(...)` skips empty or all-whitespace note content
+  and keeps emitted note numbering contiguous
 - `kernel_build_ai_rag_context(...)` truncates note content at the kernel-owned
   `1500` Unicode character limit rather than at raw bytes
 - `kernel_build_ai_rag_context(...)` returns empty text for an empty note list

@@ -37,10 +37,12 @@
 - **Release focus**: chemistry-heavy today, while the Markdown, search, graph, and AI layers remain general-purpose
 - **Data policy**: local-first by default, with vault content and SQLite data kept on the user's machine
 - **Optimization direction**: large-vault responsiveness, low-blocking I/O, fast interaction feedback, and stable semantic retrieval
-- **Backend boundary**: core note IO, vault root validation, vault file reads, PDF file hashing, search, tags, backlinks, graph, file tree, AI embedding cache retrieval, embedding refresh job planning, and study/session storage/statistics are owned by `kernel/`; Tauri Rust keeps command registration, bridge wiring, platform glue, external network calls, and thin orchestration
+- **Backend boundary**: core note IO, vault root validation, vault file reads, PDF file hashing, search, tags, backlinks, graph, file tree, product/database normalization, AI embedding cache retrieval, embedding refresh job planning, and study/session storage/statistics are owned by `kernel/`; Tauri Rust keeps command registration, bridge wiring, platform glue, external network calls, and thin orchestration
 
 ## Recent Updates
 
+- **v1.0.6-dev** — database grid payload normalization now goes through `kernel_normalize_database_json(...)`: column id/name trimming, default columns, column type allow-list fallback, row id trimming, missing-cell filling, and extra-cell dropping are owned by the C++ kernel; Rust `cmd_compute.rs` keeps only DTOs and the command bridge
+- **v1.0.6-dev** — AI RAG context blank-note filtering now belongs to `kernel_build_ai_rag_context_from_note_paths(...)`: `ask_vault` no longer uses Rust `.trim().is_empty()` to decide whether a note enters the context; blank skipping, contiguous block numbering, and per-note truncation are kernel-owned
 - **v1.0.6-dev** — study/session storage has moved fully into the C++ kernel: `study_session_start` / `study_session_tick` / `study_session_end`, `study_stats_query`, `truth_state_from_study`, and `get_heatmap_cells` now go through the sealed bridge; Rust `src/db/`, `DbState`, the `rusqlite` dependency, and the legacy study SQLite compatibility layer have been removed
 - **v1.0.6-dev** — legacy embedding refresh jobs have moved into the C++ kernel: `index_vault_content`, `index_changed_entries`, and `rebuild_vector_index` now ask the kernel to prepare jobs, including note catalog reads, ignored-root filtering, changed-path catalog refresh, timestamp comparison, note-content reads, indexability checks, and metadata upserts; Rust only calls the external embedding API and writes vectors back
 - **v1.0.6-dev** — legacy `index.db` has left the note/vault/study main path: `init_vault` now only opens the sealed kernel session and no longer initializes Rust `DbState` or creates `index.db` under the vault root; study/session data now lives in the kernel storage schema's `study_sessions` table
@@ -196,7 +198,7 @@ src-tauri/src/          # Rust backend
 │   ├── cmd_search.rs   # Search / FTS / semantic retrieval commands
 │   ├── cmd_ai.rs       # AI chat and reasoning commands
 │   ├── cmd_study.rs    # Study timeline command shell; session/stats/truth/heatmap come from the kernel
-│   ├── cmd_compute.rs  # TRUTH diff and compute commands
+│   ├── cmd_compute.rs  # Product compute command DTOs; compute/database rules come from the kernel
 │   ├── cmd_media.rs    # Media and spectroscopy parsing commands
 │   ├── cmd_symmetry.rs # Molecular symmetry analysis commands (point group / axes / planes)
 │   └── cmd_crystal.rs  # Crystal lattice parsing and Miller plane commands (CIF → supercell → slicing plane)

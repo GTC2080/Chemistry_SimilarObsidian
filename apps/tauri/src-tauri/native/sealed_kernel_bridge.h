@@ -252,6 +252,12 @@ int32_t sealed_kernel_bridge_normalize_database_column_type_text(
     char** out_text,
     char** out_error);
 
+int32_t sealed_kernel_bridge_normalize_database_json(
+    const char* json_utf8,
+    uint64_t json_size,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error);

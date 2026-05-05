@@ -19,6 +19,7 @@ Current surface:
 - `kernel_derive_file_extension_from_path(path, path_size, out_buffer)`
 - `kernel_derive_note_display_name_from_path(path, path_size, out_buffer)`
 - `kernel_normalize_database_column_type(column_type, column_type_size, out_buffer)`
+- `kernel_normalize_database_json(json, json_size, out_buffer)`
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
@@ -79,8 +80,8 @@ Frozen rules:
   media/product compute commands
 - the kernel owns host-facing note display-name derivation from path strings used
   by note catalog DTOs and AI RAG context
-- the kernel owns host-facing database column type normalization for database
-  grid payloads
+- the kernel owns host-facing database grid payload normalization, including
+  column type normalization
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
@@ -93,9 +94,9 @@ Frozen rules:
   indexing workflows
 - the kernel owns the stable AI embedding vector BLOB codec used by embedding
   storage
-- the kernel owns AI RAG note context formatting, note display-name derivation
-  from note paths, note numbering, note separators, and per-note Unicode
-  character truncation
+- the kernel owns AI RAG note context formatting, blank-note skipping, note
+  display-name derivation from note paths, note numbering, note separators, and
+  per-note Unicode character truncation
 - the kernel owns AI RAG system prompt composition, Ponder system prompt,
   Ponder user prompt shape, and Ponder temperature
 - the kernel owns study truth attribute routing, active-seconds to EXP
@@ -162,7 +163,8 @@ Frozen rules:
   path libraries or string slicing
 - hosts must not reimplement note display-name derivation from rel paths with
   local path libraries or string slicing
-- hosts must not keep local database column type allow-lists for database grid
+- hosts must not keep local database column type allow-lists, default-column
+  rules, row/cell fill rules, or extra-cell pruning rules for database grid
   normalization
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
@@ -176,8 +178,9 @@ Frozen rules:
   store once the kernel `ai_embedding_cache` surface is available
 - hosts must not hard-code AI chat, ponder, embedding timeout, cache,
   concurrency, or RAG top-note defaults
-- hosts must not hard-code AI RAG note context headers, note display-name
-  derivation, note numbering, separators, or per-note truncation behavior
+- hosts must not hard-code AI RAG note context headers, blank-note skipping,
+  note display-name derivation, note numbering, separators, or per-note
+  truncation behavior
 - hosts must not hard-code AI RAG/Ponder prompt text, Ponder user prompt shape,
   or Ponder temperature
 - hosts must not reimplement study truth EXP curves or note-extension to
@@ -219,16 +222,38 @@ Frozen rules:
 - matching is byte-preserving; display names are not lower-cased
 - null non-empty path buffers and null output buffers are invalid
 
-## Database Column Type Rules
+## Database Grid Rules
 
 Frozen rules:
 
+- `kernel_normalize_database_json(...)` accepts a JSON value and returns a
+  normalized database payload JSON object with `columns` and `rows`
+- non-object inputs normalize as an empty object payload
+- column entries are read only from an input object `columns` array
+- non-object columns and columns missing a `name` field are skipped
+- column `id` values are trimmed when they are strings; missing, non-string, or
+  empty ids receive generated `col...` ids
+- column `name` values are trimmed when they are strings; non-string and empty
+  names normalize to `Untitled`
 - `kernel_normalize_database_column_type(...)` preserves `text`, `number`,
   `select`, and `tags`
 - unknown column types return `text`
 - empty column type input returns `text`
 - matching is exact and case-sensitive
-- null non-empty input buffers and null output buffers are invalid
+- `kernel_normalize_database_json(...)` applies the same column type rules to
+  every payload column
+- if no valid columns remain, default columns are generated as `Name` / `text`,
+  `Tags` / `tags`, and `Notes` / `text`
+- row entries are read only from an input object `rows` array
+- non-object rows are skipped
+- row `id` values are trimmed when they are strings; missing, non-string, or
+  empty ids receive generated `row...` ids
+- cells are emitted only for normalized column ids, in column order
+- missing cells normalize to an empty string
+- extra input cells outside normalized column ids are dropped
+- cell JSON values preserve their input JSON shape
+- invalid JSON, null non-empty input buffers, and null output buffers are
+  invalid
 
 ## Semantic Context Rules
 
@@ -300,6 +325,10 @@ Frozen rules:
   `--- 笔记 {1-based index} 《{note name}》 ---`, followed by a newline, the
   note content truncated to `1500` Unicode characters, and a blank-line
   separator
+- note entries whose content is empty or only Unicode whitespace are skipped
+  before formatting
+- skipped blank notes do not consume note numbers; emitted block numbering
+  remains contiguous and 1-based
 - `kernel_build_ai_rag_context(...)` returns empty text for an empty note list
 - `kernel_build_ai_rag_context_from_note_paths(...)` derives the note display
   name from the final path segment, strips the final extension, and preserves

@@ -122,17 +122,8 @@ pub fn recalculate_stoichiometry(rows: Vec<StoichiometryRow>) -> Vec<Stoichiomet
 }
 
 // ──────────────────────────────────────────
-// 数据库网格归一化（从前端 JS 迁移到 Rust）
+// 数据库网格归一化（Rust command 只桥接 C++ kernel）
 // ──────────────────────────────────────────
-
-fn gen_id(prefix: &str) -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    format!("{}_{:x}", prefix, nanos & 0xFFFF_FFFF)
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseColumn {
@@ -154,109 +145,12 @@ pub struct DatabasePayload {
     pub rows: Vec<DatabaseRow>,
 }
 
-fn normalize_database_column_type(raw_type: Option<&str>) -> String {
-    crate::sealed_kernel::normalize_database_column_type(raw_type.unwrap_or(""))
-        .unwrap_or_else(|_| "text".to_string())
-}
-
 #[tauri::command]
 pub fn normalize_database(input: serde_json::Value) -> DatabasePayload {
-    let obj = input.as_object();
-
-    let raw_columns = obj
-        .and_then(|o| o.get("columns"))
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-
-    let columns: Vec<DatabaseColumn> = raw_columns
-        .into_iter()
-        .filter_map(|v| {
-            let obj = v.as_object()?;
-            let name = obj
-                .get("name")?
-                .as_str()
-                .unwrap_or("Untitled")
-                .trim()
-                .to_string();
-            let name = if name.is_empty() {
-                "Untitled".into()
-            } else {
-                name
-            };
-            let id = obj
-                .get("id")
-                .and_then(|v| v.as_str())
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| gen_id("col"));
-            let col_type = normalize_database_column_type(obj.get("type").and_then(|v| v.as_str()));
-            Some(DatabaseColumn { id, name, col_type })
-        })
-        .collect();
-
-    let safe_columns = if columns.is_empty() {
-        vec![
-            DatabaseColumn {
-                id: gen_id("col"),
-                name: "Name".into(),
-                col_type: "text".into(),
-            },
-            DatabaseColumn {
-                id: gen_id("col"),
-                name: "Tags".into(),
-                col_type: "tags".into(),
-            },
-            DatabaseColumn {
-                id: gen_id("col"),
-                name: "Notes".into(),
-                col_type: "text".into(),
-            },
-        ]
-    } else {
-        columns
-    };
-
-    let raw_rows = obj
-        .and_then(|o| o.get("rows"))
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-
-    let rows: Vec<DatabaseRow> = raw_rows
-        .into_iter()
-        .filter_map(|v| {
-            let obj = v.as_object()?;
-            let id = obj
-                .get("id")
-                .and_then(|v| v.as_str())
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| gen_id("row"));
-            let raw_cells = obj
-                .get("cells")
-                .and_then(|v| v.as_object())
-                .cloned()
-                .unwrap_or_default();
-            let mut cells = serde_json::Map::new();
-            for col in &safe_columns {
-                let val = raw_cells
-                    .get(&col.id)
-                    .cloned()
-                    .unwrap_or(serde_json::Value::String(String::new()));
-                cells.insert(col.id.clone(), val);
-            }
-            Some(DatabaseRow {
-                id,
-                cells: serde_json::Value::Object(cells),
-            })
-        })
-        .collect();
-
-    DatabasePayload {
-        columns: safe_columns,
-        rows,
-    }
+    crate::sealed_kernel::normalize_database_json(&input).unwrap_or(DatabasePayload {
+        columns: Vec::new(),
+        rows: Vec::new(),
+    })
 }
 
 #[cfg(test)]
@@ -386,15 +280,17 @@ mod tests {
     }
 
     #[test]
-    fn normalize_database_column_types_use_kernel_rules() {
+    fn normalize_database_payload_uses_kernel_rules() {
         let result = normalize_database(serde_json::json!({
             "columns": [
-                { "id": "a", "name": "Amount", "type": "number" },
-                { "id": "b", "name": "Formula", "type": "formula" },
+                { "id": " a ", "name": " Amount ", "type": "number" },
+                { "id": "b", "name": "   ", "type": "formula" },
                 { "id": "c", "name": "Missing" }
             ],
             "rows": [
-                { "id": "row1", "cells": { "a": 1 } }
+                { "id": " row1 ", "cells": { "a": 1, "extra": true } },
+                { "id": "row2", "cells": { "b": ["x"] } },
+                42
             ]
         }));
 
@@ -403,9 +299,18 @@ mod tests {
             .iter()
             .map(|column| column.col_type.clone())
             .collect();
+        assert_eq!(result.columns[0].id, "a");
+        assert_eq!(result.columns[0].name, "Amount");
+        assert_eq!(result.columns[1].name, "Untitled");
         assert_eq!(col_types, vec!["number", "text", "text"]);
+        assert_eq!(result.rows.len(), 2);
+        assert_eq!(result.rows[0].id, "row1");
         assert_eq!(result.rows[0].cells["a"], serde_json::json!(1));
         assert_eq!(result.rows[0].cells["b"], serde_json::json!(""));
         assert_eq!(result.rows[0].cells["c"], serde_json::json!(""));
+        assert!(result.rows[0].cells.get("extra").is_none());
+        assert_eq!(result.rows[1].cells["a"], serde_json::json!(""));
+        assert_eq!(result.rows[1].cells["b"], serde_json::json!(["x"]));
+        assert_eq!(result.rows[1].cells["c"], serde_json::json!(""));
     }
 }

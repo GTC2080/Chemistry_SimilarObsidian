@@ -256,6 +256,52 @@ void test_database_column_type_normalization_is_kernel_owned() {
       "database column type normalization should reject null output");
 }
 
+void test_database_payload_normalization_json_is_kernel_owned() {
+  kernel_owned_buffer buffer{};
+  const std::string input =
+      "{\"columns\":["
+      "{\"id\":\" a \",\"name\":\" Amount \",\"type\":\"number\"},"
+      "{\"id\":\"b\",\"name\":\"   \",\"type\":\"formula\"},"
+      "{\"id\":\"c\",\"name\":\"Missing\"}"
+      "],\"rows\":["
+      "{\"id\":\" row1 \",\"cells\":{\"a\":1,\"extra\":true}},"
+      "{\"id\":\"row2\",\"cells\":{\"b\":[\"x\"]}},"
+      "42"
+      "]}";
+
+  require_ok_status(
+      kernel_normalize_database_json(input.data(), input.size(), &buffer),
+      "normalize database JSON payload");
+
+  const std::string expected =
+      "{\"columns\":["
+      "{\"id\":\"a\",\"name\":\"Amount\",\"type\":\"number\"},"
+      "{\"id\":\"b\",\"name\":\"Untitled\",\"type\":\"text\"},"
+      "{\"id\":\"c\",\"name\":\"Missing\",\"type\":\"text\"}"
+      "],\"rows\":["
+      "{\"id\":\"row1\",\"cells\":{\"a\":1,\"b\":\"\",\"c\":\"\"}},"
+      "{\"id\":\"row2\",\"cells\":{\"a\":\"\",\"b\":[\"x\"],\"c\":\"\"}}"
+      "]}";
+  require_true(
+      buffer_to_string(buffer) == expected,
+      "database JSON normalization should trim columns/rows, normalize types, and fill missing cells");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_normalize_database_json(nullptr, 1, &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "database JSON normalization should reject null non-empty input");
+  require_true(
+      kernel_normalize_database_json(input.data(), input.size(), nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "database JSON normalization should reject null output");
+  const std::string invalid = "{\"columns\":[";
+  require_true(
+      kernel_normalize_database_json(invalid.data(), invalid.size(), &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "database JSON normalization should reject invalid JSON");
+}
+
 void test_note_display_name_derivation_is_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -689,12 +735,12 @@ void test_ai_embedding_note_refresh_decision_is_kernel_owned() {
 void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
   kernel_owned_buffer buffer{};
 
-  const char* names[] = {"Alpha", "Beta"};
-  const size_t name_sizes[] = {5, 4};
-  const char* contents[] = {"first", "second"};
-  const size_t content_sizes[] = {5, 6};
+  const char* names[] = {"Alpha", "Blank", "Beta"};
+  const size_t name_sizes[] = {5, 5, 4};
+  const char* contents[] = {"first", " \n\t ", "second"};
+  const size_t content_sizes[] = {5, 4, 6};
   require_ok_status(
-      kernel_build_ai_rag_context(names, name_sizes, contents, content_sizes, 2, &buffer),
+      kernel_build_ai_rag_context(names, name_sizes, contents, content_sizes, 3, &buffer),
       "AI RAG note context");
   const std::string expected =
       utf8_string(
@@ -702,20 +748,20 @@ void test_ai_rag_context_shape_and_truncation_are_kernel_owned() {
           u8"--- \u7B14\u8BB0 2 \u300ABeta\u300B ---\nsecond\n\n");
   require_true(
       buffer_to_string(buffer) == expected,
-      "RAG note context should preserve kernel-owned note headers and separators");
+      "RAG note context should preserve kernel-owned note headers and skip blank notes");
   kernel_free_buffer(&buffer);
 
-  const char* note_paths[] = {"Folder/Alpha.md", "Lab\\Beta.MD", "README"};
-  const size_t note_path_sizes[] = {15, 11, 6};
-  const char* path_contents[] = {"first", "second", "third"};
-  const size_t path_content_sizes[] = {5, 6, 5};
+  const char* note_paths[] = {"Folder/Alpha.md", "Blank.md", "Lab\\Beta.MD", "README"};
+  const size_t note_path_sizes[] = {15, 8, 11, 6};
+  const char* path_contents[] = {"first", " \n\t ", "second", "third"};
+  const size_t path_content_sizes[] = {5, 4, 6, 5};
   require_ok_status(
       kernel_build_ai_rag_context_from_note_paths(
           note_paths,
           note_path_sizes,
           path_contents,
           path_content_sizes,
-          3,
+          4,
           &buffer),
       "AI RAG context from note paths");
   const std::string expected_from_paths =
@@ -1075,6 +1121,7 @@ void run_product_compute_tests() {
   test_truth_award_reason_keys_are_kernel_owned();
   test_file_extension_derivation_is_kernel_owned();
   test_database_column_type_normalization_is_kernel_owned();
+  test_database_payload_normalization_json_is_kernel_owned();
   test_note_display_name_derivation_is_kernel_owned();
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();
