@@ -9,68 +9,71 @@
 <h1 align="center">Nexus · Scientist Obsidian</h1>
 
 <p align="center">
-  <strong>从 Rust 后端 Nexus 迁移到 C++ sealed kernel 的科研知识工作台。</strong>
+  <strong>面向科学学习与研究的本地优先智能知识工作台。</strong>
 </p>
 
 <p align="center">
-  面向本地优先、化学科研/学习场景的智能知识管理桌面应用。
+  把 Markdown 笔记、论文阅读、化学工具、知识图谱、AI 问答和学习反馈放进同一个桌面应用。
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Tauri-2.x-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111111" alt="React 19" />
   <img src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white" alt="C++20" />
-  <img src="https://img.shields.io/badge/Rust-host_bridge-B7410E?logo=rust&logoColor=white" alt="Rust host bridge" />
   <img src="https://img.shields.io/badge/SQLite-local_truth-044A64?logo=sqlite&logoColor=white" alt="SQLite" />
 </p>
 
 ---
 
-## 项目定位
+## 这个项目是什么
 
-**Nexus · Scientist Obsidian** 是 [GTC2080/Nexus](https://github.com/GTC2080/Nexus) 的 C++ 内核迁移版本，也是当前继续推进的主线仓库。
+**Nexus · Scientist Obsidian** 是一个桌面端科学知识管理应用，目标是给学习者、研究者和重度笔记用户提供一个更完整的本地工作台。
 
-原始 Nexus 是一个基于 **Tauri 2 + React 19 + Rust** 的本地优先 AI 知识管理应用，提供类 Obsidian 的 Markdown 知识库、双向链接、标签、LaTeX 数学公式、语义搜索、全局知识图谱、PDF 阅读、AI 问答以及化学学习/科研工具。
+它不像传统笔记软件只负责保存文本，也不像单一 AI 工具只负责问答。它把知识库、论文阅读、化学计算、语义搜索、图谱导航和学习反馈合在一起，让你的资料、想法、结构化工具和 AI 上下文留在同一个工作流里。
 
-原 Rust 后端 Nexus 将不再作为主要更新线继续推进；后续功能、架构演进和 kernel 迁移重心转移到本仓库。
+项目默认采用本地优先设计：你的 vault 文件、索引状态和核心数据都优先保存在本机。AI 能力可以接入外部模型，但应用本身不把云端作为知识库的默认归宿。
 
-这个仓库保留 Nexus 的产品方向，但重构了底层架构的责任边界：
+## 适合谁
 
-> 把原本沉积在 Rust 后端里的长期业务规则、数据真相和计算逻辑，迁移到一个稳定的 C++20 sealed kernel 中。
+- 需要长期维护 Markdown 知识库的学生、研究者和工程用户。
+- 经常阅读 PDF、整理论文、建立知识链接的人。
+- 需要化学绘图、分子预览、谱图解析、化学计量、晶体/对称性工具的学习与科研场景。
+- 想把 AI 问答、语义搜索和 RAG 上下文接入个人资料库，而不是停留在一次性聊天的人。
+- 喜欢 Obsidian 式本地知识库，但希望科学工具和 AI 工作流更深地集成在桌面应用里的人。
 
-Tauri 与 Rust 仍然存在，但它们的角色被收窄为桌面宿主、命令注册、平台适配、网络请求、外部进程启动和 kernel bridge。真正需要长期稳定、可测试、可跨宿主复用的规则，统一由 C++ kernel 持有。
+## 核心能力
 
-## 为什么要迁移
+### 知识库
 
-原来的 Rust 后端可以工作，但随着功能增加，越来越多规则分散在 host 层：
+- Markdown 笔记、文件树、标签树、双向链接和反链。
+- LaTeX 数学公式、任务列表、表格、代码块和富文本编辑体验。
+- 全局知识图谱，用节点关系查看笔记、标签和链接结构。
 
-- 路径归一化、默认 limit、query shape、DTO 映射规则容易重复出现。
-- AI、图谱、学习统计、PDF、化学计算和 product compute 行为可能在不同模块里漂移。
-- 桌面 glue code 和长期业务逻辑混在一起，维护成本越来越高。
-- 如果未来出现新的 host，需要重新实现大量规则，而不是复用一套稳定 kernel contract。
+### 论文与资料阅读
 
-这次迁移的目标不是“换语言”，而是把项目从应用后端推进成平台内核：
+- PDF 阅读、高亮、手写 ink、批注、metadata 和 anchor 持久化。
+- 笔记与文献可以在同一个 vault 中组织，减少资料和想法分散。
 
-| 旧结构 | 新结构 |
-| --- | --- |
-| Rust 后端承担大部分业务规则 | C++ sealed kernel 持有长期真相 |
-| Tauri command 同时做编排和规则判断 | Tauri Rust 退回薄桥接层 |
-| query / compute 行为容易重复实现 | kernel ABI 定义稳定行为 |
-| host 逻辑难以复用 | kernel surface 与 host 解耦 |
-| 存储、恢复、校验分散 | kernel 统一持有 SQLite、recovery、validation gate |
+### 科学与化学工具
 
-## 产品能力
+- Ketcher 分子编辑与分子预览。
+- 波谱解析、化学计量、高分子动力学、晶体工具。
+- 点群/对称性分析和逆合成相关接口。
 
-Nexus · Scientist Obsidian 仍然是一个个人知识工作台，但它最强的场景是化学科研与学习：
+### AI 知识流
 
-- **Markdown 知识库**：笔记、双向链接、标签、反链、文件树、标签树、全局知识图谱。
-- **AI 知识流**：语义搜索、相关笔记、RAG 上下文构建、Chat / Embedding 管线。
-- **PDF 阅读与批注**：pdf.js 渲染、高亮、手写 ink、metadata、anchor、批注持久化。
-- **化学工作台**：Ketcher 分子编辑、分子预览、波谱解析、化学计量、高分子动力学、晶体工具、点群/对称性分析、逆合成接口。
-- **学习与反馈系统**：study session、heatmap、学习统计、TRUTH_SYSTEM / product compute 反馈。
-- **本地优先存储**：vault 文件与 kernel SQLite 状态默认留在本机。
+- 语义搜索、相关笔记、embedding cache 和 RAG 上下文构建。
+- Chat 工作流可以围绕当前 vault、当前笔记和检索结果展开。
+- AI 只是知识工作流的一部分，而不是替代你的本地资料库。
+
+### 学习反馈
+
+- study session、学习统计和 heatmap。
+- product compute / TRUTH_SYSTEM 反馈面板，用于观察知识库和学习行为的状态。
 
 ## 架构概览
+
+Nexus · Scientist Obsidian 使用 React + Tauri 构建桌面体验，并把长期稳定的规则和数据真相收口到 C++20 sealed kernel 中。
 
 ```text
 React 19 UI
@@ -90,6 +93,8 @@ C++20 sealed kernel
     +-- recovery and regression gates
 ```
 
+这个分层的目的很直接：桌面 host 专注窗口、平台能力和交互编排；kernel 持有会影响长期数据、查询行为、计算结果和跨宿主兼容性的规则。
+
 ## 仓库结构
 
 ```text
@@ -97,7 +102,7 @@ C++20 sealed kernel
 |-- README.md                 # 中文 README
 |-- README_EN.md              # English README
 |-- apps/
-|   `-- tauri/                # 当前桌面 host：React + Tauri + Rust bridge
+|   `-- tauri/                # 当前桌面应用：React + Tauri + Rust bridge
 |-- docs/                     # 仓库级集成与结构说明
 `-- kernel/                   # C++20 sealed kernel、测试、文档、benchmark
     |-- include/kernel/       # public C ABI
@@ -108,66 +113,21 @@ C++20 sealed kernel
     `-- docs/                 # ADR、contract、regression matrix、governance
 ```
 
-## Kernel Core 布局
-
-`kernel/src/impl/core/` 已经按 public surface 分组：
-
-```text
-kernel/src/impl/core/
-|-- ai/
-|-- attachments/
-|-- chemistry/
-|-- crystal/
-|-- diagnostics/
-|-- domain/
-|-- notes/
-|-- pdf/
-|-- product/
-|-- runtime/
-|-- search/
-|-- study/
-`-- symmetry/
-```
-
-不直接暴露 C ABI 的领域引擎继续放在 core 旁边，例如 `storage/`、`search/`、`pdf/`、`watcher/`、`chemistry/`、`crystal/` 和 `symmetry/`。
-
-## Host / Kernel 边界
-
-Tauri host 通过以下文件调用 kernel：
-
-- `apps/tauri/src-tauri/native/sealed_kernel_bridge.h`
-- `apps/tauri/src-tauri/native/sealed_kernel_bridge.cpp`
-- `apps/tauri/src-tauri/src/sealed_kernel.rs`
-
-判断规则很简单：
-
-> 只要某条规则影响 durable state、query shape、compute output、recovery、跨 host 兼容性或长期产品语义，就应该进入 kernel。
-
-host 不应该重复持有这些 kernel-owned 规则：
-
-- vault path normalization
-- file-extension derivation
-- note catalog default limit
-- graph / tag / backlink / search construction
-- AI embedding cache shape
-- RAG context formatting
-- PDF metadata / annotation state
-- chemistry / crystal / symmetry / product compute behavior
-- study session storage and aggregation
+`kernel/src/impl/core/` 已按 public surface 分组，包括 AI、attachments、chemistry、crystal、diagnostics、domain、notes、PDF、product、runtime、search、study 和 symmetry 等模块。
 
 ## 当前状态
 
-- **来源项目**：[GTC2080/Nexus](https://github.com/GTC2080/Nexus)
-- **主线项目**：Nexus · Scientist Obsidian
+- **项目名称**：Nexus · Scientist Obsidian
 - **目标仓库名**：`Nexus-Scientist-Obsidian`
 - **当前 host**：Tauri desktop app
-- **迁移目标**：Rust backend rules -> C++ sealed kernel
+- **核心内核**：C++20 sealed kernel
 - **Kernel milestone**：`stage-phase2-track5-gated`
 - **Phase 1**：host-stable kernel baseline complete
 - **Phase 2 Track 1-5**：complete and gated
-- **当前开发姿态**：继续缩小 host-side 重复规则，把 durable behavior 收口到 kernel contracts 后面。
 
-## 环境要求
+## 快速开始
+
+### 环境要求
 
 - Windows
 - Visual Studio 2022 Build Tools with C++ workload
@@ -181,9 +141,7 @@ host 不应该重复持有这些 kernel-owned 规则：
 E:\Dev\bin\kernel-dev-x64.cmd
 ```
 
-## Kernel 命令
-
-kernel 命令从 `kernel/` 目录运行：
+### Kernel
 
 ```powershell
 cd kernel
@@ -201,11 +159,7 @@ cmake --build --preset build-debug --target kernel_phase_gate
 cmake --build --preset build-release
 ```
 
-kernel 构建输出位于 `kernel/out/build`。
-
-## App 命令
-
-app 命令从 `apps/tauri/` 目录运行：
+### Desktop App
 
 ```powershell
 cd apps/tauri
@@ -233,6 +187,21 @@ npx tauri build
 - kernel regression matrices：`kernel/docs/regression/`
 - kernel governance：`kernel/docs/governance/`
 
+## 项目血统
+
+Nexus · Scientist Obsidian 延续自 [GTC2080/Nexus](https://github.com/GTC2080/Nexus) 的产品方向：本地优先、面向知识管理、AI 辅助和科学学习。
+
+原先的 Rust 后端 Nexus 将不再作为主要更新线继续推进。后续功能开发、架构演进和 kernel 工作重心转移到本仓库。
+
+```text
+Nexus
+  local-first AI knowledge workspace
+      |
+      v
+Nexus · Scientist Obsidian
+  science-focused local knowledge workspace
+```
+
 ## 开发原则
 
 - `README.md` 是中文入口，`README_EN.md` 是英文入口。
@@ -241,18 +210,3 @@ npx tauri build
 - 长期架构决策写入 `kernel/docs/adr/`。
 - 生成物、本地 IDE 状态、构建目录不要进 Git。
 - 不要在 host 层新增 kernel 已经应该持有的规则副本。
-
-## 项目血统
-
-Nexus · Scientist Obsidian 不是一个新的产品想法，而是 Nexus 的架构硬化路线：
-
-```text
-Nexus
-  local-first AI knowledge workspace
-      |
-      v
-Nexus · Scientist Obsidian
-  保留产品方向，把长期真相迁移到 C++ sealed kernel
-```
-
-目标很明确：让用户面对的知识工作台保持灵活、好用、适合科研学习；同时让底层 truth model 更难漂移、更容易测试，并具备跨 host 复用的基础。
