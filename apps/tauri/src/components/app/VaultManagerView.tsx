@@ -103,9 +103,9 @@ export default function VaultManagerView({
       <main className="flex-1 flex flex-col items-center justify-center px-8 bg-[var(--surface-1)]">
         <div className="max-w-xl w-full animate-fade-in">
           <div className="flex flex-col items-center mb-10">
-            <img src={logoSvg} alt="Nexus" className="w-20 h-20 rounded-[18px] mb-4" />
+            <img src={logoSvg} alt="Nexus · Scientist Obsidian" className="w-20 h-20 rounded-[18px] mb-4" />
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-              Nexus
+              Nexus · Scientist Obsidian
             </h1>
             <span className="text-[12px] mt-1 text-[var(--text-quaternary)]">
               {t("vaultManager.version")} {appVersion}

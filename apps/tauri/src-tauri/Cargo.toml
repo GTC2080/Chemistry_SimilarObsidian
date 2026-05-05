@@ -1,8 +1,8 @@
 [package]
-name = "nexus"
+name = "nexus-scientist-obsidian"
 version = "1.0.4"
 edition = "2021"
-description = "Nexus (星枢) - 本地智能知识管理软件"
+description = "Nexus · Scientist Obsidian - 本地优先科研知识管理软件"
 
 [dependencies]
 tauri = { version = "2", features = [] }
@@ -31,7 +31,7 @@ tauri-build = { version = "2", features = [] }
 cc = "1"
 
 [lib]
-name = "nexus_lib"
+name = "nexus_scientist_obsidian_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 # ===== 性能优化 =====

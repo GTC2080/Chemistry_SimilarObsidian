@@ -81,8 +81,8 @@ export const zhCN: TranslationDict = {
   "settings.rebuildComplete": "重建完成：{count} 条笔记向量已更新。",
 
   // ── Onboarding ──
-  "onboarding.welcomeFull": "欢迎使用 Nexus / Welcome to Nexus",
-  "onboarding.welcome": "欢迎使用 Nexus",
+  "onboarding.welcomeFull": "欢迎使用 Nexus · Scientist Obsidian / Welcome to Nexus · Scientist Obsidian",
+  "onboarding.welcome": "欢迎使用 Nexus · Scientist Obsidian",
   "onboarding.prev": "上一步",
   "onboarding.next": "下一步",
   "onboarding.start": "开始使用",

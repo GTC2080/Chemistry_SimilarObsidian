@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository uses a two-layer structure:
+Nexus · Scientist Obsidian uses a two-layer structure:
 
 - `kernel/`
   - the sealed kernel platform and its full validation surface
@@ -12,9 +12,9 @@ This repository uses a two-layer structure:
 ## Current Tree
 
 - `README.md`
-  - Chinese project entrypoint
+  - Chinese project entrypoint for Nexus · Scientist Obsidian
 - `README_EN.md`
-  - English project entrypoint
+  - English project entrypoint for Nexus · Scientist Obsidian
 - `kernel/`
   - `CMakeLists.txt`
   - `CMakePresets.json`

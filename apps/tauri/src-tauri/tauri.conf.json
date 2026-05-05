@@ -1,7 +1,7 @@
 {
-  "productName": "Nexus",
+  "productName": "Nexus · Scientist Obsidian",
   "version": "1.0.4",
-  "identifier": "com.nexus-app.dev",
+  "identifier": "com.nexus.scientistobsidian.dev",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Nexus",
+        "title": "Nexus · Scientist Obsidian",
         "width": 1200,
         "height": 800,
         "center": true,

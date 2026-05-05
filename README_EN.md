@@ -3,13 +3,13 @@
 </p>
 
 <p align="center">
-  <img src="apps/tauri/.logo/Logo.png" width="116" alt="Nexus Logo" />
+  <img src="apps/tauri/.logo/Logo.png" width="116" alt="Nexus · Scientist Obsidian Logo" />
 </p>
 
-<h1 align="center">Nexus Kernel · Chemistry_Obsidian</h1>
+<h1 align="center">Nexus · Scientist Obsidian</h1>
 
 <p align="center">
-  <strong>A C++ sealed-kernel migration of the original Rust-backed Nexus.</strong>
+  <strong>A research-focused knowledge workspace migrated from the Rust-backed Nexus into a C++ sealed kernel.</strong>
 </p>
 
 <p align="center">
@@ -28,9 +28,11 @@
 
 ## Project Identity
 
-**Chemistry_Obsidian** is the C++ kernel migration edition of [GTC2080/Nexus](https://github.com/GTC2080/Nexus).
+**Nexus · Scientist Obsidian** is the C++ kernel migration edition of [GTC2080/Nexus](https://github.com/GTC2080/Nexus), and it is now the active development line.
 
 The original Nexus is a local-first AI knowledge management app built with **Tauri 2 + React 19 + Rust**. It provides an Obsidian-like Markdown vault, wiki-links, tags, LaTeX math, semantic search, global graph exploration, PDF reading, AI workflows, and chemistry-oriented research tools.
+
+The original Rust-backed Nexus will no longer be the primary update line. New feature work, architectural evolution, and the kernel migration focus are moving to this repository.
 
 This repository keeps the same product direction, but changes the architectural center of gravity:
 
@@ -59,7 +61,7 @@ The goal is not to change languages for its own sake. The goal is to turn the ba
 
 ## Product Capabilities
 
-Nexus Kernel is still a personal knowledge workspace, with its strongest shape in chemistry-heavy research and study:
+Nexus · Scientist Obsidian is still a personal knowledge workspace, with its strongest shape in chemistry-heavy research and study:
 
 - **Markdown vault**: notes, wiki-links, tags, backlinks, file tree, tag tree, and global graph.
 - **AI knowledge workflow**: semantic search, related notes, RAG context building, chat, and embedding pipelines.
@@ -156,6 +158,8 @@ The host should not duplicate kernel-owned rules such as:
 ## Current State
 
 - **Origin project**: [GTC2080/Nexus](https://github.com/GTC2080/Nexus)
+- **Active project**: Nexus · Scientist Obsidian
+- **Target repository name**: `Nexus-Scientist-Obsidian`
 - **Current host**: Tauri desktop app
 - **Migration target**: Rust backend rules -> C++ sealed kernel
 - **Kernel milestone**: `stage-phase2-track5-gated`
@@ -240,14 +244,14 @@ This repository keeps a Chinese README and an English README. Detailed documents
 
 ## Lineage
 
-Nexus Kernel is not a new product idea. It is the architecture-hardening path for Nexus:
+Nexus · Scientist Obsidian is not a new product idea. It is the architecture-hardening path for Nexus:
 
 ```text
 Nexus
   local-first AI knowledge workspace
       |
       v
-Nexus Kernel / Chemistry_Obsidian
+Nexus · Scientist Obsidian
   Same product direction, rebuilt around a C++ sealed kernel
 ```
 

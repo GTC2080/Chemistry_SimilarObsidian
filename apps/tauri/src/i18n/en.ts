@@ -81,8 +81,8 @@ export const en: TranslationDict = {
   "settings.rebuildComplete": "Rebuild complete: {count} note vectors updated.",
 
   // ── Onboarding ──
-  "onboarding.welcomeFull": "Welcome to Nexus / 欢迎使用 Nexus",
-  "onboarding.welcome": "Welcome to Nexus",
+  "onboarding.welcomeFull": "Welcome to Nexus · Scientist Obsidian / 欢迎使用 Nexus · Scientist Obsidian",
+  "onboarding.welcome": "Welcome to Nexus · Scientist Obsidian",
   "onboarding.prev": "Previous",
   "onboarding.next": "Next",
   "onboarding.start": "Get Started",

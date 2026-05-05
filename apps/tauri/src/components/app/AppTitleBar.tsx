@@ -27,8 +27,8 @@ export default function AppTitleBar({
     >
       <div className="flex items-center gap-2 pl-4">
         <img src={logoSvg} alt="Logo" className="w-[16px] h-[16px] rounded-[3px]" />
-        <span className="text-[12px] font-medium text-[var(--text-tertiary)]">
-          Nexus
+        <span className="max-w-[260px] truncate text-[12px] font-medium text-[var(--text-tertiary)]">
+          Nexus · Scientist Obsidian
         </span>
       </div>
       <div className="flex items-center h-full text-[var(--text-tertiary)]">
