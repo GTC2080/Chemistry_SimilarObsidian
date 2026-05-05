@@ -61,6 +61,13 @@ int32_t sealed_kernel_bridge_query_notes_filtered_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_query_changed_notes_json(
+    sealed_kernel_bridge_session* session,
+    const char* changed_paths_lf_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_get_file_tree_default_limit(
     uint64_t* out_limit,
     char** out_error);
@@ -69,11 +76,6 @@ int32_t sealed_kernel_bridge_query_file_tree_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,
     const char* ignored_roots_utf8,
-    char** out_json,
-    char** out_error);
-
-int32_t sealed_kernel_bridge_filter_changed_markdown_paths_json(
-    const char* changed_paths_lf_utf8,
     char** out_json,
     char** out_error);
 
@@ -87,6 +89,12 @@ int32_t sealed_kernel_bridge_read_note_json(
     sealed_kernel_bridge_session* session,
     const char* rel_path_utf8,
     char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_read_first_changed_markdown_note_content_text(
+    sealed_kernel_bridge_session* session,
+    const char* changed_paths_lf_utf8,
+    char** out_text,
     char** out_error);
 
 int32_t sealed_kernel_bridge_read_vault_file_bytes(
@@ -156,6 +164,12 @@ int32_t sealed_kernel_bridge_query_tag_notes_json(
     char** out_error);
 
 int32_t sealed_kernel_bridge_query_graph_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_query_enriched_graph_json(
     sealed_kernel_bridge_session* session,
     uint64_t limit,
     char** out_json,
@@ -342,10 +356,10 @@ int32_t sealed_kernel_bridge_clear_ai_embeddings(
     sealed_kernel_bridge_session* session,
     char** out_error);
 
-int32_t sealed_kernel_bridge_delete_ai_embedding_note(
+int32_t sealed_kernel_bridge_delete_changed_ai_embedding_notes(
     sealed_kernel_bridge_session* session,
-    const char* rel_path_utf8,
-    uint8_t* out_deleted,
+    const char* changed_paths_lf_utf8,
+    uint64_t* out_deleted_count,
     char** out_error);
 
 int32_t sealed_kernel_bridge_query_ai_embedding_top_notes_json(
@@ -369,6 +383,12 @@ int32_t sealed_kernel_bridge_build_ai_rag_context_from_note_paths_text(
     const char* const* note_contents_utf8,
     const uint64_t* note_content_sizes,
     uint64_t note_count,
+    char** out_text,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_build_ai_rag_context_from_changed_note_paths_text(
+    sealed_kernel_bridge_session* session,
+    const char* note_paths_lf_utf8,
     char** out_text,
     char** out_error);
 

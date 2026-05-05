@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use futures_util::stream::{self, StreamExt};
 use tauri::{AppHandle, State};
 
@@ -23,30 +21,6 @@ fn init_vault_note_workflow(
     sealed_kernel: &SealedKernelState,
 ) -> Result<(), AppError> {
     sealed_kernel::ensure_vault_open(vault_path, sealed_kernel)
-}
-
-fn deleted_markdown_rel_paths(paths: &[String]) -> Result<Vec<String>, AppError> {
-    sealed_kernel::filter_changed_markdown_paths(paths)
-}
-
-fn kernel_note_info_map_for_rel_paths(
-    vault_path: &str,
-    rel_paths: &[String],
-    kernel_state: &SealedKernelState,
-) -> Result<HashMap<String, NoteInfo>, AppError> {
-    if rel_paths.is_empty() {
-        return Ok(HashMap::new());
-    }
-
-    let wanted: HashSet<&str> = rel_paths.iter().map(String::as_str).collect();
-    let limit = sealed_kernel::note_catalog_default_limit()?;
-    let notes = sealed_kernel::query_note_infos(vault_path, kernel_state, limit)?;
-
-    Ok(notes
-        .into_iter()
-        .filter(|note| wanted.contains(note.id.as_str()))
-        .map(|note| (note.id.clone(), note))
-        .collect())
 }
 
 fn spawn_embedding_tasks(
@@ -221,18 +195,7 @@ pub fn scan_changed_entries(
     paths: Vec<String>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    let rel_paths = sealed_kernel::filter_changed_markdown_paths(&paths)?;
-    let mut notes_by_id =
-        kernel_note_info_map_for_rel_paths(&vault_path, &rel_paths, sealed_kernel.inner())?;
-    let mut notes = Vec::new();
-
-    for rel_path in rel_paths {
-        if let Some(note) = notes_by_id.remove(&rel_path) {
-            notes.push(note);
-        }
-    }
-
-    Ok(notes)
+    sealed_kernel::query_changed_note_infos(&vault_path, sealed_kernel.inner(), &paths)
 }
 
 /// 只为指定的相对路径列表刷新 kernel-backed Markdown 内容缓存并触发 embedding。
@@ -265,14 +228,8 @@ pub fn remove_deleted_entries(
     paths: Vec<String>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<u32, AppError> {
-    let rel_paths = deleted_markdown_rel_paths(&paths)?;
-    let mut removed = 0u32;
-    for rel in &rel_paths {
-        if sealed_kernel::delete_ai_embedding_note(rel, sealed_kernel.inner())? {
-            removed += 1;
-        }
-    }
-    Ok(removed)
+    let removed = sealed_kernel::delete_changed_ai_embedding_notes(&paths, sealed_kernel.inner())?;
+    u32::try_from(removed).map_err(|_| AppError::Custom("删除数量超过前端可表示范围".to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -336,19 +293,5 @@ mod tests {
 
         sealed_kernel::close_vault_state(&state).expect("close kernel vault");
         let _ = std::fs::remove_dir_all(vault);
-    }
-
-    #[test]
-    fn deleted_markdown_rel_paths_use_kernel_path_filter() {
-        let paths = vec![
-            " Folder\\Note.md ".to_string(),
-            "Folder/Note.md".to_string(),
-            "Folder/Note.txt".to_string(),
-        ];
-
-        assert_eq!(
-            deleted_markdown_rel_paths(&paths).expect("kernel deleted path filter"),
-            vec!["Folder/Note.md".to_string()]
-        );
     }
 }

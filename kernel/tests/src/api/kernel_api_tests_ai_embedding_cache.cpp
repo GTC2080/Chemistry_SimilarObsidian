@@ -261,6 +261,101 @@ void test_changed_embedding_refresh_jobs_refresh_catalog_in_kernel() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_changed_embedding_deletes_filter_and_count_in_kernel() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  const kernel_ai_embedding_note_metadata alpha{
+      "alpha.md",
+      "Alpha",
+      "C:/vault/alpha.md",
+      100,
+      200};
+  const kernel_ai_embedding_note_metadata beta{
+      "folder/beta.md",
+      "Beta",
+      "C:/vault/folder/beta.md",
+      110,
+      250};
+  expect_ok(kernel_upsert_ai_embedding_note_metadata(handle, &alpha));
+  expect_ok(kernel_upsert_ai_embedding_note_metadata(handle, &beta));
+
+  std::uint64_t deleted_count = 0;
+  expect_ok(kernel_delete_changed_ai_embedding_notes(
+      handle,
+      " folder\\beta.md \nmissing.md\nbeta.txt\nfolder/beta.md\nalpha.md",
+      &deleted_count));
+  require_true(
+      deleted_count == 2,
+      "changed embedding delete should count only catalog-backed deleted metadata rows");
+
+  kernel_ai_embedding_timestamp_list timestamps{};
+  expect_ok(kernel_query_ai_embedding_note_timestamps(handle, &timestamps));
+  require_true(timestamps.count == 0, "changed embedding delete should remove matching rows");
+  kernel_free_ai_embedding_timestamp_list(&timestamps);
+
+  require_true(
+      kernel_delete_changed_ai_embedding_notes(nullptr, "alpha.md", &deleted_count).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed embedding delete should require handle");
+  require_true(
+      kernel_delete_changed_ai_embedding_notes(handle, "alpha.md", nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed embedding delete should require output count");
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
+void test_changed_rag_context_filters_reads_and_formats_in_kernel() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  write_note_for_embedding_test(handle, "alpha.md", "# Alpha\nfirst");
+  write_note_for_embedding_test(handle, "blank.md", " \n\t ");
+  write_note_for_embedding_test(handle, "folder/beta.md", "# Beta\nsecond");
+
+  kernel_owned_buffer context{};
+  expect_ok(kernel_build_ai_rag_context_from_changed_note_paths(
+      handle,
+      " alpha.md\nblank.md\nmissing.md\nalpha.md\nfolder\\beta.md\nnote.txt",
+      &context));
+  const std::string text(context.data == nullptr ? "" : std::string(context.data, context.size));
+  require_true(text.find("Alpha") != std::string::npos, "changed RAG context should include Alpha");
+  require_true(text.find("first") != std::string::npos, "changed RAG context should read Alpha content");
+  require_true(text.find("Beta") != std::string::npos, "changed RAG context should include Beta");
+  require_true(text.find("second") != std::string::npos, "changed RAG context should read Beta content");
+  require_true(text.find("Blank") == std::string::npos, "changed RAG context should skip blank notes");
+  require_true(text.find("missing") == std::string::npos, "changed RAG context should skip missing notes");
+  require_true(
+      text.find("first") == text.rfind("first"),
+      "changed RAG context should dedupe normalized markdown paths");
+  kernel_free_buffer(&context);
+
+  expect_ok(kernel_build_ai_rag_context_from_changed_note_paths(
+      handle,
+      "missing.md\nblank.md",
+      &context));
+  require_true(context.size == 0, "changed RAG context should return empty text when no note is readable");
+  kernel_free_buffer(&context);
+
+  require_true(
+      kernel_build_ai_rag_context_from_changed_note_paths(nullptr, "alpha.md", &context).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed RAG context should require a handle");
+  require_true(
+      kernel_build_ai_rag_context_from_changed_note_paths(handle, "alpha.md", nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed RAG context should require an output buffer");
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
 void test_embedding_cache_rejects_invalid_arguments() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -396,5 +491,7 @@ void run_ai_embedding_cache_tests() {
   test_embedding_cache_metadata_vectors_and_top_notes_are_kernel_owned();
   test_embedding_refresh_jobs_are_prepared_in_kernel();
   test_changed_embedding_refresh_jobs_refresh_catalog_in_kernel();
+  test_changed_embedding_deletes_filter_and_count_in_kernel();
+  test_changed_rag_context_filters_reads_and_formats_in_kernel();
   test_embedding_cache_rejects_invalid_arguments();
 }

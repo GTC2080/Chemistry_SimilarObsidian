@@ -134,6 +134,42 @@ void test_query_graph_limit_and_argument_validation() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_query_enriched_graph_json_is_kernel_owned() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  write_graph_note(handle, "alpha.md", "# Alpha\n[[Beta]]\n");
+  write_graph_note(handle, "beta.md", "# Beta\n");
+
+  kernel_owned_buffer buffer{};
+  expect_ok(kernel_query_enriched_graph_json(handle, 64, &buffer));
+  const std::string json(buffer.data == nullptr ? "" : buffer.data, buffer.size);
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      json.find("\"neighbors\":{\"alpha.md\":[\"beta.md\"],\"beta.md\":[\"alpha.md\"]}") !=
+          std::string::npos,
+      "enriched graph JSON should expose kernel-owned neighbor adjacency");
+  require_true(
+      json.find("\"linkPairs\":[\"alpha.md->beta.md\",\"beta.md->alpha.md\"]") !=
+          std::string::npos,
+      "enriched graph JSON should expose kernel-owned directed link pairs");
+  require_true(
+      kernel_query_enriched_graph_json(nullptr, 1, &buffer).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "enriched graph query should require handle");
+  require_true(
+      kernel_query_enriched_graph_json(handle, 0, &buffer).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "enriched graph query should reject zero limit");
+  require_true(
+      kernel_query_enriched_graph_json(handle, 1, nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "enriched graph query should require output pointer");
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
 void test_graph_default_limits_are_kernel_owned() {
   size_t graph_limit = 0;
   expect_ok(kernel_get_graph_default_limit(&graph_limit));
@@ -155,5 +191,6 @@ void test_graph_default_limits_are_kernel_owned() {
 void run_kernel_api_core_graph_contract_tests() {
   test_query_graph_returns_live_notes_and_kernel_edges();
   test_query_graph_limit_and_argument_validation();
+  test_query_enriched_graph_json_is_kernel_owned();
   test_graph_default_limits_are_kernel_owned();
 }

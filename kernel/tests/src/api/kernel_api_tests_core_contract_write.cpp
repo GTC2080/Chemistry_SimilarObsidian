@@ -196,6 +196,56 @@ void test_empty_content_note_is_allowed() {
   std::filesystem::remove_all(vault);
 }
 
+void test_changed_markdown_note_content_filter_and_read_are_kernel_owned() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  kernel_note_metadata metadata{};
+  kernel_write_disposition disposition{};
+  const std::string content = "# Note\nindexed content";
+  expect_ok(kernel_write_note(
+      handle,
+      "Folder/Note.md",
+      content.data(),
+      content.size(),
+      nullptr,
+      &metadata,
+      &disposition));
+
+  kernel_owned_buffer buffer{};
+  expect_ok(kernel_read_first_changed_markdown_note_content(
+      handle,
+      " Folder\\Note.md \nFolder/Note.txt\nFolder/Note.md",
+      &buffer));
+  require_true(
+      std::string(buffer.data, buffer.size) == content,
+      "changed markdown content read should normalize, filter, dedupe, and read the first note");
+  kernel_free_buffer(&buffer);
+
+  expect_ok(kernel_read_first_changed_markdown_note_content(handle, "Folder/Note.txt\n", &buffer));
+  require_true(buffer.size == 0, "non-markdown changed path should return empty content");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_read_first_changed_markdown_note_content(handle, "missing.md", &buffer).code ==
+          KERNEL_ERROR_NOT_FOUND,
+      "missing markdown candidate should surface the kernel read error");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_read_first_changed_markdown_note_content(nullptr, "Folder/Note.md", &buffer).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed markdown content read should require a handle");
+  require_true(
+      kernel_read_first_changed_markdown_note_content(handle, "Folder/Note.md", nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed markdown content read should require an output buffer");
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+}
+
 void test_write_requires_output_pointers() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -222,5 +272,6 @@ void run_kernel_api_core_write_contract_tests() {
   test_same_content_write_is_noop();
   test_external_edit_causes_conflict();
   test_empty_content_note_is_allowed();
+  test_changed_markdown_note_content_filter_and_read_are_kernel_owned();
   test_write_requires_output_pointers();
 }

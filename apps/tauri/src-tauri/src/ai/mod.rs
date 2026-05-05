@@ -6,7 +6,7 @@
 mod chat;
 mod embedding;
 
-pub use chat::{build_rag_context_from_note_paths, ponder_node, stream_chat_with_context};
+pub use chat::{ponder_node, stream_chat_with_context};
 pub use embedding::{fetch_embedding_cached, EmbeddingRuntimeState};
 
 /// AI 配置，由前端 Store 传入

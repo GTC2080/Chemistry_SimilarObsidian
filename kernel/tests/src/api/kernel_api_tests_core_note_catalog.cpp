@@ -121,6 +121,51 @@ void test_query_notes_filtered_ignores_only_matching_roots() {
   std::filesystem::remove_all(state_dir_for_vault(vault));
 }
 
+void test_query_changed_notes_filters_catalog_and_preserves_changed_order() {
+  const auto vault = make_temp_vault();
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+
+  write_note(handle, "a.md", "# A\n");
+  write_note(handle, "b.md", "# B\n");
+  write_note(handle, "folder/c.md", "# C\n");
+
+  kernel_note_list notes{};
+  expect_ok(kernel_query_changed_notes(
+      handle,
+      " folder\\c.md \nmissing.md\nb.txt\nb.md\nfolder/c.md\na.md",
+      16,
+      &notes));
+  require_true(notes.count == 3, "changed note query should keep catalog-backed markdown paths");
+  require_true(
+      std::string(notes.notes[0].rel_path) == "folder/c.md",
+      "changed note query should preserve first changed markdown order");
+  require_true(
+      std::string(notes.notes[1].rel_path) == "b.md",
+      "changed note query should skip non-markdown paths");
+  require_true(
+      std::string(notes.notes[2].rel_path) == "a.md",
+      "changed note query should append later catalog hits");
+  kernel_free_note_list(&notes);
+
+  require_true(
+      kernel_query_changed_notes(nullptr, "a.md", 16, &notes).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed note query should require handle");
+  require_true(
+      kernel_query_changed_notes(handle, "a.md", 0, &notes).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed note query should reject zero limit");
+  require_true(
+      kernel_query_changed_notes(handle, "a.md", 16, nullptr).code ==
+          KERNEL_ERROR_INVALID_ARGUMENT,
+      "changed note query should require output pointer");
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
 void test_query_notes_requires_valid_arguments() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -151,5 +196,6 @@ void run_kernel_api_core_note_catalog_contract_tests() {
   test_note_query_default_limit_is_kernel_owned();
   test_vault_scan_default_limit_is_kernel_owned();
   test_query_notes_filtered_ignores_only_matching_roots();
+  test_query_changed_notes_filters_catalog_and_preserves_changed_order();
   test_query_notes_requires_valid_arguments();
 }

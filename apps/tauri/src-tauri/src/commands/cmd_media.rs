@@ -56,11 +56,6 @@ pub fn read_note(
     sealed_kernel::read_note_by_file_path(&file_path, sealed_kernel.inner())
 }
 
-fn indexed_markdown_rel_path(note_id: &str) -> Result<Option<String>, AppError> {
-    let rel_paths = sealed_kernel::filter_changed_markdown_paths(&[note_id.to_string()])?;
-    Ok(rel_paths.into_iter().next())
-}
-
 #[tauri::command]
 pub async fn read_binary_file(
     file_path: String,
@@ -79,11 +74,7 @@ pub async fn read_note_indexed_content(
     note_id: String,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<String, AppError> {
-    let Some(rel_path) = indexed_markdown_rel_path(&note_id)? else {
-        return Ok(String::new());
-    };
-
-    sealed_kernel::read_note_by_rel_path(&rel_path, sealed_kernel.inner())
+    sealed_kernel::read_first_changed_markdown_note_content([note_id], sealed_kernel.inner())
 }
 
 #[cfg(test)]
@@ -136,18 +127,6 @@ mod tests {
         assert_eq!(
             media_file_extension("Folder.With.Dot/README").expect("kernel file extension"),
             ""
-        );
-    }
-
-    #[test]
-    fn indexed_markdown_rel_path_uses_kernel_path_filter() {
-        assert_eq!(
-            indexed_markdown_rel_path(" Folder\\Note.md ").expect("kernel markdown path filter"),
-            Some("Folder/Note.md".to_string())
-        );
-        assert_eq!(
-            indexed_markdown_rel_path("Folder/Note.txt").expect("kernel markdown path filter"),
-            None
         );
     }
 }

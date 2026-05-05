@@ -89,6 +89,35 @@ extern "C" kernel_status kernel_read_note(
   return kernel::core::make_status(KERNEL_OK);
 }
 
+extern "C" kernel_status kernel_read_first_changed_markdown_note_content(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer != nullptr) {
+    out_buffer->data = nullptr;
+    out_buffer->size = 0;
+  }
+  if (handle == nullptr || out_buffer == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_path_list paths{};
+  const kernel_status filter_status = kernel_filter_changed_markdown_paths(changed_paths_lf, &paths);
+  if (filter_status.code != KERNEL_OK) {
+    kernel_free_path_list(&paths);
+    return filter_status;
+  }
+  if (paths.count == 0) {
+    kernel_free_path_list(&paths);
+    return kernel::core::make_status(KERNEL_OK);
+  }
+
+  kernel_note_metadata metadata{};
+  const kernel_status read_status = kernel_read_note(handle, paths.paths[0], out_buffer, &metadata);
+  kernel_free_path_list(&paths);
+  return read_status;
+}
+
 extern "C" kernel_status kernel_read_vault_file(
     kernel_handle* handle,
     const char* host_path,

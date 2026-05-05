@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_float, c_int};
 use std::path::Path;
@@ -80,6 +79,13 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_query_changed_notes_json(
+        session: *mut SealedKernelBridgeSession,
+        changed_paths_lf_utf8: *const c_char,
+        limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_get_file_tree_default_limit(
         out_limit: *mut u64,
         out_error: *mut *mut c_char,
@@ -88,11 +94,6 @@ extern "C" {
         session: *mut SealedKernelBridgeSession,
         limit: u64,
         ignored_roots_utf8: *const c_char,
-        out_json: *mut *mut c_char,
-        out_error: *mut *mut c_char,
-    ) -> c_int;
-    fn sealed_kernel_bridge_filter_changed_markdown_paths_json(
-        changed_paths_lf_utf8: *const c_char,
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -106,6 +107,12 @@ extern "C" {
         session: *mut SealedKernelBridgeSession,
         rel_path_utf8: *const c_char,
         out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_read_first_changed_markdown_note_content_text(
+        session: *mut SealedKernelBridgeSession,
+        changed_paths_lf_utf8: *const c_char,
+        out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_read_vault_file_bytes(
@@ -175,6 +182,12 @@ extern "C" {
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_query_graph_json(
+        session: *mut SealedKernelBridgeSession,
+        limit: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_query_enriched_graph_json(
         session: *mut SealedKernelBridgeSession,
         limit: u64,
         out_json: *mut *mut c_char,
@@ -364,10 +377,10 @@ extern "C" {
         session: *mut SealedKernelBridgeSession,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_delete_ai_embedding_note(
+    fn sealed_kernel_bridge_delete_changed_ai_embedding_notes(
         session: *mut SealedKernelBridgeSession,
-        rel_path_utf8: *const c_char,
-        out_deleted: *mut u8,
+        changed_paths_lf_utf8: *const c_char,
+        out_deleted_count: *mut u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_query_ai_embedding_top_notes_json(
@@ -385,12 +398,19 @@ extern "C" {
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    #[cfg(test)]
     fn sealed_kernel_bridge_build_ai_rag_context_from_note_paths_text(
         note_paths_utf8: *const *const c_char,
         note_path_sizes: *const u64,
         note_contents_utf8: *const *const c_char,
         note_content_sizes: *const u64,
         note_count: u64,
+        out_text: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_build_ai_rag_context_from_changed_note_paths_text(
+        session: *mut SealedKernelBridgeSession,
+        note_paths_lf_utf8: *const c_char,
         out_text: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
@@ -1245,21 +1265,6 @@ fn tag_tree_node_from_kernel(node: SealedKernelTagTreeNode) -> TagTreeNode {
     }
 }
 
-pub fn query_note_infos(
-    vault_path: &str,
-    state: &SealedKernelState,
-    limit: u64,
-) -> AppResult<Vec<NoteInfo>> {
-    ensure_vault_open(vault_path, state)?;
-    wait_for_catalog_ready(active_session(state)?)?;
-    let catalog = query_note_catalog(state, limit, None)?;
-    Ok(catalog
-        .notes
-        .into_iter()
-        .map(|record| note_info_from_record(vault_path, record))
-        .collect())
-}
-
 pub fn query_note_infos_filtered(
     vault_path: &str,
     state: &SealedKernelState,
@@ -1269,6 +1274,36 @@ pub fn query_note_infos_filtered(
     ensure_vault_open(vault_path, state)?;
     wait_for_catalog_ready(active_session(state)?)?;
     let catalog = query_note_catalog(state, limit, Some(ignored_roots))?;
+    Ok(catalog
+        .notes
+        .into_iter()
+        .map(|record| note_info_from_record(vault_path, record))
+        .collect())
+}
+
+pub fn query_changed_note_infos(
+    vault_path: &str,
+    state: &SealedKernelState,
+    paths: &[String],
+) -> AppResult<Vec<NoteInfo>> {
+    ensure_vault_open(vault_path, state)?;
+    wait_for_catalog_ready(active_session(state)?)?;
+    let limit = note_catalog_default_limit()?;
+    let joined = paths.join("\n");
+    let paths_c = cstring_arg(joined, "changed_paths")?;
+    let catalog = query_note_records_with_json(
+        "sealed_kernel_query_changed_notes",
+        state,
+        |session, raw_json, error| unsafe {
+            sealed_kernel_bridge_query_changed_notes_json(
+                session,
+                paths_c.as_ptr(),
+                limit,
+                raw_json,
+                error,
+            )
+        },
+    )?;
     Ok(catalog
         .notes
         .into_iter()
@@ -1326,33 +1361,6 @@ pub fn query_file_tree(
         .into_iter()
         .map(|node| file_tree_node_from_kernel(vault_path, node))
         .collect())
-}
-
-pub fn filter_changed_markdown_paths(paths: &[String]) -> AppResult<Vec<String>> {
-    let joined = paths.join("\n");
-    let paths_c = cstring_arg(joined, "changed_paths")?;
-    let mut raw_json: *mut c_char = std::ptr::null_mut();
-    let mut error: *mut c_char = std::ptr::null_mut();
-    let code = unsafe {
-        sealed_kernel_bridge_filter_changed_markdown_paths_json(
-            paths_c.as_ptr(),
-            &mut raw_json,
-            &mut error,
-        )
-    };
-    if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_filter_changed_markdown_paths",
-            code,
-            error,
-        ));
-    }
-
-    let value = take_bridge_string(raw_json);
-    let catalog: SealedKernelPathCatalog = serde_json::from_str(&value).map_err(|err| {
-        AppError::Custom(format!("sealed kernel changed path JSON is invalid: {err}"))
-    })?;
-    Ok(catalog.paths)
 }
 
 pub fn filter_supported_vault_paths_filtered(
@@ -1628,29 +1636,31 @@ pub fn query_enriched_graph_data(
     state: &SealedKernelState,
     limit: u64,
 ) -> AppResult<EnrichedGraphData> {
-    let GraphData { nodes, links } = query_graph_data(state, limit)?;
-    let mut neighbors: HashMap<String, Vec<String>> = HashMap::with_capacity(nodes.len());
-    let mut link_pairs = Vec::with_capacity(links.len() * 2);
-
-    for link in &links {
-        neighbors
-            .entry(link.source.clone())
-            .or_default()
-            .push(link.target.clone());
-        neighbors
-            .entry(link.target.clone())
-            .or_default()
-            .push(link.source.clone());
-
-        link_pairs.push(format!("{}->{}", link.source, link.target));
-        link_pairs.push(format!("{}->{}", link.target, link.source));
+    if limit == 0 {
+        return Err(AppError::Custom(
+            "limit must be greater than zero.".to_string(),
+        ));
     }
 
-    Ok(EnrichedGraphData {
-        nodes,
-        links,
-        neighbors,
-        link_pairs,
+    let session = active_session(state)?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_query_enriched_graph_json(session, limit, &mut raw_json, &mut error)
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_query_enriched_graph",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel enriched graph JSON is invalid: {err}"
+        ))
     })
 }
 
@@ -2411,27 +2421,26 @@ pub fn clear_ai_embeddings(state: &SealedKernelState) -> AppResult<()> {
     })
 }
 
-pub fn delete_ai_embedding_note(note_id: &str, state: &SealedKernelState) -> AppResult<bool> {
+pub fn delete_changed_ai_embedding_notes(
+    paths: &[String],
+    state: &SealedKernelState,
+) -> AppResult<u64> {
     let session = active_session(state)?;
-    let note_id = cstring_arg(note_id.to_string(), "note_rel_path")?;
-    let mut deleted = 0u8;
-    let mut error: *mut c_char = std::ptr::null_mut();
-    let code = unsafe {
-        sealed_kernel_bridge_delete_ai_embedding_note(
-            session,
-            note_id.as_ptr(),
-            &mut deleted,
-            &mut error,
-        )
-    };
-    if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_delete_ai_embedding_note",
-            code,
-            error,
-        ));
-    }
-    Ok(deleted != 0)
+    let joined = paths.join("\n");
+    let paths_c = cstring_arg(joined, "changed_paths")?;
+    let mut deleted_count = 0u64;
+    call_status_operation(
+        "sealed_kernel_delete_changed_ai_embedding_notes",
+        |error| unsafe {
+            sealed_kernel_bridge_delete_changed_ai_embedding_notes(
+                session,
+                paths_c.as_ptr(),
+                &mut deleted_count,
+                error,
+            )
+        },
+    )?;
+    Ok(deleted_count)
 }
 
 pub fn query_ai_embedding_top_note_infos(
@@ -2497,6 +2506,7 @@ pub fn build_ai_rag_system_content(context: &str) -> AppResult<String> {
     Ok(take_bridge_string(raw_text))
 }
 
+#[cfg(test)]
 pub fn build_ai_rag_context_from_note_paths(notes: &[(String, String)]) -> AppResult<String> {
     let note_path_ptrs: Vec<*const c_char> = notes
         .iter()
@@ -2528,6 +2538,33 @@ pub fn build_ai_rag_context_from_note_paths(notes: &[(String, String)]) -> AppRe
     if code != 0 {
         return Err(product_text_bridge_error(
             "sealed_kernel_build_ai_rag_context_from_note_paths",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
+}
+
+pub fn build_ai_rag_context_from_note_ids(
+    note_ids: impl IntoIterator<Item = String>,
+    state: &SealedKernelState,
+) -> AppResult<String> {
+    let session = active_session(state)?;
+    let joined = note_ids.into_iter().collect::<Vec<_>>().join("\n");
+    let note_paths = cstring_arg(joined, "note_paths")?;
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_ai_rag_context_from_changed_note_paths_text(
+            session,
+            note_paths.as_ptr(),
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_build_ai_rag_context_from_changed_note_paths",
             code,
             error,
         ));
@@ -3378,6 +3415,33 @@ pub fn read_note_by_rel_path(rel_path: &str, state: &SealedKernelState) -> AppRe
         AppError::Custom(format!("sealed kernel note read JSON is invalid: {err}"))
     })?;
     Ok(parsed.content)
+}
+
+pub fn read_first_changed_markdown_note_content(
+    note_ids: impl IntoIterator<Item = String>,
+    state: &SealedKernelState,
+) -> AppResult<String> {
+    let session = active_session(state)?;
+    let joined = note_ids.into_iter().collect::<Vec<_>>().join("\n");
+    let changed_paths = cstring_arg(joined, "changed_paths")?;
+    let mut raw_text: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_read_first_changed_markdown_note_content_text(
+            session,
+            changed_paths.as_ptr(),
+            &mut raw_text,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_read_first_changed_markdown_note_content",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_text))
 }
 
 pub fn read_vault_file_bytes_for_session(session: usize, file_path: &str) -> AppResult<Vec<u8>> {

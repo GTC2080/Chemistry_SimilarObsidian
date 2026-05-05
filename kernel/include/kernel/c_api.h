@@ -23,6 +23,10 @@ kernel_status kernel_read_note(
     const char* rel_path,
     kernel_owned_buffer* out_buffer,
     kernel_note_metadata* out_metadata);
+kernel_status kernel_read_first_changed_markdown_note_content(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_read_vault_file(
     kernel_handle* handle,
     const char* host_path,
@@ -36,6 +40,11 @@ kernel_status kernel_query_notes_filtered(
     kernel_handle* handle,
     size_t limit,
     const char* ignored_roots_csv,
+    kernel_note_list* out_notes);
+kernel_status kernel_query_changed_notes(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    size_t limit,
     kernel_note_list* out_notes);
 kernel_status kernel_get_file_tree_default_limit(size_t* out_limit);
 kernel_status kernel_query_file_tree(
@@ -121,6 +130,10 @@ kernel_status kernel_query_graph(
     kernel_handle* handle,
     size_t note_limit,
     kernel_graph* out_graph);
+kernel_status kernel_query_enriched_graph_json(
+    kernel_handle* handle,
+    size_t note_limit,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_query_backlinks(
     kernel_handle* handle,
     const char* rel_path,
@@ -309,6 +322,10 @@ kernel_status kernel_delete_ai_embedding_note(
     kernel_handle* handle,
     const char* note_rel_path,
     uint8_t* out_deleted);
+kernel_status kernel_delete_changed_ai_embedding_notes(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    uint64_t* out_deleted_count);
 kernel_status kernel_query_ai_embedding_top_notes(
     kernel_handle* handle,
     const float* query_values,
@@ -329,6 +346,10 @@ kernel_status kernel_build_ai_rag_context_from_note_paths(
     const char* const* note_contents,
     const size_t* note_content_sizes,
     size_t note_count,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_build_ai_rag_context_from_changed_note_paths(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
     kernel_owned_buffer* out_buffer);
 kernel_status kernel_build_ai_rag_system_content(
     const char* context,

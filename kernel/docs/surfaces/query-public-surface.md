@@ -2,7 +2,7 @@
 
 # Query Public Surface
 
-Last updated: `2026-04-25`
+Last updated: `2026-05-05`
 
 ## Scope
 
@@ -18,15 +18,22 @@ This document freezes the Phase 1 host-facing behavior for:
 - `kernel_get_tag_tree_default_limit(...)`
 - `kernel_get_graph_default_limit(...)`
 - `kernel_query_notes(...)`
+- `kernel_query_notes_filtered(...)`
+- `kernel_query_changed_notes(...)`
 - `kernel_read_note(...)`
+- `kernel_read_first_changed_markdown_note_content(...)`
 - `kernel_write_note(...)`
+- `kernel_delete_changed_ai_embedding_notes(...)`
+- `kernel_build_ai_rag_context_from_changed_note_paths(...)`
 - `kernel_query_tag_notes(...)`
 - `kernel_query_tags(...)`
 - `kernel_query_graph(...)`
+- `kernel_query_enriched_graph_json(...)`
 - `kernel_query_backlinks(...)`
 - `kernel_free_search_results(...)`
 - `kernel_free_tag_list(...)`
 - `kernel_free_graph(...)`
+- `kernel_free_buffer(...)`
 
 It is a contract for hosts.
 It is not an internal implementation guide.
@@ -34,19 +41,30 @@ It is not an internal implementation guide.
 ## Note Catalog and IO Host Boundary
 
 `kernel_query_notes(...)` returns the live note metadata catalog that hosts use for file workflow metadata.
+`kernel_query_notes_filtered(...)` applies kernel-owned ignored-root filtering to that catalog.
+`kernel_query_changed_notes(...)` applies kernel-owned changed-path Markdown normalization/deduping, catalog matching, and changed-path-order preservation.
 `kernel_read_note(...)` and `kernel_write_note(...)` are the paired note content IO surface.
+`kernel_read_first_changed_markdown_note_content(...)` applies changed-path Markdown normalization/deduping and reads the first candidate note content, returning empty content when no Markdown candidate remains.
+`kernel_build_ai_rag_context_from_changed_note_paths(...)` applies changed-path Markdown normalization/deduping, note-content hydration, missing-note skipping, blank-note skipping, display-name derivation, RAG block numbering, and per-note truncation inside the kernel.
 
 Current Tauri host wiring:
 
-- `scan_vault` and `scan_changed_entries` read `NoteInfo` data from `kernel_query_notes(...)`
+- `scan_vault` reads `NoteInfo` data from `kernel_query_notes(...)` / `kernel_query_notes_filtered(...)`
+- `scan_changed_entries` reads changed `NoteInfo` data from `kernel_query_changed_notes(...)`
 - `index_vault_content` and `index_changed_entries` pair `kernel_query_notes(...)` metadata with `kernel_read_note(...)` content
-- `read_note` and `read_note_indexed_content` call `kernel_read_note(...)`
+- `ask_vault` builds hydrated RAG note context through `kernel_build_ai_rag_context_from_changed_note_paths(...)`
+- `read_note` calls `kernel_read_note(...)`
+- `read_note_indexed_content` reads its indexed Markdown body through `kernel_read_first_changed_markdown_note_content(...)`
 - `write_note` calls `kernel_write_note(...)`
 
 Host rule:
 
 - hosts must not rebuild note metadata truth from their own filesystem walk or legacy Rust DB rows when a kernel note catalog entry is available
+- hosts must not pull a full note catalog into Rust and use `HashSet` / `HashMap` filtering to reconstruct changed-note order; changed-entry catalog filtering belongs to `kernel_query_changed_notes(...)`
 - AI embedding metadata, vector persistence, timestamp refresh data, clears, deletes, and semantic top-k note retrieval must use the kernel-owned `ai_embedding_cache` surface rather than a host-owned store
+- deleted-entry embedding cleanup must call `kernel_delete_changed_ai_embedding_notes(...)`; hosts must not filter changed paths and loop over per-note deletes in Rust
+- RAG content hydration for semantic chat must call `kernel_build_ai_rag_context_from_changed_note_paths(...)`; hosts must not filter candidate note paths, loop over note reads, or reconstruct RAG note blocks in Rust
+- indexed Markdown content reads must call `kernel_read_first_changed_markdown_note_content(...)`; hosts must not pair `kernel_filter_changed_markdown_paths(...)` with a separate Rust-side read loop for that command
 
 ## Kernel-Owned Query Defaults
 
@@ -208,12 +226,14 @@ Ordering and ownership:
 
 `kernel_query_graph(...)` returns the note relationship graph derived from live kernel state.
 This is the only host-facing graph truth for backlinks/tag/folder relationship visualization.
+`kernel_query_enriched_graph_json(...)` returns the same graph plus the host-facing derived adjacency data that the Tauri graph view consumes.
 
 Input rules:
 
 - `handle` must be non-null
 - `note_limit` must be greater than zero
 - `out_graph` must be non-null
+- `kernel_query_enriched_graph_json(...)` requires a non-null `out_buffer` instead of `out_graph`
 
 Node semantics:
 
@@ -234,6 +254,11 @@ Ordering and ownership:
 - node and link ordering is deterministic for regression comparison
 - returned strings are kernel-owned and remain valid until `kernel_free_graph(...)`
 - `kernel_free_graph(...)` is idempotent and leaves the struct empty
+- enriched graph JSON includes `nodes`, `links`, `neighbors`, and `linkPairs`
+- `neighbors` is a bidirectional adjacency map keyed by node id
+- `linkPairs` contains both directed forms for every returned link, in graph link order
+- hosts must not rebuild `neighbors` or `linkPairs` from graph links in Rust or frontend code
+- enriched graph JSON is returned as a kernel-owned `kernel_owned_buffer` and must be released with `kernel_free_buffer(...)`
 
 ## Backlinks Query Contract
 
@@ -267,7 +292,7 @@ These query surfaces read the kernel's derived SQLite state, but their observabl
 - after a successful `kernel_write_note(...)`, stale search/tag/backlink rows for that note are replaced
 - after startup recovery finishes, recovered disk truth replaces stale search/tag/backlink rows
 - after rebuild finishes successfully, disk truth replaces stale search/tag/backlink rows
-- `kernel_query_tags(...)`, `kernel_query_tag_notes(...)`, `kernel_query_graph(...)`, and `kernel_query_backlinks(...)` must all agree on the same parser-derived tag/wiki-link rows
+- `kernel_query_tags(...)`, `kernel_query_tag_notes(...)`, `kernel_query_graph(...)`, `kernel_query_enriched_graph_json(...)`, and `kernel_query_backlinks(...)` must all agree on the same parser-derived tag/wiki-link rows
 
 Hosts should treat query results as stable only after the runtime has reached a healthy queryable state such as `READY`.
 

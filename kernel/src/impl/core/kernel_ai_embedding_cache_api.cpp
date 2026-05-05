@@ -680,6 +680,118 @@ extern "C" kernel_status kernel_delete_ai_embedding_note(
   return kernel::core::make_status(KERNEL_OK);
 }
 
+extern "C" kernel_status kernel_delete_changed_ai_embedding_notes(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    std::uint64_t* out_deleted_count) {
+  if (out_deleted_count != nullptr) {
+    *out_deleted_count = 0;
+  }
+  if (handle == nullptr || out_deleted_count == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_path_list filtered_paths{};
+  const kernel_status filter_status =
+      kernel_filter_changed_markdown_paths(changed_paths_lf, &filtered_paths);
+  if (filter_status.code != KERNEL_OK) {
+    kernel_free_path_list(&filtered_paths);
+    return filter_status;
+  }
+  const std::vector<std::string> rel_paths = copy_path_list(filtered_paths);
+  kernel_free_path_list(&filtered_paths);
+  if (rel_paths.empty()) {
+    return kernel::core::make_status(KERNEL_OK);
+  }
+
+  std::uint64_t deleted_count = 0;
+  {
+    std::lock_guard lock(handle->storage_mutex);
+    for (const auto& rel_path : rel_paths) {
+      bool deleted = false;
+      const std::error_code ec =
+          kernel::storage::delete_ai_embedding_note(handle->storage, rel_path, deleted);
+      if (ec) {
+        return kernel::core::make_status(kernel::core::map_error(ec));
+      }
+      if (deleted) {
+        ++deleted_count;
+      }
+    }
+  }
+
+  *out_deleted_count = deleted_count;
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_build_ai_rag_context_from_changed_note_paths(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer != nullptr) {
+    *out_buffer = kernel_owned_buffer{};
+  }
+  if (handle == nullptr || out_buffer == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_path_list filtered_paths{};
+  const kernel_status filter_status =
+      kernel_filter_changed_markdown_paths(changed_paths_lf, &filtered_paths);
+  if (filter_status.code != KERNEL_OK) {
+    kernel_free_path_list(&filtered_paths);
+    return filter_status;
+  }
+  const std::vector<std::string> rel_paths = copy_path_list(filtered_paths);
+  kernel_free_path_list(&filtered_paths);
+  if (rel_paths.empty()) {
+    return kernel_build_ai_rag_context_from_note_paths(
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        0,
+        out_buffer);
+  }
+
+  std::vector<std::string> readable_paths;
+  std::vector<std::string> readable_contents;
+  readable_paths.reserve(rel_paths.size());
+  readable_contents.reserve(rel_paths.size());
+  for (const auto& rel_path : rel_paths) {
+    std::string content;
+    const std::error_code read_ec = read_note_content(handle, rel_path, content);
+    if (read_ec) {
+      continue;
+    }
+    readable_paths.push_back(rel_path);
+    readable_contents.push_back(std::move(content));
+  }
+
+  std::vector<const char*> path_ptrs;
+  std::vector<std::size_t> path_sizes;
+  std::vector<const char*> content_ptrs;
+  std::vector<std::size_t> content_sizes;
+  path_ptrs.reserve(readable_paths.size());
+  path_sizes.reserve(readable_paths.size());
+  content_ptrs.reserve(readable_contents.size());
+  content_sizes.reserve(readable_contents.size());
+  for (std::size_t index = 0; index < readable_paths.size(); ++index) {
+    path_ptrs.push_back(readable_paths[index].data());
+    path_sizes.push_back(readable_paths[index].size());
+    content_ptrs.push_back(readable_contents[index].data());
+    content_sizes.push_back(readable_contents[index].size());
+  }
+
+  return kernel_build_ai_rag_context_from_note_paths(
+      path_ptrs.data(),
+      path_sizes.data(),
+      content_ptrs.data(),
+      content_sizes.data(),
+      readable_paths.size(),
+      out_buffer);
+}
+
 extern "C" kernel_status kernel_query_ai_embedding_top_notes(
     kernel_handle* handle,
     const float* query_values,

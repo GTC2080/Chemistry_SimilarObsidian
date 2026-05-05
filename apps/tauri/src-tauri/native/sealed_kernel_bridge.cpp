@@ -297,6 +297,24 @@ void AppendNoteHitJson(
   json += "\"mtime_ns\":" + std::to_string(mtime_ns) + "}";
 }
 
+std::string NoteCatalogJson(const kernel_note_list& notes) {
+  std::string json = "{\"notes\":[";
+  for (size_t index = 0; index < notes.count; ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const kernel_note_record& note = notes.notes[index];
+    const std::string rel_path_utf8 = ActiveCodePageToUtf8(note.rel_path);
+    json += "{\"rel_path\":\"" + JsonEscape(rel_path_utf8.c_str()) + "\",";
+    json += "\"title\":\"" + JsonEscape(note.title) + "\",";
+    json += "\"file_size\":" + std::to_string(note.file_size) + ",";
+    json += "\"mtime_ns\":" + std::to_string(note.mtime_ns) + ",";
+    json += "\"content_revision\":\"" + JsonEscape(note.content_revision) + "\"}";
+  }
+  json += "],\"count\":" + std::to_string(notes.count) + "}";
+  return json;
+}
+
 void AppendAiEmbeddingRefreshJobJson(
     std::string& json,
     const kernel_ai_embedding_refresh_job& job) {
@@ -1219,21 +1237,7 @@ int32_t QueryNotesJson(
         out_error);
   }
 
-  std::string json = "{\"notes\":[";
-  for (size_t index = 0; index < notes.count; ++index) {
-    if (index != 0) {
-      json += ",";
-    }
-    const kernel_note_record& note = notes.notes[index];
-    const std::string rel_path_utf8 = ActiveCodePageToUtf8(note.rel_path);
-    json += "{\"rel_path\":\"" + JsonEscape(rel_path_utf8.c_str()) + "\",";
-    json += "\"title\":\"" + JsonEscape(note.title) + "\",";
-    json += "\"file_size\":" + std::to_string(note.file_size) + ",";
-    json += "\"mtime_ns\":" + std::to_string(note.mtime_ns) + ",";
-    json += "\"content_revision\":\"" + JsonEscape(note.content_revision) + "\"}";
-  }
-  json += "],\"count\":" + std::to_string(notes.count) + "}";
-
+  const std::string json = NoteCatalogJson(notes);
   kernel_free_note_list(&notes);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
@@ -1258,6 +1262,44 @@ int32_t sealed_kernel_bridge_query_notes_filtered_json(
     char** out_json,
     char** out_error) {
   return QueryNotesJson(session, limit, ignored_roots_utf8, out_json, out_error);
+}
+
+int32_t sealed_kernel_bridge_query_changed_notes_json(
+    sealed_kernel_bridge_session* session,
+    const char* changed_paths_lf_utf8,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0) {
+    SetError(
+        out_error,
+        "sealed kernel session is not open or changed note query arguments are invalid.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string changed_paths = Utf8ToActiveCodePage(changed_paths_lf_utf8);
+  kernel_note_list notes{};
+  const kernel_status status = kernel_query_changed_notes(
+      session->handle,
+      changed_paths.c_str(),
+      static_cast<size_t>(limit),
+      &notes);
+  if (status.code != KERNEL_OK) {
+    kernel_free_note_list(&notes);
+    return ReturnKernelError(status, "kernel_query_changed_notes", out_error);
+  }
+
+  const std::string json = NoteCatalogJson(notes);
+  kernel_free_note_list(&notes);
+  *out_json = CopyString(json);
+  if (*out_json == nullptr) {
+    SetError(out_error, "failed to allocate changed note catalog JSON.");
+    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
+  }
+  return static_cast<int32_t>(KERNEL_OK);
 }
 
 int32_t sealed_kernel_bridge_get_file_tree_default_limit(
@@ -1317,36 +1359,6 @@ int32_t sealed_kernel_bridge_query_file_tree_json(
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "failed to allocate file tree JSON.");
-    return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
-  }
-  return static_cast<int32_t>(KERNEL_OK);
-}
-
-int32_t sealed_kernel_bridge_filter_changed_markdown_paths_json(
-    const char* changed_paths_lf_utf8,
-    char** out_json,
-    char** out_error) {
-  if (out_json != nullptr) {
-    *out_json = nullptr;
-  }
-  if (out_json == nullptr) {
-    SetError(out_error, "changed markdown path output pointer is invalid.");
-    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
-  }
-
-  const std::string changed_paths = Utf8ToActiveCodePage(changed_paths_lf_utf8);
-  kernel_path_list paths{};
-  const kernel_status status =
-      kernel_filter_changed_markdown_paths(changed_paths.c_str(), &paths);
-  if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_filter_changed_markdown_paths", out_error);
-  }
-
-  const std::string json = PathListToJson(paths);
-  kernel_free_path_list(&paths);
-  *out_json = CopyString(json);
-  if (*out_json == nullptr) {
-    SetError(out_error, "failed to allocate changed markdown path JSON.");
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);
@@ -1625,6 +1637,36 @@ static int32_t CopyKernelOwnedText(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_read_first_changed_markdown_note_content_text(
+    sealed_kernel_bridge_session* session,
+    const char* changed_paths_lf_utf8,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_text == nullptr) {
+    SetError(out_error, "sealed kernel session is not open.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string changed_paths = Utf8ToActiveCodePage(changed_paths_lf_utf8);
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_read_first_changed_markdown_note_content(
+      session->handle,
+      changed_paths.c_str(),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(
+        status,
+        "kernel_read_first_changed_markdown_note_content",
+        out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
 static int32_t KernelDefaultFloat(
     kernel_status (*getter)(float*),
     const char* operation,
@@ -1874,6 +1916,34 @@ int32_t sealed_kernel_bridge_query_graph_json(
     return static_cast<int32_t>(KERNEL_ERROR_INTERNAL);
   }
   return static_cast<int32_t>(KERNEL_OK);
+}
+
+int32_t sealed_kernel_bridge_query_enriched_graph_json(
+    sealed_kernel_bridge_session* session,
+    uint64_t limit,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_json == nullptr || limit == 0) {
+    SetError(
+        out_error,
+        "sealed kernel session is not open or enriched graph arguments are invalid.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_query_enriched_graph_json(
+      session->handle,
+      static_cast<size_t>(limit),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_query_enriched_graph_json", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_json, out_error);
 }
 
 int32_t sealed_kernel_bridge_query_backlinks_json(
@@ -2754,25 +2824,26 @@ int32_t sealed_kernel_bridge_clear_ai_embeddings(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
-int32_t sealed_kernel_bridge_delete_ai_embedding_note(
+int32_t sealed_kernel_bridge_delete_changed_ai_embedding_notes(
     sealed_kernel_bridge_session* session,
-    const char* rel_path_utf8,
-    uint8_t* out_deleted,
+    const char* changed_paths_lf_utf8,
+    uint64_t* out_deleted_count,
     char** out_error) {
-  if (out_deleted != nullptr) {
-    *out_deleted = 0;
+  if (out_deleted_count != nullptr) {
+    *out_deleted_count = 0;
   }
-  if (session == nullptr || session->handle == nullptr || rel_path_utf8 == nullptr ||
-      out_deleted == nullptr) {
+  if (session == nullptr || session->handle == nullptr || out_deleted_count == nullptr) {
     SetError(out_error, "invalid_argument");
     return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  const std::string rel_path = Utf8ToActiveCodePage(rel_path_utf8);
-  const kernel_status status =
-      kernel_delete_ai_embedding_note(session->handle, rel_path.c_str(), out_deleted);
+  const std::string changed_paths = Utf8ToActiveCodePage(changed_paths_lf_utf8);
+  const kernel_status status = kernel_delete_changed_ai_embedding_notes(
+      session->handle,
+      changed_paths.c_str(),
+      out_deleted_count);
   if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_delete_ai_embedding_note", out_error);
+    return ReturnKernelError(status, "kernel_delete_changed_ai_embedding_notes", out_error);
   }
   return static_cast<int32_t>(KERNEL_OK);
 }
@@ -2900,6 +2971,36 @@ int32_t sealed_kernel_bridge_build_ai_rag_context_from_note_paths_text(
   if (status.code != KERNEL_OK) {
     kernel_free_buffer(&buffer);
     return ReturnKernelError(status, "kernel_build_ai_rag_context_from_note_paths", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_text, out_error);
+}
+
+int32_t sealed_kernel_bridge_build_ai_rag_context_from_changed_note_paths_text(
+    sealed_kernel_bridge_session* session,
+    const char* note_paths_lf_utf8,
+    char** out_text,
+    char** out_error) {
+  if (out_text != nullptr) {
+    *out_text = nullptr;
+  }
+  if (session == nullptr || session->handle == nullptr || out_text == nullptr) {
+    SetError(out_error, "sealed kernel session is not open.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const std::string note_paths = Utf8ToActiveCodePage(note_paths_lf_utf8);
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_build_ai_rag_context_from_changed_note_paths(
+      session->handle,
+      note_paths.c_str(),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(
+        status,
+        "kernel_build_ai_rag_context_from_changed_note_paths",
+        out_error);
   }
 
   return CopyKernelOwnedText(buffer, out_text, out_error);

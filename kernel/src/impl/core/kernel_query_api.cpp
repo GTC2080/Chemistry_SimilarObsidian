@@ -8,10 +8,19 @@
 #include "storage/storage.h"
 
 #include <cctype>
+#include <cstring>
+#include <map>
 #include <new>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -176,6 +185,92 @@ void reset_search_page(kernel_search_page* out_page) {
 
   free_search_page_impl(out_page);
 }
+
+bool fill_owned_buffer(std::string_view value, kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr) {
+    return false;
+  }
+
+  *out_buffer = kernel_owned_buffer{};
+  if (value.empty()) {
+    return true;
+  }
+
+  auto* data = new (std::nothrow) char[value.size()];
+  if (data == nullptr) {
+    return false;
+  }
+
+  std::memcpy(data, value.data(), value.size());
+  out_buffer->data = data;
+  out_buffer->size = value.size();
+  return true;
+}
+
+#ifdef _WIN32
+std::string active_code_page_to_utf8(std::string_view value) {
+  if (value.empty()) {
+    return {};
+  }
+
+  const int input_size = static_cast<int>(value.size());
+  const int wide_size = MultiByteToWideChar(
+      CP_ACP,
+      0,
+      value.data(),
+      input_size,
+      nullptr,
+      0);
+  if (wide_size <= 0) {
+    return std::string(value);
+  }
+
+  std::wstring wide(static_cast<std::size_t>(wide_size), L'\0');
+  const int converted_wide_size = MultiByteToWideChar(
+      CP_ACP,
+      0,
+      value.data(),
+      input_size,
+      wide.data(),
+      wide_size);
+  if (converted_wide_size <= 0) {
+    return std::string(value);
+  }
+
+  const int utf8_size = WideCharToMultiByte(
+      CP_UTF8,
+      0,
+      wide.data(),
+      converted_wide_size,
+      nullptr,
+      0,
+      nullptr,
+      nullptr);
+  if (utf8_size <= 0) {
+    return std::string(value);
+  }
+
+  std::string result(static_cast<std::size_t>(utf8_size), '\0');
+  const int converted_utf8_size = WideCharToMultiByte(
+      CP_UTF8,
+      0,
+      wide.data(),
+      converted_wide_size,
+      result.data(),
+      utf8_size,
+      nullptr,
+      nullptr);
+  if (converted_utf8_size <= 0) {
+    return std::string(value);
+  }
+  result.resize(static_cast<std::size_t>(converted_utf8_size));
+  return result;
+}
+#else
+std::string active_code_page_to_utf8(std::string_view value) {
+  return std::string(value);
+}
+#endif
 
 kernel_status fill_note_list_results(
     const std::vector<kernel::storage::NoteListHit>& hits,
@@ -464,6 +559,75 @@ kernel_status fill_graph_results(
   }
 
   return kernel::core::make_status(KERNEL_OK);
+}
+
+std::string build_enriched_graph_json(const kernel::storage::GraphRecord& record) {
+  std::map<std::string, std::vector<std::string>> neighbors;
+  std::vector<std::pair<std::string, std::string>> link_pairs;
+  link_pairs.reserve(record.links.size() * 2);
+
+  for (const auto& link : record.links) {
+    neighbors[link.source].push_back(link.target);
+    neighbors[link.target].push_back(link.source);
+    link_pairs.emplace_back(link.source, link.target);
+    link_pairs.emplace_back(link.target, link.source);
+  }
+
+  std::string json = "{\"nodes\":[";
+  for (size_t index = 0; index < record.nodes.size(); ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    json += "{\"id\":\"" +
+            kernel::core::json_escape(active_code_page_to_utf8(record.nodes[index].id)) + "\",";
+    json += "\"name\":\"" + kernel::core::json_escape(record.nodes[index].name) + "\",";
+    json += "\"ghost\":";
+    json += record.nodes[index].ghost ? "true" : "false";
+    json += "}";
+  }
+
+  json += "],\"links\":[";
+  for (size_t index = 0; index < record.links.size(); ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    json += "{\"source\":\"" +
+            kernel::core::json_escape(active_code_page_to_utf8(record.links[index].source)) +
+            "\",";
+    json += "\"target\":\"" +
+            kernel::core::json_escape(active_code_page_to_utf8(record.links[index].target)) +
+            "\",";
+    json += "\"kind\":\"" + kernel::core::json_escape(record.links[index].kind) + "\"}";
+  }
+
+  json += "],\"neighbors\":{";
+  bool first_neighbor = true;
+  for (const auto& [node_id, entries] : neighbors) {
+    if (!first_neighbor) {
+      json += ",";
+    }
+    first_neighbor = false;
+    json += "\"" + kernel::core::json_escape(active_code_page_to_utf8(node_id)) + "\":[";
+    for (size_t index = 0; index < entries.size(); ++index) {
+      if (index != 0) {
+        json += ",";
+      }
+      json += "\"" + kernel::core::json_escape(active_code_page_to_utf8(entries[index])) + "\"";
+    }
+    json += "]";
+  }
+
+  json += "},\"linkPairs\":[";
+  for (size_t index = 0; index < link_pairs.size(); ++index) {
+    if (index != 0) {
+      json += ",";
+    }
+    const std::string source = active_code_page_to_utf8(link_pairs[index].first);
+    const std::string target = active_code_page_to_utf8(link_pairs[index].second);
+    json += "\"" + kernel::core::json_escape(source + "->" + target) + "\"";
+  }
+  json += "]}";
+  return json;
 }
 
 kernel_status fill_search_results(
@@ -788,6 +952,35 @@ extern "C" kernel_status kernel_query_graph(
   }
 
   return fill_graph_results(graph, out_graph);
+}
+
+extern "C" kernel_status kernel_query_enriched_graph_json(
+    kernel_handle* handle,
+    size_t note_limit,
+    kernel_owned_buffer* out_buffer) {
+  if (out_buffer == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  *out_buffer = kernel_owned_buffer{};
+  if (handle == nullptr || note_limit == 0) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel::storage::GraphRecord graph;
+  {
+    std::lock_guard lock(handle->storage_mutex);
+    const std::error_code ec =
+        kernel::storage::build_note_graph(handle->storage, note_limit, graph);
+    if (ec) {
+      return kernel::core::make_status(kernel::core::map_error(ec));
+    }
+  }
+
+  const std::string json = build_enriched_graph_json(graph);
+  if (!fill_owned_buffer(json, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
 }
 
 extern "C" kernel_status kernel_query_backlinks(

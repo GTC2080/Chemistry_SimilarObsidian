@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <map>
 #include <new>
 #include <set>
 #include <string>
@@ -232,6 +233,61 @@ extern "C" kernel_status kernel_query_notes_filtered(
     const char* ignored_roots_csv,
     kernel_note_list* out_notes) {
   return query_notes_impl(handle, limit, ignored_roots_csv, out_notes);
+}
+
+extern "C" kernel_status kernel_query_changed_notes(
+    kernel_handle* handle,
+    const char* changed_paths_lf,
+    size_t limit,
+    kernel_note_list* out_notes) {
+  reset_note_list(out_notes);
+  if (handle == nullptr || out_notes == nullptr || limit == 0) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  kernel_path_list changed_paths{};
+  const kernel_status filter_status =
+      kernel_filter_changed_markdown_paths(changed_paths_lf, &changed_paths);
+  if (filter_status.code != KERNEL_OK) {
+    kernel_free_path_list(&changed_paths);
+    return filter_status;
+  }
+  if (changed_paths.count == 0) {
+    kernel_free_path_list(&changed_paths);
+    return kernel::core::make_status(KERNEL_OK);
+  }
+
+  std::vector<kernel::storage::NoteCatalogRecord> records;
+  {
+    std::lock_guard lock(handle->storage_mutex);
+    const std::error_code ec =
+        kernel::storage::list_note_catalog_records(handle->storage, limit, records);
+    if (ec) {
+      kernel_free_path_list(&changed_paths);
+      return kernel::core::make_status(kernel::core::map_error(ec));
+    }
+  }
+
+  std::map<std::string, std::size_t> record_indices;
+  for (std::size_t index = 0; index < records.size(); ++index) {
+    record_indices.emplace(records[index].rel_path, index);
+  }
+
+  std::vector<kernel::storage::NoteCatalogRecord> ordered_records;
+  ordered_records.reserve(changed_paths.count);
+  for (std::size_t index = 0; index < changed_paths.count; ++index) {
+    const char* path = changed_paths.paths[index];
+    if (path == nullptr) {
+      continue;
+    }
+    const auto found = record_indices.find(path);
+    if (found != record_indices.end()) {
+      ordered_records.push_back(records[found->second]);
+    }
+  }
+
+  kernel_free_path_list(&changed_paths);
+  return fill_note_list(ordered_records, out_notes);
 }
 
 extern "C" void kernel_free_note_list(kernel_note_list* notes) {

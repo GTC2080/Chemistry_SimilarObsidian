@@ -45,7 +45,7 @@ pub struct GraphData {
 }
 
 /// 增强版图谱数据，包含预计算的邻接索引
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnrichedGraphData {
     pub nodes: Vec<GraphNode>,
