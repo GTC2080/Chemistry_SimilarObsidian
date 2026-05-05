@@ -302,6 +302,130 @@ void test_database_payload_normalization_json_is_kernel_owned() {
       "database JSON normalization should reject invalid JSON");
 }
 
+void test_paper_compile_plan_json_is_kernel_owned() {
+  kernel_owned_buffer buffer{};
+
+  const std::string workspace = "E:\\tmp\\nexus-paper-1";
+  const std::string templ = " Standard-Thesis ";
+  const std::string image_a = "C:\\vault\\figs\\a.png";
+  const std::string image_b = "C:\\vault\\figs\\b.png";
+  const std::string image_c = "C:\\vault\\other\\c.png";
+  const std::string image_loose = "loose.png";
+  const char* image_paths[] = {
+      image_a.data(),
+      image_b.data(),
+      image_c.data(),
+      image_loose.data()};
+  const size_t image_path_sizes[] = {
+      image_a.size(),
+      image_b.size(),
+      image_c.size(),
+      image_loose.size()};
+  const std::string blank_csl = "  ";
+  const std::string bib = " refs.bib ";
+  const std::string separator = ";";
+
+  require_ok_status(
+      kernel_build_paper_compile_plan_json(
+          workspace.data(),
+          workspace.size(),
+          templ.data(),
+          templ.size(),
+          image_paths,
+          image_path_sizes,
+          4,
+          blank_csl.data(),
+          blank_csl.size(),
+          bib.data(),
+          bib.size(),
+          separator.data(),
+          separator.size(),
+          &buffer),
+      "paper compile plan JSON");
+
+  const std::string expected =
+      "{\"templateArgs\":[\"-V\",\"documentclass=report\",\"-V\",\"fontsize=12pt\","
+      "\"-V\",\"geometry:margin=1in\"],\"cslPath\":\"\",\"bibliographyPath\":\"refs.bib\","
+      "\"resourcePath\":\"E:\\\\tmp\\\\nexus-paper-1;C:\\\\vault\\\\figs;C:\\\\vault\\\\other\"}";
+  require_true(
+      buffer_to_string(buffer) == expected,
+      "paper compile plan should trim template/csl/bib and dedupe image parent resource roots");
+  kernel_free_buffer(&buffer);
+
+  require_true(
+      kernel_build_paper_compile_plan_json(
+          workspace.data(),
+          workspace.size(),
+          templ.data(),
+          templ.size(),
+          image_paths,
+          nullptr,
+          1,
+          nullptr,
+          0,
+          nullptr,
+          0,
+          separator.data(),
+          separator.size(),
+          &buffer)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "paper compile plan should reject missing image path sizes");
+  require_true(
+      kernel_build_paper_compile_plan_json(
+          workspace.data(),
+          workspace.size(),
+          templ.data(),
+          templ.size(),
+          nullptr,
+          image_path_sizes,
+          1,
+          nullptr,
+          0,
+          nullptr,
+          0,
+          separator.data(),
+          separator.size(),
+          &buffer)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "paper compile plan should reject missing image path pointers");
+  require_true(
+      kernel_build_paper_compile_plan_json(
+          workspace.data(),
+          workspace.size(),
+          templ.data(),
+          templ.size(),
+          image_paths,
+          image_path_sizes,
+          1,
+          nullptr,
+          1,
+          nullptr,
+          0,
+          separator.data(),
+          separator.size(),
+          &buffer)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "paper compile plan should reject null non-empty csl path");
+  require_true(
+      kernel_build_paper_compile_plan_json(
+          workspace.data(),
+          workspace.size(),
+          templ.data(),
+          templ.size(),
+          nullptr,
+          nullptr,
+          0,
+          nullptr,
+          0,
+          nullptr,
+          0,
+          separator.data(),
+          separator.size(),
+          nullptr)
+              .code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "paper compile plan should reject null output");
+}
+
 void test_note_display_name_derivation_is_kernel_owned() {
   kernel_owned_buffer buffer{};
 
@@ -1122,6 +1246,7 @@ void run_product_compute_tests() {
   test_file_extension_derivation_is_kernel_owned();
   test_database_column_type_normalization_is_kernel_owned();
   test_database_payload_normalization_json_is_kernel_owned();
+  test_paper_compile_plan_json_is_kernel_owned();
   test_note_display_name_derivation_is_kernel_owned();
   test_semantic_context_trims_short_content();
   test_semantic_context_extracts_headings_and_recent_blocks();

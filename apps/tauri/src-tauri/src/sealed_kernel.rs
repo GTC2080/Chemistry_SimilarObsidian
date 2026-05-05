@@ -291,6 +291,23 @@ extern "C" {
         out_json: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_build_paper_compile_plan_json(
+        workspace_utf8: *const c_char,
+        workspace_size: u64,
+        template_utf8: *const c_char,
+        template_size: u64,
+        image_paths_utf8: *const *const c_char,
+        image_path_sizes: *const u64,
+        image_path_count: u64,
+        csl_path_utf8: *const c_char,
+        csl_path_size: u64,
+        bibliography_path_utf8: *const c_char,
+        bibliography_path_size: u64,
+        resource_separator_utf8: *const c_char,
+        resource_separator_size: u64,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_get_semantic_context_min_bytes(
         out_bytes: *mut u64,
         out_error: *mut *mut c_char,
@@ -834,6 +851,15 @@ pub struct SealedKernelStoichiometryRow {
 #[derive(Deserialize)]
 struct SealedKernelStoichiometryResult {
     rows: Vec<SealedKernelStoichiometryRow>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperCompilePlan {
+    pub template_args: Vec<String>,
+    pub csl_path: String,
+    pub bibliography_path: String,
+    pub resource_path: String,
 }
 
 #[derive(Deserialize)]
@@ -2202,6 +2228,59 @@ where
     let value = take_bridge_string(raw_json);
     serde_json::from_str(&value)
         .map_err(|err| AppError::Custom(format!("sealed kernel database JSON is invalid: {err}")))
+}
+
+pub fn build_paper_compile_plan(
+    workspace: &str,
+    template: &str,
+    image_paths: &[String],
+    csl_path: Option<&str>,
+    bibliography_path: Option<&str>,
+    resource_separator: &str,
+) -> AppResult<PaperCompilePlan> {
+    let image_path_ptrs: Vec<*const c_char> = image_paths
+        .iter()
+        .map(|path| path.as_ptr() as *const c_char)
+        .collect();
+    let image_path_sizes: Vec<u64> = image_paths.iter().map(|path| path.len() as u64).collect();
+    let csl_path = csl_path.unwrap_or("");
+    let bibliography_path = bibliography_path.unwrap_or("");
+
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_build_paper_compile_plan_json(
+            workspace.as_ptr() as *const c_char,
+            workspace.len() as u64,
+            template.as_ptr() as *const c_char,
+            template.len() as u64,
+            image_path_ptrs.as_ptr(),
+            image_path_sizes.as_ptr(),
+            image_paths.len() as u64,
+            csl_path.as_ptr() as *const c_char,
+            csl_path.len() as u64,
+            bibliography_path.as_ptr() as *const c_char,
+            bibliography_path.len() as u64,
+            resource_separator.as_ptr() as *const c_char,
+            resource_separator.len() as u64,
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(product_text_bridge_error(
+            "sealed_kernel_build_paper_compile_plan_json",
+            code,
+            error,
+        ));
+    }
+
+    let value = take_bridge_string(raw_json);
+    serde_json::from_str(&value).map_err(|err| {
+        AppError::Custom(format!(
+            "sealed kernel paper compile plan JSON is invalid: {err}"
+        ))
+    })
 }
 
 pub fn compute_ai_embedding_cache_key(
@@ -3948,6 +4027,43 @@ mod tests {
         assert_eq!(normalize_database_column_type("number").unwrap(), "number");
         assert_eq!(normalize_database_column_type("formula").unwrap(), "text");
         assert_eq!(normalize_database_column_type("").unwrap(), "text");
+    }
+
+    #[test]
+    fn paper_compile_plan_comes_from_kernel() {
+        let image_paths = vec![
+            "C:\\vault\\figs\\a.png".to_string(),
+            "C:\\vault\\figs\\b.png".to_string(),
+            "C:\\vault\\other\\c.png".to_string(),
+            "loose.png".to_string(),
+        ];
+        let plan = build_paper_compile_plan(
+            "E:\\tmp\\nexus-paper-1",
+            " Standard-Thesis ",
+            &image_paths,
+            Some("  "),
+            Some(" refs.bib "),
+            ";",
+        )
+        .unwrap();
+
+        assert_eq!(
+            plan.template_args,
+            vec![
+                "-V".to_string(),
+                "documentclass=report".to_string(),
+                "-V".to_string(),
+                "fontsize=12pt".to_string(),
+                "-V".to_string(),
+                "geometry:margin=1in".to_string()
+            ]
+        );
+        assert_eq!(plan.csl_path, "");
+        assert_eq!(plan.bibliography_path, "refs.bib");
+        assert_eq!(
+            plan.resource_path,
+            "E:\\tmp\\nexus-paper-1;C:\\vault\\figs;C:\\vault\\other"
+        );
     }
 
     #[test]

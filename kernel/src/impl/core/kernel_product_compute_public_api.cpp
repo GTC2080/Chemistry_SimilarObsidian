@@ -661,6 +661,89 @@ std::string build_normalized_database_json(const JsonValue& root) {
   return output;
 }
 
+std::string parent_path_string(std::string_view path) {
+  const std::size_t slash = path.find_last_of("/\\");
+  if (slash == std::string_view::npos) {
+    return {};
+  }
+  return std::string(path.substr(0, slash));
+}
+
+void append_template_args_json(std::string& output, std::string_view template_name) {
+  const std::string normalized = to_lower_ascii(trim_ascii(template_name));
+  if (normalized == "acs") {
+    output += "\"-V\",\"papersize=letter\",\"-V\",\"fontsize=10pt\",\"-V\",\"geometry:margin=1in\"";
+    return;
+  }
+  if (normalized == "nature") {
+    output += "\"-V\",\"papersize=a4\",\"-V\",\"fontsize=10pt\",\"-V\",\"geometry:margin=1in\"";
+    return;
+  }
+  if (normalized == "standard-thesis") {
+    output += "\"-V\",\"documentclass=report\",\"-V\",\"fontsize=12pt\",\"-V\",\"geometry:margin=1in\"";
+    return;
+  }
+  output += "\"-V\",\"documentclass=article\",\"-V\",\"fontsize=11pt\"";
+}
+
+std::string build_resource_path(
+    std::string_view workspace,
+    const char* const* image_paths,
+    const std::size_t* image_path_sizes,
+    const std::size_t image_path_count,
+    std::string_view separator) {
+  std::vector<std::string> roots;
+  if (!workspace.empty()) {
+    roots.push_back(std::string(workspace));
+  }
+
+  for (std::size_t index = 0; index < image_path_count; ++index) {
+    const std::string_view image_path(image_paths[index], image_path_sizes[index]);
+    const std::string parent = parent_path_string(image_path);
+    if (
+        trim_ascii(parent).empty() ||
+        std::find(roots.begin(), roots.end(), parent) != roots.end()) {
+      continue;
+    }
+    roots.push_back(parent);
+  }
+
+  std::string joined;
+  for (std::size_t index = 0; index < roots.size(); ++index) {
+    if (index != 0) {
+      joined.append(separator);
+    }
+    joined.append(roots[index]);
+  }
+  return joined;
+}
+
+std::string build_paper_compile_plan_json(
+    std::string_view workspace,
+    std::string_view template_name,
+    const char* const* image_paths,
+    const std::size_t* image_path_sizes,
+    const std::size_t image_path_count,
+    std::string_view csl_path,
+    std::string_view bibliography_path,
+    std::string_view resource_separator) {
+  std::string output = "{\"templateArgs\":[";
+  append_template_args_json(output, template_name);
+  output += "],\"cslPath\":";
+  output += json_string(trim_ascii(csl_path));
+  output += ",\"bibliographyPath\":";
+  output += json_string(trim_ascii(bibliography_path));
+  output += ",\"resourcePath\":";
+  output += json_string(build_resource_path(
+      workspace,
+      image_paths,
+      image_path_sizes,
+      image_path_count,
+      resource_separator.empty() ? std::string_view(";") : resource_separator));
+  output += "}";
+  return output;
+}
+
 std::string_view rag_display_name_from_note_path(std::string_view note_path) {
   const std::size_t slash = note_path.find_last_of("/\\");
   const std::size_t name_start = slash == std::string_view::npos ? 0 : slash + 1;
@@ -1529,6 +1612,65 @@ extern "C" kernel_status kernel_normalize_database_json(
 
   const std::string normalized = build_normalized_database_json(root);
   if (!fill_owned_buffer(normalized, out_buffer)) {
+    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
+  }
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+extern "C" kernel_status kernel_build_paper_compile_plan_json(
+    const char* workspace,
+    const std::size_t workspace_size,
+    const char* template_name,
+    const std::size_t template_name_size,
+    const char* const* image_paths,
+    const std::size_t* image_path_sizes,
+    const std::size_t image_path_count,
+    const char* csl_path,
+    const std::size_t csl_path_size,
+    const char* bibliography_path,
+    const std::size_t bibliography_path_size,
+    const char* resource_separator,
+    const std::size_t resource_separator_size,
+    kernel_owned_buffer* out_buffer) {
+  if (
+      out_buffer == nullptr || (workspace_size > 0 && workspace == nullptr) ||
+      (template_name_size > 0 && template_name == nullptr) ||
+      (image_path_count > 0 && (image_paths == nullptr || image_path_sizes == nullptr)) ||
+      (csl_path_size > 0 && csl_path == nullptr) ||
+      (bibliography_path_size > 0 && bibliography_path == nullptr) ||
+      (resource_separator_size > 0 && resource_separator == nullptr)) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+  out_buffer->data = nullptr;
+  out_buffer->size = 0;
+
+  for (std::size_t index = 0; index < image_path_count; ++index) {
+    if (image_path_sizes[index] > 0 && image_paths[index] == nullptr) {
+      return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+  }
+
+  const std::string_view workspace_view(workspace == nullptr ? "" : workspace, workspace_size);
+  const std::string_view template_view(
+      template_name == nullptr ? "" : template_name,
+      template_name_size);
+  const std::string_view csl_view(csl_path == nullptr ? "" : csl_path, csl_path_size);
+  const std::string_view bibliography_view(
+      bibliography_path == nullptr ? "" : bibliography_path,
+      bibliography_path_size);
+  const std::string_view separator_view(
+      resource_separator == nullptr ? "" : resource_separator,
+      resource_separator_size);
+  const std::string plan = build_paper_compile_plan_json(
+      workspace_view,
+      template_view,
+      image_paths,
+      image_path_sizes,
+      image_path_count,
+      csl_view,
+      bibliography_view,
+      separator_view);
+  if (!fill_owned_buffer(plan, out_buffer)) {
     return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
   }
   return kernel::core::make_status(KERNEL_OK);

@@ -272,6 +272,23 @@ int32_t sealed_kernel_bridge_normalize_database_json(
     char** out_json,
     char** out_error);
 
+int32_t sealed_kernel_bridge_build_paper_compile_plan_json(
+    const char* workspace_utf8,
+    uint64_t workspace_size,
+    const char* template_utf8,
+    uint64_t template_size,
+    const char* const* image_paths_utf8,
+    const uint64_t* image_path_sizes,
+    uint64_t image_path_count,
+    const char* csl_path_utf8,
+    uint64_t csl_path_size,
+    const char* bibliography_path_utf8,
+    uint64_t bibliography_path_size,
+    const char* resource_separator_utf8,
+    uint64_t resource_separator_size,
+    char** out_json,
+    char** out_error);
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error);

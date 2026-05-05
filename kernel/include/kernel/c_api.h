@@ -257,6 +257,21 @@ kernel_status kernel_normalize_database_json(
     const char* json,
     size_t json_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_build_paper_compile_plan_json(
+    const char* workspace,
+    size_t workspace_size,
+    const char* template_name,
+    size_t template_name_size,
+    const char* const* image_paths,
+    const size_t* image_path_sizes,
+    size_t image_path_count,
+    const char* csl_path,
+    size_t csl_path_size,
+    const char* bibliography_path,
+    size_t bibliography_path_size,
+    const char* resource_separator,
+    size_t resource_separator_size,
+    kernel_owned_buffer* out_buffer);
 kernel_status kernel_get_semantic_context_min_bytes(size_t* out_bytes);
 kernel_status kernel_get_rag_context_per_note_char_limit(size_t* out_chars);
 kernel_status kernel_get_embedding_text_char_limit(size_t* out_chars);

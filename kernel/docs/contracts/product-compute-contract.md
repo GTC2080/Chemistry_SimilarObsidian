@@ -20,6 +20,7 @@ Current surface:
 - `kernel_derive_note_display_name_from_path(path, path_size, out_buffer)`
 - `kernel_normalize_database_column_type(column_type, column_type_size, out_buffer)`
 - `kernel_normalize_database_json(json, json_size, out_buffer)`
+- `kernel_build_paper_compile_plan_json(workspace, workspace_size, template_name, template_name_size, image_paths, image_path_sizes, image_path_count, csl_path, csl_path_size, bibliography_path, bibliography_path_size, resource_separator, resource_separator_size, out_buffer)`
 - `kernel_get_semantic_context_min_bytes(out_bytes)`
 - `kernel_get_rag_context_per_note_char_limit(out_chars)`
 - `kernel_get_embedding_text_char_limit(out_chars)`
@@ -60,6 +61,8 @@ Current exclusions:
 
 - general vault reads or writes outside the documented study/session storage
 - host-owned database writes outside the kernel
+- external process spawning, temporary workspace files, and Pandoc/XeLaTeX
+  binary discovery
 - UI state
 - localized display text
 
@@ -82,6 +85,9 @@ Frozen rules:
   by note catalog DTOs and AI RAG context
 - the kernel owns host-facing database grid payload normalization, including
   column type normalization
+- the kernel owns publishing preflight compile-plan rules: paper template
+  arguments, CSL/bibliography path trimming, and Pandoc resource-path parent
+  extraction, dedupe, ordering, and joining
 - the kernel owns host-facing AI/product text limits used for semantic context
   gating, RAG note snippets, and embedding request input trimming
 - the kernel owns host-facing AI runtime defaults for chat, ponder, embedding
@@ -166,6 +172,8 @@ Frozen rules:
 - hosts must not keep local database column type allow-lists, default-column
   rules, row/cell fill rules, or extra-cell pruning rules for database grid
   normalization
+- hosts must not keep local paper template argument tables, CSL/bibliography
+  path trim rules, or resource-path parent extraction/deduplication logic
 - hosts must not hard-code semantic context gating, RAG note snippet, or
   embedding input text limits
 - hosts must not reimplement embedding input truncation, empty-text checks, or
@@ -254,6 +262,35 @@ Frozen rules:
 - cell JSON values preserve their input JSON shape
 - invalid JSON, null non-empty input buffers, and null output buffers are
   invalid
+
+## Paper Compile Plan
+
+Frozen rules:
+
+- `kernel_build_paper_compile_plan_json(...)` returns a JSON object with
+  `templateArgs`, `cslPath`, `bibliographyPath`, and `resourcePath`
+- template matching trims ASCII whitespace and lower-cases ASCII before lookup
+- `acs` emits `-V papersize=letter`, `-V fontsize=10pt`, and
+  `-V geometry:margin=1in`
+- `nature` emits `-V papersize=a4`, `-V fontsize=10pt`, and
+  `-V geometry:margin=1in`
+- `standard-thesis` emits `-V documentclass=report`, `-V fontsize=12pt`, and
+  `-V geometry:margin=1in`
+- unknown templates emit `-V documentclass=article` and `-V fontsize=11pt`
+- CSL and bibliography paths are ASCII-trimmed; empty-after-trim paths are
+  returned as empty strings
+- `resourcePath` starts with the host-provided workspace path when non-empty
+- each image path contributes only its parent directory, based on the final
+  `/` or `\` separator
+- parentless image names are skipped
+- duplicate resource roots are removed while preserving first-seen order
+- roots are joined with the host-provided resource separator; an empty
+  separator input falls back to `;`
+- Tauri Rust may still create temporary files, select the platform separator,
+  and spawn Pandoc/XeLaTeX, but must use the kernel plan for all arguments
+  covered above
+- null non-empty path buffers, missing image-size arrays for non-empty image
+  lists, null non-empty image path entries, and null output buffers are invalid
 
 ## Semantic Context Rules
 

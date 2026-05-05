@@ -2438,6 +2438,82 @@ int32_t sealed_kernel_bridge_normalize_database_json(
   return CopyKernelOwnedText(buffer, out_json, out_error);
 }
 
+int32_t sealed_kernel_bridge_build_paper_compile_plan_json(
+    const char* workspace_utf8,
+    uint64_t workspace_size,
+    const char* template_utf8,
+    uint64_t template_size,
+    const char* const* image_paths_utf8,
+    const uint64_t* image_path_sizes,
+    uint64_t image_path_count,
+    const char* csl_path_utf8,
+    uint64_t csl_path_size,
+    const char* bibliography_path_utf8,
+    uint64_t bibliography_path_size,
+    const char* resource_separator_utf8,
+    uint64_t resource_separator_size,
+    char** out_json,
+    char** out_error) {
+  if (out_json != nullptr) {
+    *out_json = nullptr;
+  }
+  const auto exceeds_size_t = [](uint64_t value) {
+    return value > (std::numeric_limits<size_t>::max)();
+  };
+  if (
+      out_json == nullptr || (workspace_size > 0 && workspace_utf8 == nullptr) ||
+      (template_size > 0 && template_utf8 == nullptr) ||
+      (image_path_count > 0 &&
+       (image_paths_utf8 == nullptr || image_path_sizes == nullptr)) ||
+      (csl_path_size > 0 && csl_path_utf8 == nullptr) ||
+      (bibliography_path_size > 0 && bibliography_path_utf8 == nullptr) ||
+      (resource_separator_size > 0 && resource_separator_utf8 == nullptr) ||
+      exceeds_size_t(workspace_size) || exceeds_size_t(template_size) ||
+      exceeds_size_t(image_path_count) || exceeds_size_t(csl_path_size) ||
+      exceeds_size_t(bibliography_path_size) ||
+      exceeds_size_t(resource_separator_size)) {
+    SetError(out_error, "invalid_argument");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  std::vector<size_t> image_sizes;
+  image_sizes.reserve(static_cast<size_t>(image_path_count));
+  for (uint64_t index = 0; index < image_path_count; ++index) {
+    if (image_path_sizes[index] > (std::numeric_limits<size_t>::max)()) {
+      SetError(out_error, "invalid_argument");
+      return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+    if (image_path_sizes[index] > 0 && image_paths_utf8[index] == nullptr) {
+      SetError(out_error, "invalid_argument");
+      return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+    }
+    image_sizes.push_back(static_cast<size_t>(image_path_sizes[index]));
+  }
+
+  kernel_owned_buffer buffer{};
+  const kernel_status status = kernel_build_paper_compile_plan_json(
+      workspace_utf8,
+      static_cast<size_t>(workspace_size),
+      template_utf8,
+      static_cast<size_t>(template_size),
+      image_paths_utf8,
+      image_sizes.data(),
+      static_cast<size_t>(image_path_count),
+      csl_path_utf8,
+      static_cast<size_t>(csl_path_size),
+      bibliography_path_utf8,
+      static_cast<size_t>(bibliography_path_size),
+      resource_separator_utf8,
+      static_cast<size_t>(resource_separator_size),
+      &buffer);
+  if (status.code != KERNEL_OK) {
+    kernel_free_buffer(&buffer);
+    return ReturnKernelError(status, "kernel_build_paper_compile_plan_json", out_error);
+  }
+
+  return CopyKernelOwnedText(buffer, out_json, out_error);
+}
+
 int32_t sealed_kernel_bridge_get_semantic_context_min_bytes(
     uint64_t* out_bytes,
     char** out_error) {

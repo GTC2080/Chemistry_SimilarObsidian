@@ -38,10 +38,11 @@
 - **产品定位**：当前版本偏化学科研/学习场景，但 Markdown、知识图谱、搜索和 AI 能力本身是通用的
 - **数据策略**：默认完全本地，知识库和数据库都留在用户机器上
 - **性能方向**：持续追求大库可用性、交互即时反馈、低阻塞 I/O 和更稳的语义检索链路
-- **后端边界**：核心笔记读写、搜索、标签、反链、标签树、知识图谱、embedding cache 与 study/session 存储统计面以 `kernel/` C++ sealed kernel 为准；Tauri Rust 只负责命令注册、桥接、平台能力、外部网络请求和少量调度胶水
+- **后端边界**：核心笔记读写、搜索、标签、反链、标签树、知识图谱、embedding cache、study/session 存储统计面与 publishing compile plan 以 `kernel/` C++ sealed kernel 为准；Tauri Rust 只负责命令注册、桥接、平台能力、外部网络请求、外部进程启动和少量调度胶水
 
 ## 最近更新
 
+- **v1.0.6-dev** — publishing compile plan 继续内核化：`compile_markdown_to_pdf` 的 paper template 参数、CSL/bibliography path trim、Pandoc resource-path 父目录提取/去重/拼接改走 `kernel_build_paper_compile_plan_json(...)`；Rust `compiler.rs` 只保留临时文件写入、平台分隔符选择和 Pandoc/XeLaTeX 进程启动。
 - **v1.0.6-dev** — database grid payload 归一化继续内核化：`normalize_database` 改走 `kernel_normalize_database_json(...)`，列 id/name trim、默认列、列类型白名单、行 id trim、缺失 cell 填补和 extra cell 丢弃都由 C++ kernel 输出；Rust `cmd_compute.rs` 只保留 DTO 与 command 桥接。
 - **v1.0.6-dev** — enriched graph 邻接结构继续内核化：`get_enriched_graph_data` 改走 `kernel_query_enriched_graph_json(...)`，`neighbors` 与 `linkPairs` 由 C++ kernel 直接输出；Rust `sealed_kernel.rs` 不再用 `HashMap` 和 `source->target` 字符串拼接重建图谱派生真相。
 - **v1.0.6-dev** — changed-entry NoteInfo 过滤继续内核化：`scan_changed_entries` 改走 `kernel_query_changed_notes(...)`，changed path 的 Markdown 过滤、归一、去重、catalog 命中与返回顺序都由 C++ kernel 负责；Rust `cmd_vault.rs` 不再拉全量 catalog 后用 `HashSet` / `HashMap` 重排增量结果。
@@ -130,6 +131,7 @@
 - `load_pdf_annotations` / `save_pdf_annotations` -> `kernel_relativize_vault_path(...)` + `kernel_read_pdf_annotation_file(...)` / `kernel_write_pdf_annotation_file(...)` + `kernel_compute_pdf_file_lightweight_hash(...)`
 - `study_session_start` / `study_session_tick` / `study_session_end` -> `kernel_start_study_session(...)` / `kernel_tick_study_session(...)` / `kernel_end_study_session(...)`
 - `study_stats_query` / `truth_state_from_study` / `get_heatmap_cells` -> `kernel_query_study_stats_json(...)` / `kernel_query_study_truth_state_json(...)` / `kernel_query_study_heatmap_grid_json(...)`
+- `compile_markdown_to_pdf` publishing preflight -> `kernel_build_paper_compile_plan_json(...)`；Pandoc/XeLaTeX 进程仍由 Rust 壳层启动
 
 Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 网络请求和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
 `init_vault` 现在只打开 sealed kernel session，不再接收 `DbState`、调用 Rust `db::init_db(...)`，也不再因为打开 vault 而创建 legacy `index.db`；Rust `src/db/` 已退出仓库，study/session 写入 kernel storage。
@@ -209,6 +211,7 @@ AI host 运行默认值由 kernel 提供；Rust AI 模块不再持有 chat/ponde
 AI prompt shape 和 Ponder temperature 由 kernel 提供；Rust AI 模块不再持有 RAG/Ponder prompt 文案、Ponder 用户提示模板或 temperature 真相。
 RAG note context shape、note display name derivation 和候选 note 正文读取由 kernel 提供；Rust AI 模块不再持有 note header、空白 note 跳过、编号、分隔符、展示名派生、每条 note 截断或按候选路径循环读取正文的规则。
 Study session 存储、TruthState、stats、streak 与 heatmap 网格由 kernel 提供；Rust `cmd_study.rs` 只调用 sealed bridge，不再保留 SQLite 连接、schema 或聚合 SQL。
+Publishing compile plan 由 kernel 提供；Rust `compiler.rs` 不再保留 paper template 参数表、CSL/bibliography trim 规则或 Pandoc resource-path 父目录去重逻辑。
 Tauri Rust 不再保留 product compute C ABI mirror 或 unsafe result-copy loop。
 
 已收口到 kernel 的对称性计算面：

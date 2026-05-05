@@ -1,5 +1,5 @@
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command as StdCommand;
 use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -7,6 +7,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::process::Command as TokioCommand;
+
+use crate::sealed_kernel;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -113,30 +115,6 @@ fn build_temp_workspace() -> PathBuf {
     env::temp_dir().join(format!("nexus-paper-{}-{}", std::process::id(), stamp))
 }
 
-fn append_template_args(command: &mut TokioCommand, template: &str) {
-    match template.trim().to_ascii_lowercase().as_str() {
-        "acs" => {
-            command.args(["-V", "papersize=letter"]);
-            command.args(["-V", "fontsize=10pt"]);
-            command.args(["-V", "geometry:margin=1in"]);
-        }
-        "nature" => {
-            command.args(["-V", "papersize=a4"]);
-            command.args(["-V", "fontsize=10pt"]);
-            command.args(["-V", "geometry:margin=1in"]);
-        }
-        "standard-thesis" => {
-            command.args(["-V", "documentclass=report"]);
-            command.args(["-V", "fontsize=12pt"]);
-            command.args(["-V", "geometry:margin=1in"]);
-        }
-        _ => {
-            command.args(["-V", "documentclass=article"]);
-            command.args(["-V", "fontsize=11pt"]);
-        }
-    }
-}
-
 fn resource_path_separator() -> &'static str {
     #[cfg(target_os = "windows")]
     {
@@ -145,29 +123,6 @@ fn resource_path_separator() -> &'static str {
     #[cfg(not(target_os = "windows"))]
     {
         ":"
-    }
-}
-
-fn build_resource_path(image_paths: &[String], workspace: &Path) -> Option<String> {
-    let mut roots: Vec<String> = Vec::new();
-    roots.push(workspace.to_string_lossy().to_string());
-
-    for path in image_paths {
-        let parent = Path::new(path).parent();
-        if let Some(dir) = parent {
-            let normalized = dir.to_string_lossy().to_string();
-            if !normalized.trim().is_empty()
-                && !roots.iter().any(|existing| existing == &normalized)
-            {
-                roots.push(normalized);
-            }
-        }
-    }
-
-    if roots.is_empty() {
-        None
-    } else {
-        Some(roots.join(resource_path_separator()))
     }
 }
 
@@ -244,6 +199,17 @@ pub async fn compile_markdown_to_pdf(
         .await
         .map_err(|e| format!("写入 LaTeX 头文件失败: {}", e))?;
 
+        let workspace_text = workspace.to_string_lossy().to_string();
+        let compile_plan = sealed_kernel::build_paper_compile_plan(
+            &workspace_text,
+            &payload.template,
+            &payload.image_paths,
+            payload.csl_path.as_deref(),
+            payload.bibliography_path.as_deref(),
+            resource_path_separator(),
+        )
+        .map_err(|err| err.to_string())?;
+
         let mut command = TokioCommand::new("pandoc");
         command
             .arg(&markdown_path)
@@ -258,22 +224,22 @@ pub async fn compile_markdown_to_pdf(
             .stderr(Stdio::piped())
             .current_dir(&workspace);
 
-        append_template_args(&mut command, &payload.template);
+        command.args(&compile_plan.template_args);
 
-        if let Some(csl_path) = payload.csl_path.as_ref().filter(|p| !p.trim().is_empty()) {
-            command.arg("--csl").arg(csl_path);
+        if !compile_plan.csl_path.is_empty() {
+            command.arg("--csl").arg(&compile_plan.csl_path);
         }
 
-        if let Some(bib_path) = payload
-            .bibliography_path
-            .as_ref()
-            .filter(|p| !p.trim().is_empty())
-        {
-            command.arg("--bibliography").arg(bib_path);
+        if !compile_plan.bibliography_path.is_empty() {
+            command
+                .arg("--bibliography")
+                .arg(&compile_plan.bibliography_path);
         }
 
-        if let Some(resource_path) = build_resource_path(&payload.image_paths, &workspace) {
-            command.arg("--resource-path").arg(resource_path);
+        if !compile_plan.resource_path.is_empty() {
+            command
+                .arg("--resource-path")
+                .arg(&compile_plan.resource_path);
         }
 
         #[cfg(target_os = "windows")]
