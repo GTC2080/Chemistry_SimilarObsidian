@@ -30,6 +30,7 @@ add_library(
   impl/core/chemistry/kernel_chemistry_retrosynthesis_public_api.cpp
   impl/core/chemistry/kernel_chemistry_spectroscopy_public_api.cpp
   impl/core/chemistry/kernel_chemistry_molecular_preview_public_api.cpp
+  impl/core/product/kernel_product_database.cpp
   impl/core/product/kernel_product_compute_public_api.cpp
   impl/core/ai/kernel_ai_embedding_cache_api.cpp
   impl/core/study/kernel_study_session_api.cpp
