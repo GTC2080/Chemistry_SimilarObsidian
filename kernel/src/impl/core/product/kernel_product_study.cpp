@@ -1,20 +1,17 @@
-// Reason: Own study progression, streak, and heatmap rules away from the public ABI wrapper.
+// Reason: Own study progression and streak rules away from the public ABI and heatmap layout.
 
 #include "core/kernel_product_study.h"
 
+#include "core/kernel_product_study_calendar.h"
 #include "core/kernel_product_truth.h"
 #include "core/kernel_shared.h"
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 #include <cstdint>
 #include <limits>
-#include <new>
 #include <set>
-#include <string>
 #include <string_view>
-#include <unordered_map>
 
 namespace {
 
@@ -22,30 +19,9 @@ constexpr double kStudySecsPerExp = 60.0;
 constexpr double kStudyBaseExp = 100.0;
 constexpr double kStudyGrowthRate = 1.5;
 constexpr std::int64_t kStudyAttrExpPerLevel = 50;
-constexpr std::int64_t kSecsPerDay = 86400;
-constexpr std::size_t kStudyHeatmapWeeks = 26;
-constexpr std::size_t kStudyHeatmapDaysPerWeek = 7;
 constexpr std::int64_t kStudyWeekLookbackDays = 6;
 constexpr std::int64_t kStudyLegacyHeatmapLookbackDays = 179;
 constexpr std::size_t kStudyFolderRankLimit = 5;
-
-void reset_heatmap_grid_impl(kernel_heatmap_grid* grid) {
-  if (grid == nullptr) {
-    return;
-  }
-  if (grid->cells != nullptr) {
-    for (std::size_t index = 0; index < grid->count; ++index) {
-      delete[] grid->cells[index].date;
-      grid->cells[index].date = nullptr;
-    }
-    delete[] grid->cells;
-  }
-  grid->cells = nullptr;
-  grid->count = 0;
-  grid->max_secs = 0;
-  grid->weeks = 0;
-  grid->days_per_week = 0;
-}
 
 std::string_view extension_from_note_id(std::string_view note_id) {
   const std::size_t dot = note_id.find_last_of('.');
@@ -116,65 +92,6 @@ std::int64_t count_contiguous_study_streak(
   return streak_days;
 }
 
-std::int64_t floor_div(const std::int64_t value, const std::int64_t divisor) {
-  std::int64_t quotient = value / divisor;
-  const std::int64_t remainder = value % divisor;
-  if (remainder != 0 && ((remainder < 0) != (divisor < 0))) {
-    --quotient;
-  }
-  return quotient;
-}
-
-std::int64_t positive_mod(const std::int64_t value, const std::int64_t modulus) {
-  const std::int64_t remainder = value % modulus;
-  return remainder < 0 ? remainder + modulus : remainder;
-}
-
-bool subtract_days(
-    const std::int64_t epoch_secs,
-    const std::int64_t days,
-    std::int64_t* out_epoch_secs) {
-  if (out_epoch_secs == nullptr || days < 0) {
-    return false;
-  }
-  if (days > std::numeric_limits<std::int64_t>::max() / kSecsPerDay) {
-    return false;
-  }
-
-  const std::int64_t delta = days * kSecsPerDay;
-  if (epoch_secs < std::numeric_limits<std::int64_t>::min() + delta) {
-    return false;
-  }
-  *out_epoch_secs = epoch_secs - delta;
-  return true;
-}
-
-std::string format_date_from_epoch_secs(const std::int64_t epoch_secs) {
-  const std::int64_t days = floor_div(epoch_secs, kSecsPerDay);
-  const std::int64_t z = days + 719468;
-  const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;
-  const std::uint64_t doe = static_cast<std::uint64_t>(z - era * 146097);
-  const std::uint64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-  std::int64_t year = static_cast<std::int64_t>(yoe) + era * 400;
-  const std::uint64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-  const std::uint64_t mp = (5 * doy + 2) / 153;
-  const std::uint64_t day = doy - (153 * mp + 2) / 5 + 1;
-  const std::uint64_t month = mp < 10 ? mp + 3 : mp - 9;
-  if (month <= 2) {
-    ++year;
-  }
-
-  char buffer[16]{};
-  std::snprintf(
-      buffer,
-      sizeof(buffer),
-      "%04lld-%02llu-%02llu",
-      static_cast<long long>(year),
-      static_cast<unsigned long long>(month),
-      static_cast<unsigned long long>(day));
-  return std::string(buffer);
-}
-
 }  // namespace
 
 namespace kernel::core::product {
@@ -232,20 +149,21 @@ kernel_status compute_study_stats_window(
   }
 
   kernel_study_stats_window window{};
-  window.today_start_epoch_secs = floor_div(now_epoch_secs, kSecsPerDay) * kSecsPerDay;
-  window.today_bucket = floor_div(window.today_start_epoch_secs, kSecsPerDay);
+  window.today_start_epoch_secs =
+      study_floor_div(now_epoch_secs, kStudySecsPerDay) * kStudySecsPerDay;
+  window.today_bucket = study_floor_div(window.today_start_epoch_secs, kStudySecsPerDay);
   window.folder_rank_limit = kStudyFolderRankLimit;
 
   if (
-      !subtract_days(
+      !subtract_study_days(
           window.today_start_epoch_secs,
           kStudyWeekLookbackDays,
           &window.week_start_epoch_secs) ||
-      !subtract_days(
+      !subtract_study_days(
           window.today_start_epoch_secs,
           days_back - 1,
           &window.daily_window_start_epoch_secs) ||
-      !subtract_days(
+      !subtract_study_days(
           window.today_start_epoch_secs,
           kStudyLegacyHeatmapLookbackDays,
           &window.heatmap_start_epoch_secs)) {
@@ -287,77 +205,11 @@ kernel_status compute_study_streak_days_from_timestamps(
 
   std::set<std::int64_t> active_days;
   for (std::size_t index = 0; index < timestamp_count; ++index) {
-    active_days.insert(floor_div(started_at_epoch_secs[index], kSecsPerDay));
+    active_days.insert(study_floor_div(started_at_epoch_secs[index], kStudySecsPerDay));
   }
 
   *out_streak_days = count_contiguous_study_streak(active_days, today_bucket);
   return kernel::core::make_status(KERNEL_OK);
-}
-
-kernel_status build_study_heatmap_grid(
-    const kernel_heatmap_day_activity* days,
-    const std::size_t day_count,
-    const std::int64_t now_epoch_secs,
-    kernel_heatmap_grid* out_grid) {
-  if (out_grid == nullptr || (day_count > 0 && days == nullptr)) {
-    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
-  }
-  reset_heatmap_grid_impl(out_grid);
-
-  std::unordered_map<std::string, std::int64_t> secs_by_date;
-  secs_by_date.reserve(day_count);
-  for (std::size_t index = 0; index < day_count; ++index) {
-    if (days[index].date == nullptr) {
-      return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
-    }
-    secs_by_date[days[index].date] += days[index].active_secs;
-  }
-
-  constexpr std::size_t kTotalCells = kStudyHeatmapWeeks * kStudyHeatmapDaysPerWeek;
-  out_grid->cells = new (std::nothrow) kernel_heatmap_cell[kTotalCells]{};
-  if (out_grid->cells == nullptr) {
-    return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
-  }
-  out_grid->count = kTotalCells;
-  out_grid->weeks = kStudyHeatmapWeeks;
-  out_grid->days_per_week = kStudyHeatmapDaysPerWeek;
-
-  const std::int64_t today_start = floor_div(now_epoch_secs, kSecsPerDay) * kSecsPerDay;
-  const std::int64_t total_days = static_cast<std::int64_t>(kTotalCells);
-  std::int64_t start_date = today_start - (total_days - 1) * kSecsPerDay;
-  const std::int64_t day_of_week =
-      positive_mod(floor_div(start_date, kSecsPerDay) + 3, 7);
-  start_date -= day_of_week * kSecsPerDay;
-
-  for (std::size_t week = 0; week < kStudyHeatmapWeeks; ++week) {
-    for (std::size_t day = 0; day < kStudyHeatmapDaysPerWeek; ++day) {
-      const std::size_t cell_index = week * kStudyHeatmapDaysPerWeek + day;
-      const std::int64_t ts =
-          start_date + static_cast<std::int64_t>(cell_index) * kSecsPerDay;
-      const std::string date = format_date_from_epoch_secs(ts);
-      const auto found = secs_by_date.find(date);
-      const std::int64_t secs = found == secs_by_date.end() ? 0 : found->second;
-
-      kernel_heatmap_cell& cell = out_grid->cells[cell_index];
-      cell.date = kernel::core::duplicate_c_string(date);
-      if (cell.date == nullptr) {
-        reset_heatmap_grid_impl(out_grid);
-        return kernel::core::make_status(KERNEL_ERROR_INTERNAL);
-      }
-      cell.secs = secs;
-      cell.col = week;
-      cell.row = day;
-      if (secs > out_grid->max_secs) {
-        out_grid->max_secs = secs;
-      }
-    }
-  }
-
-  return kernel::core::make_status(KERNEL_OK);
-}
-
-void free_study_heatmap_grid(kernel_heatmap_grid* grid) {
-  reset_heatmap_grid_impl(grid);
 }
 
 }  // namespace kernel::core::product

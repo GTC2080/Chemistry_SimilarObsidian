@@ -31,16 +31,22 @@ add_library(
   impl/core/chemistry/kernel_chemistry_spectroscopy_public_api.cpp
   impl/core/chemistry/kernel_chemistry_molecular_preview_public_api.cpp
   impl/core/product/kernel_product_ai.cpp
-  impl/core/product/kernel_product_ai_public_api.cpp
+  impl/core/product/kernel_product_ai_embedding_public_api.cpp
+  impl/core/product/kernel_product_ai_ponder_public_api.cpp
+  impl/core/product/kernel_product_ai_rag_public_api.cpp
+  impl/core/product/kernel_product_ai_settings_public_api.cpp
   impl/core/product/kernel_product_context.cpp
   impl/core/product/kernel_product_context_public_api.cpp
   impl/core/product/kernel_product_database.cpp
   impl/core/product/kernel_product_database_public_api.cpp
+  impl/core/product/kernel_product_json.cpp
   impl/core/product/kernel_product_paper.cpp
   impl/core/product/kernel_product_paper_public_api.cpp
   impl/core/product/kernel_product_pubchem.cpp
   impl/core/product/kernel_product_pubchem_public_api.cpp
   impl/core/product/kernel_product_study.cpp
+  impl/core/product/kernel_product_study_calendar.cpp
+  impl/core/product/kernel_product_study_heatmap.cpp
   impl/core/product/kernel_product_study_public_api.cpp
   impl/core/product/kernel_product_truth.cpp
   impl/core/product/kernel_product_truth_public_api.cpp
