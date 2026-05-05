@@ -13,7 +13,17 @@ add_library(
   impl/core/notes/kernel_file_tree_api.cpp
   impl/core/notes/kernel_vault_change_api.cpp
   impl/core/notes/kernel_vault_entry_api.cpp
-  impl/core/search/kernel_query_api.cpp
+  impl/core/search/kernel_search_api_shared.cpp
+  impl/core/search/kernel_search_api_graph_fill.cpp
+  impl/core/search/kernel_search_api_reset.cpp
+  impl/core/search/kernel_search_api_result_fill.cpp
+  impl/core/search/kernel_search_api_tag_fill.cpp
+  impl/core/search/kernel_search_backlink_api.cpp
+  impl/core/search/kernel_search_defaults_api.cpp
+  impl/core/search/kernel_search_free_api.cpp
+  impl/core/search/kernel_search_graph_api.cpp
+  impl/core/search/kernel_search_note_api.cpp
+  impl/core/search/kernel_search_tag_api.cpp
   impl/core/attachments/kernel_attachment_api_shared.cpp
   impl/core/attachments/kernel_attachment_api_reset.cpp
   impl/core/attachments/kernel_attachment_api_fill.cpp
