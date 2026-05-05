@@ -5,8 +5,11 @@
 <h1 align="center">Nexus Kernel · Chemistry_Obsidian</h1>
 
 <p align="center">
-  A C++ sealed-kernel migration of <a href="https://github.com/GTC2080/Nexus">Nexus</a>,
-  built for local-first chemistry knowledge work.
+  <strong>从 Rust 后端迁移到 C++ sealed kernel 的 Nexus 内核重构版。</strong>
+</p>
+
+<p align="center">
+  面向本地优先、化学科研/学习场景的智能知识管理桌面应用。
 </p>
 
 <p align="center">
@@ -19,49 +22,49 @@
 
 ---
 
-## What This Project Is
+## 项目定位
 
-This repository is the kernel-migration edition of **Nexus · 星枢**.
+**Chemistry_Obsidian** 是 [GTC2080/Nexus](https://github.com/GTC2080/Nexus) 的 C++ 内核迁移版本。
 
-The original [GTC2080/Nexus](https://github.com/GTC2080/Nexus) is a local-first, AI-powered knowledge management app built with Tauri 2, React 19, and a Rust backend. It provides an Obsidian-like Markdown vault, wiki-links, tags, LaTeX math, semantic search, global graph exploration, PDF reading, AI workflows, and chemistry-oriented study tools.
+原始 Nexus 是一个基于 **Tauri 2 + React 19 + Rust** 的本地优先 AI 知识管理应用，提供类 Obsidian 的 Markdown 知识库、双向链接、标签、LaTeX 数学公式、语义搜索、全局知识图谱、PDF 阅读、AI 问答以及化学学习/科研工具。
 
-This project keeps that product direction, but changes the center of gravity:
+这个仓库保留 Nexus 的产品方向，但重构了底层架构的责任边界：
 
-> The durable backend truth is being migrated out of the Rust host layer and into a sealed C++20 kernel.
+> 把原本沉积在 Rust 后端里的长期业务规则、数据真相和计算逻辑，迁移到一个稳定的 C++20 sealed kernel 中。
 
-Tauri and Rust remain important, but they are no longer the place where long-lived business rules should accumulate. The host owns desktop integration, command registration, process and network boundaries, and bridge code. The C++ kernel owns vault rules, indexes, durable state, query surfaces, compute behavior, recovery semantics, and cross-host contracts.
+Tauri 与 Rust 仍然存在，但它们的角色被收窄为桌面宿主、命令注册、平台适配、网络请求、外部进程启动和 kernel bridge。真正需要长期稳定、可测试、可跨宿主复用的规则，统一由 C++ kernel 持有。
 
-## Why The Migration Exists
+## 为什么要迁移
 
-The old architecture worked, but too many rules were living in places that were easy to duplicate:
+原来的 Rust 后端可以工作，但随着功能增加，越来越多规则分散在 host 层：
 
-- Rust commands held path normalization, default limits, query shaping, and data-mapping rules.
-- AI, graph, study, PDF, chemistry, and product-compute behavior could drift across host modules.
-- Desktop glue and durable domain logic were too close together.
-- Future hosts would have had to reimplement the same rules instead of calling one kernel contract.
+- 路径归一化、默认 limit、query shape、DTO 映射规则容易重复出现。
+- AI、图谱、学习统计、PDF、化学计算和 product compute 行为可能在不同模块里漂移。
+- 桌面 glue code 和长期业务逻辑混在一起，维护成本越来越高。
+- 如果未来出现新的 host，需要重新实现大量规则，而不是复用一套稳定 kernel contract。
 
-The migration turns Nexus into a more serious platform:
+这次迁移的目标不是“换语言”，而是把项目从应用后端推进成平台内核：
 
-| Before | Now |
+| 旧结构 | 新结构 |
 | --- | --- |
-| Rust backend owns most application rules | C++ sealed kernel owns durable rules |
-| Tauri commands mix orchestration and truth | Tauri Rust is a thin host bridge |
-| Query and compute behavior can be duplicated | Kernel ABI defines stable behavior |
-| Host-specific code is hard to reuse | Kernel surfaces are host-agnostic |
-| Recovery and storage behavior are scattered | Kernel owns SQLite, recovery, and validation gates |
+| Rust 后端承担大部分业务规则 | C++ sealed kernel 持有长期真相 |
+| Tauri command 同时做编排和规则判断 | Tauri Rust 退回薄桥接层 |
+| query / compute 行为容易重复实现 | kernel ABI 定义稳定行为 |
+| host 逻辑难以复用 | kernel surface 与 host 解耦 |
+| 存储、恢复、校验分散 | kernel 统一持有 SQLite、recovery、validation gate |
 
-## Product Identity
+## 产品能力
 
-Nexus Kernel is still a personal knowledge workspace, but its strongest shape is chemistry-heavy research and study:
+Nexus Kernel 仍然是一个个人知识工作台，但它最强的场景是化学科研与学习：
 
-- **Markdown vault**: notes, wiki-links, tags, backlinks, file tree, tag tree, and global graph.
-- **AI knowledge workflow**: semantic search, related notes, RAG context building, chat and embedding pipelines.
-- **PDF reading and annotation**: pdf.js rendering, highlights, ink strokes, metadata, anchors, and persistence.
-- **Chemistry workspace**: Ketcher editing, molecular previews, spectroscopy parsing, stoichiometry, kinetics, crystal utilities, symmetry analysis, and retrosynthesis surfaces.
-- **Study and truth system**: study sessions, heatmaps, learning stats, and product-compute feedback loops.
-- **Local-first storage**: vault files and SQLite-backed kernel state stay on the machine by default.
+- **Markdown 知识库**：笔记、双向链接、标签、反链、文件树、标签树、全局知识图谱。
+- **AI 知识流**：语义搜索、相关笔记、RAG 上下文构建、Chat / Embedding 管线。
+- **PDF 阅读与批注**：pdf.js 渲染、高亮、手写 ink、metadata、anchor、批注持久化。
+- **化学工作台**：Ketcher 分子编辑、分子预览、波谱解析、化学计量、高分子动力学、晶体工具、点群/对称性分析、逆合成接口。
+- **学习与反馈系统**：study session、heatmap、学习统计、TRUTH_SYSTEM / product compute 反馈。
+- **本地优先存储**：vault 文件与 kernel SQLite 状态默认留在本机。
 
-## Architecture
+## 架构概览
 
 ```text
 React 19 UI
@@ -75,32 +78,32 @@ Rust host bridge
 C++20 sealed kernel
     |
     +-- SQLite storage
-    +-- vault and path rules
-    +-- note/search/tag/graph query surfaces
-    +-- PDF, chemistry, symmetry, crystal, AI, study, and product compute contracts
+    +-- vault / path rules
+    +-- note / search / tag / graph query surfaces
+    +-- PDF / chemistry / symmetry / crystal / AI / study / product compute contracts
     +-- recovery and regression gates
 ```
 
-### Repository Layout
+## 仓库结构
 
 ```text
 .
-|-- README.md                 # the only project README
+|-- README.md                 # 项目唯一 README
 |-- apps/
-|   `-- tauri/                # current desktop host: React + Tauri + Rust bridge
-|-- docs/                     # repo-level integration and structure notes
-`-- kernel/                   # sealed C++20 kernel, tests, docs, benchmarks
+|   `-- tauri/                # 当前桌面 host：React + Tauri + Rust bridge
+|-- docs/                     # 仓库级集成与结构说明
+`-- kernel/                   # C++20 sealed kernel、测试、文档、benchmark
     |-- include/kernel/       # public C ABI
-    |-- src/internal/         # internal kernel headers
-    |-- src/impl/core/        # public-surface implementations grouped by domain
-    |-- tests/                # API, parser, search, watcher tests
-    |-- benchmarks/           # startup, IO, rebuild, query gates
-    `-- docs/                 # ADRs, contracts, regression matrices, governance
+    |-- src/internal/         # kernel 内部头文件
+    |-- src/impl/core/        # 按 public surface 分组的核心实现
+    |-- tests/                # API / parser / search / watcher 测试
+    |-- benchmarks/           # startup / IO / rebuild / query gate
+    `-- docs/                 # ADR、contract、regression matrix、governance
 ```
 
-### Kernel Core Layout
+## Kernel Core 布局
 
-The kernel core implementation is grouped by public surface:
+`kernel/src/impl/core/` 已经按 public surface 分组：
 
 ```text
 kernel/src/impl/core/
@@ -119,57 +122,59 @@ kernel/src/impl/core/
 `-- symmetry/
 ```
 
-Domain engines that do not expose the C ABI directly remain beside core under folders such as `storage/`, `search/`, `pdf/`, `watcher/`, `chemistry/`, `crystal/`, and `symmetry/`.
+不直接暴露 C ABI 的领域引擎继续放在 core 旁边，例如 `storage/`、`search/`、`pdf/`、`watcher/`、`chemistry/`、`crystal/` 和 `symmetry/`。
 
-## Host Boundary Rule
+## Host / Kernel 边界
 
-The host talks to the kernel through:
+Tauri host 通过以下文件调用 kernel：
 
 - `apps/tauri/src-tauri/native/sealed_kernel_bridge.h`
 - `apps/tauri/src-tauri/native/sealed_kernel_bridge.cpp`
 - `apps/tauri/src-tauri/src/sealed_kernel.rs`
 
-If a rule affects durable state, query shape, compute output, recovery, cross-host compatibility, or long-term product semantics, it belongs in the kernel.
+判断规则很简单：
 
-The host should not duplicate kernel-owned rules such as:
+> 只要某条规则影响 durable state、query shape、compute output、recovery、跨 host 兼容性或长期产品语义，就应该进入 kernel。
+
+host 不应该重复持有这些 kernel-owned 规则：
 
 - vault path normalization
 - file-extension derivation
-- note catalog defaults
-- graph, tag, backlink, and search construction
+- note catalog default limit
+- graph / tag / backlink / search construction
 - AI embedding cache shape
 - RAG context formatting
-- PDF metadata and annotation state
-- chemistry, crystal, symmetry, and product-compute behavior
+- PDF metadata / annotation state
+- chemistry / crystal / symmetry / product compute behavior
 - study session storage and aggregation
 
-## Current State
+## 当前状态
 
-- **Origin project**: [GTC2080/Nexus](https://github.com/GTC2080/Nexus)
-- **Current host**: Tauri desktop app
-- **Migration target**: Rust backend rules -> C++ sealed kernel
-- **Kernel milestone**: `stage-phase2-track5-gated`
-- **Phase 1**: host-stable kernel baseline complete
-- **Phase 2 tracks 1-5**: complete and gated
-- **Main development posture**: keep shrinking host-side duplicated rules and move durable behavior behind kernel contracts
+- **来源项目**：[GTC2080/Nexus](https://github.com/GTC2080/Nexus)
+- **当前 host**：Tauri desktop app
+- **迁移目标**：Rust backend rules -> C++ sealed kernel
+- **Kernel milestone**：`stage-phase2-track5-gated`
+- **Phase 1**：host-stable kernel baseline complete
+- **Phase 2 Track 1-5**：complete and gated
+- **当前开发姿态**：继续缩小 host-side 重复规则，把 durable behavior 收口到 kernel contracts 后面。
 
-## Requirements
+## 环境要求
 
 - Windows
-- Visual Studio 2022 Build Tools with the C++ workload
-- CMake 3.21 or newer
-- Node.js 18 or newer
-- Rust 1.77 or newer with Tauri 2 prerequisites
+- Visual Studio 2022 Build Tools with C++ workload
+- CMake 3.21+
+- Node.js 18+
+- Rust 1.77+ 以及 Tauri 2 prerequisites
 
-On this workstation, the kernel build environment is normally entered through:
+在这台机器上，kernel 构建环境通常从这里进入：
 
 ```powershell
 E:\Dev\bin\kernel-dev-x64.cmd
 ```
 
-## Kernel Commands
+## Kernel 命令
 
-Run kernel commands from `kernel/`.
+kernel 命令从 `kernel/` 目录运行：
 
 ```powershell
 cd kernel
@@ -178,7 +183,7 @@ cmake --build --preset build-debug
 ctest --preset test-debug
 ```
 
-Focused targets:
+常用 focused targets：
 
 ```powershell
 cmake --build --preset build-debug --target chem_kernel
@@ -187,11 +192,11 @@ cmake --build --preset build-debug --target kernel_phase_gate
 cmake --build --preset build-release
 ```
 
-Kernel build output lives in `kernel/out/build`.
+kernel 构建输出位于 `kernel/out/build`。
 
-## App Commands
+## App 命令
 
-Run app commands from `apps/tauri/`.
+app 命令从 `apps/tauri/` 目录运行：
 
 ```powershell
 cd apps/tauri
@@ -203,34 +208,34 @@ npx tauri dev
 npx tauri build
 ```
 
-`npm run dev` starts the Vite frontend. `npx tauri dev` starts the full desktop app path.
+`npm run dev` 启动 Vite 前端；`npx tauri dev` 启动完整桌面应用路径。
 
-## Documentation Map
+## 文档地图
 
-This repository intentionally keeps only one README. Detailed documents live where they can stay precise:
+这个仓库刻意只保留一份 README。细节文档放在更准确的位置：
 
-- Repo structure: `docs/repo-structure.md`
-- Integration plan: `docs/integration-plan.md`
-- Kernel current status: `kernel/docs/status/kernel-phase1-status.md`
-- Kernel architecture rules: `kernel/docs/architecture/multi-discipline-kernel-design-rules-v1.md`
-- Kernel ADRs: `kernel/docs/adr/`
-- Kernel contracts: `kernel/docs/contracts/`
-- Kernel public surfaces: `kernel/docs/surfaces/`
-- Kernel regression matrices: `kernel/docs/regression/`
-- Kernel governance: `kernel/docs/governance/`
+- 仓库结构：`docs/repo-structure.md`
+- 集成计划：`docs/integration-plan.md`
+- kernel 当前状态：`kernel/docs/status/kernel-phase1-status.md`
+- kernel 架构规则：`kernel/docs/architecture/multi-discipline-kernel-design-rules-v1.md`
+- kernel ADR：`kernel/docs/adr/`
+- kernel contracts：`kernel/docs/contracts/`
+- kernel public surfaces：`kernel/docs/surfaces/`
+- kernel regression matrices：`kernel/docs/regression/`
+- kernel governance：`kernel/docs/governance/`
 
-## Development Principles
+## 开发原则
 
-- Keep the root README as the single project entrypoint.
-- Put behavior contracts in `kernel/docs/contracts/`.
-- Put regression expectations in `kernel/docs/regression/`.
-- Put long-term architecture decisions in `kernel/docs/adr/`.
-- Keep generated outputs, local IDE state, and build trees out of Git.
-- Do not add new host-side copies of rules that belong in the sealed kernel.
+- 根目录 `README.md` 是项目唯一入口。
+- 行为规则写入 `kernel/docs/contracts/`。
+- 回归预期写入 `kernel/docs/regression/`。
+- 长期架构决策写入 `kernel/docs/adr/`。
+- 生成物、本地 IDE 状态、构建目录不要进 Git。
+- 不要在 host 层新增 kernel 已经应该持有的规则副本。
 
-## Lineage
+## 项目血统
 
-Nexus Kernel is not a new product idea. It is the hardening path for Nexus:
+Nexus Kernel 不是一个新的产品想法，而是 Nexus 的架构硬化路线：
 
 ```text
 Nexus
@@ -238,7 +243,7 @@ Nexus
       |
       v
 Nexus Kernel / Chemistry_Obsidian
-  the same product direction, rebuilt around a sealed C++ kernel
+  保留产品方向，把长期真相迁移到 C++ sealed kernel
 ```
 
-The goal is simple: keep the user-facing knowledge workspace expressive, while making the underlying truth model harder to drift, easier to test, and ready for more than one host.
+目标很明确：让用户面对的知识工作台保持灵活、好用、适合科研学习；同时让底层 truth model 更难漂移、更容易测试，并具备跨 host 复用的基础。
