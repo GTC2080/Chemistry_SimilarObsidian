@@ -1,9 +1,7 @@
 //! PDF 相关命令：文件读取 + 批注持久化
 //!
 //! 渲染、文本提取、搜索、目录等功能已迁移至前端 pdf.js，
-//! Rust 端仅负责文件 I/O 和批注存储。
-
-use std::path::PathBuf;
+//! Rust 端仅负责命令编排和批注 JSON 存储 glue。
 
 use tauri::{ipc::Response, State};
 
@@ -15,10 +13,19 @@ use crate::sealed_kernel::{self, SealedKernelState};
 /// 读取 PDF 文件的原始字节，通过 IPC Response 返回（零 JSON 序列化开销）。
 /// 前端直接得到 ArrayBuffer，可传给 pdf.js 的 `data` 参数。
 #[tauri::command]
-pub async fn read_pdf_file(file_path: String) -> Result<Response, AppError> {
-    let bytes = tokio::fs::read(&file_path)
-        .await
+pub async fn read_pdf_file(
+    file_path: String,
+    sealed_kernel: State<'_, SealedKernelState>,
+) -> Result<Response, AppError> {
+    let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())
         .map_err(|e| AppError::PdfEngine(format!("读取 PDF 失败: {file_path} — {e}")))?;
+    let path_for_read = file_path.clone();
+    let bytes = tokio::task::spawn_blocking(move || {
+        sealed_kernel::read_vault_file_bytes_for_session(kernel_session, &path_for_read)
+    })
+    .await
+    .map_err(|e| AppError::PdfEngine(format!("spawn_blocking 失败: {e}")))?
+    .map_err(|e| AppError::PdfEngine(format!("读取 PDF 失败: {file_path} — {e}")))?;
     Ok(Response::new(bytes))
 }
 
@@ -31,10 +38,10 @@ pub async fn load_pdf_annotations(
 ) -> AppResult<Vec<PdfAnnotation>> {
     sealed_kernel::ensure_vault_open(&vault_path, sealed_kernel.inner())?;
     let pdf_rel_path = pdf_rel_path_from_file_path(&file_path, sealed_kernel.inner())?;
-    let vault_root = PathBuf::from(vault_path);
+    let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())?;
 
     tokio::task::spawn_blocking(move || {
-        crate::pdf::annotations::load_annotations(&vault_root, &pdf_rel_path)
+        crate::pdf::annotations::load_annotations_for_session(kernel_session, &pdf_rel_path)
     })
     .await
     .map_err(|e| AppError::PdfAnnotation(format!("spawn_blocking 失败: {e}")))?
@@ -72,14 +79,20 @@ pub async fn save_pdf_annotations(
 ) -> AppResult<()> {
     sealed_kernel::ensure_vault_open(&vault_path, sealed_kernel.inner())?;
     let pdf_rel_path = pdf_rel_path_from_file_path(&file_path, sealed_kernel.inner())?;
-    let vault_root = PathBuf::from(vault_path);
-    let pdf_path = PathBuf::from(file_path);
+    let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())?;
+    let path_for_hash = file_path.clone();
+    let pdf_hash = tokio::task::spawn_blocking(move || {
+        sealed_kernel::compute_pdf_file_lightweight_hash_for_session(kernel_session, &path_for_hash)
+    })
+    .await
+    .map_err(|e| AppError::PdfAnnotation(format!("spawn_blocking 失败: {e}")))?
+    .map_err(|e| AppError::PdfAnnotation(format!("计算 PDF 哈希失败: {e}")))?;
 
     tokio::task::spawn_blocking(move || {
-        crate::pdf::annotations::save_annotations(
-            &vault_root,
-            &pdf_path,
+        crate::pdf::annotations::save_annotations_with_hash_for_session(
+            kernel_session,
             &pdf_rel_path,
+            pdf_hash,
             annotations_data,
         )
     })

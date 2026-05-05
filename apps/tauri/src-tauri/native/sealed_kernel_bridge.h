@@ -454,18 +454,24 @@ int32_t sealed_kernel_bridge_get_pdf_ink_default_tolerance(
     float* out_tolerance,
     char** out_error);
 
-int32_t sealed_kernel_bridge_compute_pdf_annotation_storage_key(
-    const char* pdf_path_utf8,
-    char** out_key,
+int32_t sealed_kernel_bridge_compute_pdf_file_lightweight_hash(
+    sealed_kernel_bridge_session* session,
+    const char* host_path_utf8,
+    uint64_t host_path_size,
+    char** out_hash,
     char** out_error);
 
-int32_t sealed_kernel_bridge_compute_pdf_lightweight_hash(
-    const uint8_t* head,
-    uint64_t head_size,
-    const uint8_t* tail,
-    uint64_t tail_size,
-    uint64_t file_size,
-    char** out_hash,
+int32_t sealed_kernel_bridge_read_pdf_annotation_json(
+    sealed_kernel_bridge_session* session,
+    const char* pdf_rel_path_utf8,
+    char** out_json,
+    char** out_error);
+
+int32_t sealed_kernel_bridge_write_pdf_annotation_json(
+    sealed_kernel_bridge_session* session,
+    const char* pdf_rel_path_utf8,
+    const char* json_utf8,
+    uint64_t json_size,
     char** out_error);
 
 int32_t sealed_kernel_bridge_smooth_ink_strokes_json(

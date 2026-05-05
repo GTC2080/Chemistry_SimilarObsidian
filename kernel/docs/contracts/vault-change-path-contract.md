@@ -12,6 +12,9 @@ Current surface:
 - `kernel_normalize_vault_relative_path(rel_path, rel_path_size, out_buffer)`
 - `kernel_relativize_vault_path(handle, host_path, host_path_size, allow_empty, out_buffer)`
 - `kernel_read_vault_file(handle, host_path, host_path_size, out_buffer)`
+- `kernel_compute_pdf_file_lightweight_hash(handle, host_path, host_path_size, out_buffer)`
+- `kernel_read_pdf_annotation_file(handle, pdf_rel_path, out_buffer)`
+- `kernel_write_pdf_annotation_file(handle, pdf_rel_path, json_utf8, json_size)`
 - `kernel_free_path_list(out_paths)`
 - `kernel_free_buffer(out_buffer)`
 
@@ -24,7 +27,11 @@ opened vault kernel handle, then returns the canonical vault-relative path that
 may be used by by-path note, entry, and watcher event commands.
 The vault file read surface accepts one absolute host path plus an opened vault
 kernel handle, applies the same vault-root boundary, and returns raw file bytes
-for host media previews.
+for host media and PDF previews. The PDF file hash surface accepts the same
+absolute host path shape, applies the same vault-root boundary, and returns the
+kernel-owned lightweight PDF content hash used by annotation persistence.
+The PDF annotation file surfaces accept the kernel-normalized vault-relative PDF
+path and own the JSON file path under the vault support directory.
 
 ## Ownership
 
@@ -40,6 +47,12 @@ for host media previews.
 - callers release relativized relative path text with `kernel_free_buffer(...)`
 - the kernel owns file bytes returned by `kernel_read_vault_file(...)`
 - callers release file bytes with `kernel_free_buffer(...)`
+- the kernel owns hash text returned by
+  `kernel_compute_pdf_file_lightweight_hash(...)`
+- callers release hash text with `kernel_free_buffer(...)`
+- the kernel owns annotation JSON text returned by
+  `kernel_read_pdf_annotation_file(...)`
+- callers release annotation JSON text with `kernel_free_buffer(...)`
 - null output returns `KERNEL_ERROR_INVALID_ARGUMENT`
 
 ## Frozen Semantics
@@ -112,6 +125,27 @@ All path filters:
 - returns exact raw file bytes, including embedded NUL bytes
 - maps missing files and directories to the kernel file-read error path
 
+`kernel_compute_pdf_file_lightweight_hash(...)`:
+
+- requires an opened kernel handle with a vault root
+- accepts only host paths inside the opened vault root
+- rejects null output, null handle, null non-empty input, empty host paths,
+  embedded NUL bytes, and the vault root itself
+- resolves the accepted host path through the canonical vault-relative path
+  before reading
+- hashes `first_1kb || last_1kb || file_size_le` using the kernel PDF
+  annotation hash rule
+- returns the 64-character SHA-256 hex digest as a kernel-owned buffer
+- maps missing files and directories to the kernel file-read error path
+
+`kernel_read_pdf_annotation_file(...)` / `kernel_write_pdf_annotation_file(...)`:
+
+- require an opened kernel handle with a vault root
+- accept only valid vault-relative PDF paths
+- store files under `.nexus/pdf-annotations/{kernel_storage_key}.json`
+- return an empty kernel-owned buffer when no annotation file exists
+- preserve annotation JSON bytes exactly
+
 ## Host Boundary
 
 Tauri Rust may still:
@@ -138,6 +172,13 @@ Tauri Rust may still:
   rename, move, or create-folder surfaces
 - pass absolute host paths for media binary previews through
   `kernel_read_vault_file(...)`
+- pass absolute host paths for PDF viewer bytes through
+  `kernel_read_vault_file(...)`
+- pass absolute host paths for PDF annotation lightweight content hashes through
+  `kernel_compute_pdf_file_lightweight_hash(...)`
+- pass PDF annotation JSON reads and writes through
+  `kernel_read_pdf_annotation_file(...)` /
+  `kernel_write_pdf_annotation_file(...)`
 
 Tauri Rust must not reimplement supported-extension filtering, changed-entry
 Markdown filtering, hidden segment filtering, ignored-root filtering,
@@ -146,5 +187,9 @@ validation/normalization. It must also not reimplement vault-root
 relativization, `strip_prefix` checks, separator normalization, parent-segment
 checks, root-folder allowance rules for by-path operations, or vault-root checks
 before media binary reads.
+It must also not read PDF files directly to serve viewer bytes or to compute
+annotation lightweight content hashes.
+It must not build annotation storage file paths or use Rust filesystem calls to
+read, create, or write annotation JSON files.
 Watcher event classification must also not use Rust `strip_prefix` to decide
 vault membership or produce relative event paths.

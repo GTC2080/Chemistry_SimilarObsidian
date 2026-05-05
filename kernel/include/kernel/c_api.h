@@ -167,6 +167,20 @@ kernel_status kernel_compute_pdf_lightweight_hash(
     size_t tail_size,
     uint64_t file_size,
     kernel_owned_buffer* out_buffer);
+kernel_status kernel_compute_pdf_file_lightweight_hash(
+    kernel_handle* handle,
+    const char* host_path,
+    size_t host_path_size,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_read_pdf_annotation_file(
+    kernel_handle* handle,
+    const char* pdf_rel_path,
+    kernel_owned_buffer* out_buffer);
+kernel_status kernel_write_pdf_annotation_file(
+    kernel_handle* handle,
+    const char* pdf_rel_path,
+    const char* json_utf8,
+    size_t json_size);
 kernel_status kernel_get_pdf_ink_default_tolerance(float* out_tolerance);
 kernel_status kernel_smooth_ink_strokes(
     const kernel_ink_stroke_input* strokes,

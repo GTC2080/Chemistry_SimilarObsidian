@@ -78,7 +78,7 @@
 - **v1.0.6-dev** — 晶体计算 full-result 化：`parse_and_build_lattice` 通过 sealed C++ bridge 调用 `kernel_build_lattice_from_cif(...)` 一次性取得 CIF 解析、晶胞基矢、超晶胞原子；`calculate_miller_plane` 通过 sealed C++ bridge 调用 `kernel_calculate_miller_plane_from_cif(...)` 完成 CIF 解析与密勒面计算。Rust `crystal/` 只保留最终 DTO，不再保留晶格/密勒面 C ABI mirror 与 unsafe 拷贝循环。
 - **v1.0.6-dev** — 对称性计算管线继续内核化：`calculate_symmetry` 现在通过 sealed C++ bridge 单点调用 `kernel_calculate_symmetry(...)`，由 kernel 完成 `XYZ` / `PDB` / simple `CIF` 原子解析、形状分析、主轴计算、候选生成、操作匹配、点群分类和渲染几何；Rust 只保留命令 DTO 与 localized error 映射，不再保留对称性 C ABI mirror / unsafe 拷贝循环。
 - **v1.0.6-dev** — PDF ink smoothing 继续瘦身：`smooth_ink_strokes` 通过 sealed C++ bridge 调用 `kernel_smooth_ink_strokes(...)`，默认容差通过 `kernel_get_pdf_ink_default_tolerance(...)` 查询，由 bridge 序列化 kernel-owned strokes/points 为 JSON。Rust `pdf/ink.rs` 只保留前端 DTO 与薄 wrapper，不再保留 ink C ABI mirror / unsafe 拷贝循环。
-- **v1.0.6-dev** — PDF annotation 哈希与路径边界继续内核化：批注存储 key 通过 `kernel_compute_pdf_annotation_storage_key(...)` 生成，轻量 PDF 内容 hash 通过 `kernel_compute_pdf_lightweight_hash(...)` 生成；`load_pdf_annotations` / `save_pdf_annotations` 先用 `kernel_relativize_vault_path(...)` 把 viewer 绝对路径转成 vault-relative `pdfPath`，Rust `pdf/annotations.rs` 只保留文件 seek/read、JSON 持久化和 DTO。
+- **v1.0.6-dev** — PDF annotation 哈希、路径和文件 I/O 继续内核化：批注存储 key、annotation JSON 文件路径、读写/create-dir、PDF 文件轻量内容 hash 都由 kernel 负责；`read_pdf_file` 与 `read_binary_file` 共用 `kernel_read_vault_file(...)`，Rust `pdf/annotations.rs` 只保留 DTO 与 JSON 序列化/反序列化。
 - **v1.0.5** — PDF 渲染引擎迁移：PDFium → pdf.js（零 IPC 渲染，秒开）；新增 PDF 手绘/涂写批注（Douglas-Peucker + Catmull-Rom 笔迹平滑）、批注删除、目录提取；移除 pdfium-render/webp/base64 三个 crate 依赖，二进制更小编译更快。15 项性能优化、晶格解析器；PDF Viewer 模块化拆分（847 行 → 128 行渲染 + 4 个子 hook + 7 个 CSS 子文件）
 - **v1.0.4** — 大量前端重计算下沉到 Rust，减少前端热路径计算，优化启动、切换和统计面板响应
 
@@ -114,12 +114,12 @@
 - `rebuild_vector_index` cache reset -> `kernel_clear_ai_embeddings(...)`
 - `semantic_search` / `get_related_notes` / `get_related_notes_raw` / `ask_vault` semantic top-k -> `kernel_query_ai_embedding_top_notes(...)`
 - `read_note` / `read_note_indexed_content` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
-- `read_binary_file` -> `kernel_read_vault_file(...)`
+- `read_binary_file` / `read_pdf_file` -> `kernel_read_vault_file(...)`
 - `ask_vault` RAG note content -> `kernel_filter_changed_markdown_paths(...)` + `kernel_read_note(...)`
 - `remove_deleted_entries` -> `kernel_filter_changed_markdown_paths(...)` + `kernel_delete_ai_embedding_note(...)`
 - `parse_spectroscopy` / `read_molecular_preview` -> `kernel_read_note(...)` + `kernel_derive_file_extension_from_path(...)` + sealed C++ bridge over chemistry kernel compute ABI
 - `write_note` -> `kernel_write_note(...)`
-- `load_pdf_annotations` / `save_pdf_annotations` -> `kernel_relativize_vault_path(...)` + `kernel_compute_pdf_annotation_storage_key(...)` + `kernel_compute_pdf_lightweight_hash(...)`
+- `load_pdf_annotations` / `save_pdf_annotations` -> `kernel_relativize_vault_path(...)` + `kernel_read_pdf_annotation_file(...)` / `kernel_write_pdf_annotation_file(...)` + `kernel_compute_pdf_file_lightweight_hash(...)`
 
 Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 网络请求和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
 `scan_vault` 的快速元数据预览上限与 `index_vault_content` 的默认 note catalog 拉取上限从 kernel 查询，不再由 Rust command 持有业务边界常量。
@@ -132,8 +132,8 @@ Kernel note catalog 映射到前端 `NoteInfo` 时也通过 `kernel_derive_note_
 Rust watcher 只保留 notify 事件分类、平台目录事件判断、原始 ignored-root CSV 透传和 IPC 发送；notify 绝对路径到 vault-relative path 的相对化由 `kernel_relativize_vault_path(...)` 判定，隐藏路径、ignored root 解析/归一、支持扩展名、路径归一化与去重规则由 kernel path filter 统一判定。
 `read_note` / `write_note` / chemistry reference commands 的单路径校验与标准化由 `kernel_normalize_vault_relative_path(...)` 统一判定，Rust 只把 kernel 返回的 rel path 继续交给 read/write/reference bridge。
 `read_note_by_file_path` / `write_note_by_file_path` / create/delete/rename/move by-path entry commands 的绝对宿主路径归属、vault-root 相对化、分隔符标准化和 root-folder 空路径许可由 `kernel_relativize_vault_path(...)` 统一判定，Rust 只保留中文错误外壳和命令编排。
-`read_binary_file` 的 vault-root 归属校验、文件存在/类型读取和 bytes 返回由 `kernel_read_vault_file(...)` 统一处理，Rust 不再用 `fs::read(...)` 持有媒体文件读取面。
-PDF annotation load/save 的绝对 viewer file path 同样先由 `kernel_relativize_vault_path(...)` 判定 vault 归属；annotation JSON 的 `pdfPath` 与 storage key 使用同一个 vault-relative path，绝对路径只用于实际 PDF 文件 I/O。
+`read_binary_file` / `read_pdf_file` 的 vault-root 归属校验、文件存在/类型读取和 bytes 返回由 `kernel_read_vault_file(...)` 统一处理，Rust 不再用 `fs::read(...)` 或 `tokio::fs::read(...)` 持有媒体/PDF 文件读取面。
+PDF annotation load/save 的绝对 viewer file path 同样先由 `kernel_relativize_vault_path(...)` 判定 vault 归属；annotation JSON 的 `pdfPath` 与 kernel storage key 使用同一个 vault-relative path，annotation JSON 文件读写由 `kernel_read_pdf_annotation_file(...)` / `kernel_write_pdf_annotation_file(...)` 管理，PDF 文件轻量内容 hash 由 `kernel_compute_pdf_file_lightweight_hash(...)` 读取并计算。
 Embedding 刷新以 kernel note catalog 的 Markdown note surface 为准，不再在 Rust 侧维护额外的 embeddable extension 白名单、timestamp 比较、内容可索引判断或 metadata upsert；语义检索的排序与 active note 排除也由 kernel top-k surface 统一提供。
 
 已收口到 kernel 的关系读面：
@@ -360,7 +360,7 @@ src-tauri/src/          # Rust 后端
 │   └── types.rs        # 晶格数据协议（LatticeData / UnitCellBox / AtomNode / MillerPlaneData）
 ├── pdf/                # PDF 模块（渲染已迁移至前端 pdf.js）
 │   ├── mod.rs          # 模块入口
-│   ├── annotations.rs  # 批注数据结构与 JSON 持久化
+│   ├── annotations.rs  # 批注数据结构与 JSON DTO（文件读写/hash 由 kernel 计算）
 │   └── ink.rs          # 笔迹平滑 DTO / sealed kernel bridge
 ├── kinetics.rs         # 高分子动力学 kernel bridge
 ├── db.rs               # SQLite 数据库管理

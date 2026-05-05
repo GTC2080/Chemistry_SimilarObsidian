@@ -29,6 +29,9 @@ Stateless annotation hashing lands:
 
 - `kernel_compute_pdf_annotation_storage_key(pdf_path, out_buffer)`
 - `kernel_compute_pdf_lightweight_hash(head, head_size, tail, tail_size, file_size, out_buffer)`
+- `kernel_compute_pdf_file_lightweight_hash(handle, host_path, host_path_size, out_buffer)`
+- `kernel_read_pdf_annotation_file(handle, pdf_rel_path, out_buffer)`
+- `kernel_write_pdf_annotation_file(handle, pdf_rel_path, json_utf8, json_size)`
 
 Stateless ink smoothing lands:
 
@@ -151,8 +154,8 @@ annotation contract is frozen.
 
 ## Annotation Hash Boundary
 
-PDF annotation storage remains host-owned file I/O, but deterministic annotation
-hashing rules are kernel-owned.
+PDF annotation DTOs and JSON shape remain host-owned, but deterministic
+annotation hashing rules and annotation JSON file I/O are kernel-owned.
 
 Frozen semantics:
 
@@ -160,15 +163,19 @@ Frozen semantics:
   kernel-normalized vault-relative PDF path string supplied by the host
 - lightweight PDF hash is SHA-256 over `first_1kb || last_1kb || file_size_le`
 - `file_size_le` is an unsigned 64-bit little-endian value
-- hosts may choose where to store the JSON file under their vault support
-  directory, but must not retain duplicate SHA-256 key or lightweight-hash rules
-  in Rust
+- hosts that have an opened vault handle and an absolute viewer path must ask
+  `kernel_compute_pdf_file_lightweight_hash(...)` to read the file hash basis
+  instead of opening, seeking, or reading the PDF in Rust
+- the kernel chooses the JSON file path under the vault support directory using
+  the storage key rule and owns read/write/create-directory mechanics
+- hosts must not retain duplicate SHA-256 key, annotation file path, or
+  lightweight-hash rules in Rust
 - hosts that receive an absolute viewer file path must first pass it through
   `kernel_relativize_vault_path(...)` using the opened vault handle
-- annotation JSON may keep durable annotations in host-owned files, but its
-  `pdfPath` field and storage filename key must use the same vault-relative PDF
-  path; the absolute host path may only be used for file I/O and lightweight
-  content hashing
+- annotation JSON keeps durable annotations in kernel-managed files, but its
+  `pdfPath` field must use the same vault-relative PDF path used for the
+  storage filename key; the absolute host path may only be passed through the
+  kernel bridge for byte reads and lightweight content hashing
 
 ## Surface Consistency Rules
 

@@ -468,18 +468,24 @@ extern "C" {
         out_tolerance: *mut f32,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_compute_pdf_annotation_storage_key(
-        pdf_path_utf8: *const c_char,
-        out_key: *mut *mut c_char,
+    fn sealed_kernel_bridge_compute_pdf_file_lightweight_hash(
+        session: *mut SealedKernelBridgeSession,
+        host_path_utf8: *const c_char,
+        host_path_size: u64,
+        out_hash: *mut *mut c_char,
         out_error: *mut *mut c_char,
     ) -> c_int;
-    fn sealed_kernel_bridge_compute_pdf_lightweight_hash(
-        head: *const u8,
-        head_size: u64,
-        tail: *const u8,
-        tail_size: u64,
-        file_size: u64,
-        out_hash: *mut *mut c_char,
+    fn sealed_kernel_bridge_read_pdf_annotation_json(
+        session: *mut SealedKernelBridgeSession,
+        pdf_rel_path_utf8: *const c_char,
+        out_json: *mut *mut c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
+    fn sealed_kernel_bridge_write_pdf_annotation_json(
+        session: *mut SealedKernelBridgeSession,
+        pdf_rel_path_utf8: *const c_char,
+        json_utf8: *const c_char,
+        json_size: u64,
         out_error: *mut *mut c_char,
     ) -> c_int;
     fn sealed_kernel_bridge_smooth_ink_strokes_json(
@@ -2761,60 +2767,79 @@ pub fn pdf_ink_default_tolerance() -> AppResult<f32> {
     Ok(tolerance)
 }
 
-pub fn pdf_annotation_storage_key(pdf_path: &str) -> AppResult<String> {
-    let pdf_path_c = cstring_arg(pdf_path.to_string(), "pdf_path")?;
-    let mut raw_key: *mut c_char = std::ptr::null_mut();
-    let mut error: *mut c_char = std::ptr::null_mut();
-    let code = unsafe {
-        sealed_kernel_bridge_compute_pdf_annotation_storage_key(
-            pdf_path_c.as_ptr(),
-            &mut raw_key,
-            &mut error,
-        )
-    };
-    if code != 0 {
-        return Err(bridge_error(
-            "sealed_kernel_compute_pdf_annotation_storage_key",
-            code,
-            error,
-        ));
-    }
-    Ok(take_bridge_string(raw_key))
-}
-
-pub fn compute_pdf_lightweight_hash(head: &[u8], tail: &[u8], file_size: u64) -> AppResult<String> {
-    let head_ptr = if head.is_empty() {
-        std::ptr::null()
-    } else {
-        head.as_ptr()
-    };
-    let tail_ptr = if tail.is_empty() {
-        std::ptr::null()
-    } else {
-        tail.as_ptr()
-    };
-
+pub fn compute_pdf_file_lightweight_hash_for_session(
+    session: usize,
+    file_path: &str,
+) -> AppResult<String> {
+    let session = session_from_token(session)?;
     let mut raw_hash: *mut c_char = std::ptr::null_mut();
     let mut error: *mut c_char = std::ptr::null_mut();
     let code = unsafe {
-        sealed_kernel_bridge_compute_pdf_lightweight_hash(
-            head_ptr,
-            head.len() as u64,
-            tail_ptr,
-            tail.len() as u64,
-            file_size,
+        sealed_kernel_bridge_compute_pdf_file_lightweight_hash(
+            session,
+            file_path.as_ptr() as *const c_char,
+            file_path.len() as u64,
             &mut raw_hash,
             &mut error,
         )
     };
     if code != 0 {
         return Err(bridge_error(
-            "sealed_kernel_compute_pdf_lightweight_hash",
+            "sealed_kernel_compute_pdf_file_lightweight_hash",
             code,
             error,
         ));
     }
     Ok(take_bridge_string(raw_hash))
+}
+
+pub fn read_pdf_annotation_json_for_session(
+    session: usize,
+    pdf_rel_path: &str,
+) -> AppResult<String> {
+    let session = session_from_token(session)?;
+    let pdf_rel_path_c = cstring_arg(pdf_rel_path.to_string(), "pdf_rel_path")?;
+    let mut raw_json: *mut c_char = std::ptr::null_mut();
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code = unsafe {
+        sealed_kernel_bridge_read_pdf_annotation_json(
+            session,
+            pdf_rel_path_c.as_ptr(),
+            &mut raw_json,
+            &mut error,
+        )
+    };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_read_pdf_annotation_json",
+            code,
+            error,
+        ));
+    }
+    Ok(take_bridge_string(raw_json))
+}
+
+pub fn write_pdf_annotation_json_for_session(
+    session: usize,
+    pdf_rel_path: &str,
+    json: &str,
+) -> AppResult<()> {
+    let session = session_from_token(session)?;
+    let pdf_rel_path_c = cstring_arg(pdf_rel_path.to_string(), "pdf_rel_path")?;
+    let json_ptr = if json.is_empty() {
+        std::ptr::null()
+    } else {
+        json.as_ptr() as *const c_char
+    };
+    call_status_operation("sealed_kernel_write_pdf_annotation_json", |error| unsafe {
+        sealed_kernel_bridge_write_pdf_annotation_json(
+            session,
+            pdf_rel_path_c.as_ptr(),
+            json_ptr,
+            json.len() as u64,
+            error,
+        )
+    })
 }
 
 pub fn smooth_ink_strokes(
@@ -4043,19 +4068,53 @@ mod tests {
     }
 
     #[test]
-    fn pdf_annotation_storage_key_comes_from_kernel() {
+    fn pdf_file_lightweight_hash_reads_vault_file_in_kernel() {
+        let vault = make_test_vault("pdf-file-hash");
+        let vault_path = vault.to_string_lossy().into_owned();
+        let state = SealedKernelState::default();
+        open_vault_inner(vault_path, &state).expect("open test vault");
+
+        let pdf_path = vault.join("assets").join("paper.pdf");
+        std::fs::create_dir_all(pdf_path.parent().expect("pdf parent")).expect("create pdf parent");
+        std::fs::write(&pdf_path, b"%PDFEOF").expect("write pdf fixture");
+
+        let session = active_session_token(&state).expect("active session");
+        let hash =
+            compute_pdf_file_lightweight_hash_for_session(session, &pdf_path.to_string_lossy())
+                .expect("kernel pdf file hash");
         assert_eq!(
-            pdf_annotation_storage_key("assets/paper.pdf").unwrap(),
-            "d7af56fa7308eb53"
+            hash,
+            "a1ffd07a77f81b588d8a7184f7db683eb2cecd3148cf7e49cb1dcce24dcb41a8"
         );
+
+        close_test_vault(&state);
+        let _ = std::fs::remove_dir_all(&vault);
     }
 
     #[test]
-    fn pdf_lightweight_hash_comes_from_kernel() {
+    fn pdf_annotation_json_io_uses_kernel_storage() {
+        let vault = make_test_vault("pdf-annotation-json");
+        let vault_path = vault.to_string_lossy().into_owned();
+        let state = SealedKernelState::default();
+        open_vault_inner(vault_path, &state).expect("open test vault");
+
+        let session = active_session_token(&state).expect("active session");
+        let json = r#"{"pdfPath":"docs/Paper.pdf","pdfHash":"hash","annotations":[]}"#;
+        write_pdf_annotation_json_for_session(session, "docs/Paper.pdf", json)
+            .expect("kernel write annotation json");
         assert_eq!(
-            compute_pdf_lightweight_hash(b"%PDF", b"EOF", 1234).unwrap(),
-            "d1a340980bc6729a17b938075e8d855ebb53f367c78d49b6bd1040254c4ba5ca"
+            read_pdf_annotation_json_for_session(session, "docs/Paper.pdf")
+                .expect("kernel read annotation json"),
+            json
         );
+        assert_eq!(
+            read_pdf_annotation_json_for_session(session, "docs/Missing.pdf")
+                .expect("kernel read missing annotation json"),
+            ""
+        );
+
+        close_test_vault(&state);
+        let _ = std::fs::remove_dir_all(&vault);
     }
 
     #[test]

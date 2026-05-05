@@ -37,12 +37,12 @@
 - **Release focus**: chemistry-heavy today, while the Markdown, search, graph, and AI layers remain general-purpose
 - **Data policy**: local-first by default, with vault content and SQLite data kept on the user's machine
 - **Optimization direction**: large-vault responsiveness, low-blocking I/O, fast interaction feedback, and stable semantic retrieval
-- **Backend boundary**: core note IO, search, tags, backlinks, graph, file tree, AI embedding cache retrieval, and embedding refresh job planning are owned by `kernel/`; Tauri Rust keeps command registration, bridge wiring, platform glue, external embedding requests, and thin orchestration
+- **Backend boundary**: core note IO, vault file reads, PDF file hashing, search, tags, backlinks, graph, file tree, AI embedding cache retrieval, and embedding refresh job planning are owned by `kernel/`; Tauri Rust keeps command registration, bridge wiring, platform glue, external embedding requests, and thin orchestration
 
 ## Recent Updates
 
 - **v1.0.6-dev** — legacy embedding refresh jobs have moved into the C++ kernel: `index_vault_content`, `index_changed_entries`, and `rebuild_vector_index` now ask the kernel to prepare jobs, including note catalog reads, ignored-root filtering, changed-path catalog refresh, timestamp comparison, note-content reads, indexability checks, and metadata upserts; Rust only calls the external embedding API and writes vectors back
-- **v1.0.6-dev** — media binary reads now go through `kernel_read_vault_file(...)`; the kernel owns vault-root validation and raw byte reads, while Rust only exposes the Tauri command shell
+- **v1.0.6-dev** — media and PDF binary reads now go through `kernel_read_vault_file(...)`; PDF annotation JSON file I/O goes through `kernel_read_pdf_annotation_file(...)` / `kernel_write_pdf_annotation_file(...)`; PDF annotation content hashes go through `kernel_compute_pdf_file_lightweight_hash(...)`; Rust only exposes the Tauri command shell and annotation DTO serialization
 - **v1.0.6-dev** — the legacy embedding DB has moved into the C++ kernel: `ai_embedding_cache` now owns metadata, timestamps, vectors, clear/delete, and semantic top-k retrieval; Rust no longer keeps a local embedding SQL layer or local cosine-similarity cache
 - **v1.0.5** — the current unreleased target combines the 15-item performance pass and the crystal-lattice feature set; this includes save-queue safety, incremental watcher flow, PDF path rendering, zero-rerender resize, `.cif` tri-view support, supercell generation, and Miller-plane slicing
 - **v1.0.4** — moved multiple hot-path computations from the frontend into Rust to improve startup, switching, and heavy-view responsiveness

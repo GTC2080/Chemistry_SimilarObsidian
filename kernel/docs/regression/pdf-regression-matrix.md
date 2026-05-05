@@ -110,11 +110,20 @@ The repository must retain regression coverage for:
   `first_1kb || last_1kb || file_size_le`
 - `kernel_compute_pdf_lightweight_hash(...)` rejecting null non-empty head,
   null non-empty tail, and null output
-- Tauri PDF annotation persistence reading both rules through the sealed kernel
-  bridge instead of using Rust-side SHA-256
+- `kernel_compute_pdf_file_lightweight_hash(...)` reading the lightweight hash
+  basis from a vault-contained PDF file and returning the same digest as the
+  stateless rule
+- `kernel_compute_pdf_file_lightweight_hash(...)` rejecting paths outside the
+  opened vault root and null output
+- `kernel_read_pdf_annotation_file(...)` returning stored annotation JSON bytes
+  by kernel storage key and an empty buffer for missing annotation files
+- `kernel_write_pdf_annotation_file(...)` writing annotation JSON bytes under
+  the kernel storage key
+- Tauri PDF annotation persistence using kernel annotation file read/write
+  instead of Rust `read_to_string`, `create_dir_all`, or `write`
 - Tauri PDF annotation load/save commands passing absolute viewer file paths
   through `kernel_relativize_vault_path(...)` before choosing the JSON storage
   key
 - Tauri PDF annotation JSON storing the same vault-relative `pdfPath` used for
-  the kernel storage key, while retaining the absolute host path only for file
-  I/O and lightweight content hashing
+  the kernel storage key, while passing the absolute host path to kernel for
+  lightweight content hashing

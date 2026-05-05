@@ -35,6 +35,15 @@ Required coverage:
 - `kernel_read_vault_file(...)` preserves embedded NUL bytes
 - `kernel_read_vault_file(...)` rejects paths outside the opened vault root
 - `kernel_read_vault_file(...)` rejects null output and null handles
+- `kernel_compute_pdf_file_lightweight_hash(...)` reads the PDF hash basis from
+  a file inside the opened vault root
+- `kernel_compute_pdf_file_lightweight_hash(...)` rejects paths outside the
+  opened vault root
+- `kernel_compute_pdf_file_lightweight_hash(...)` rejects null output and null
+  handles
+- `kernel_read_pdf_annotation_file(...)` and
+  `kernel_write_pdf_annotation_file(...)` use the kernel PDF annotation storage
+  key and preserve JSON bytes
 - duplicate paths are removed after normalization
 - first-seen order is preserved
 - original path case is preserved
@@ -70,5 +79,12 @@ Tauri bridge coverage:
   `strip_prefix`, separator normalization, or parent-segment checks in Rust
 - `read_binary_file` uses `kernel_read_vault_file(...)` instead of Rust
   `fs::read(...)` plus local file existence/type checks
+- `read_pdf_file` uses `kernel_read_vault_file(...)` instead of Rust
+  `tokio::fs::read(...)`
+- `save_pdf_annotations` uses
+  `kernel_compute_pdf_file_lightweight_hash(...)` instead of Rust
+  `File::open(...)`, `seek(...)`, or `read(...)`
+- `load_pdf_annotations` / `save_pdf_annotations` use kernel annotation JSON
+  read/write surfaces instead of Rust filesystem calls
 - watcher event classification uses `kernel_relativize_vault_path(...)` instead
   of rebuilding vault-root `strip_prefix` checks in Rust
