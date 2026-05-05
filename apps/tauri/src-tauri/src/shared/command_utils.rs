@@ -8,35 +8,19 @@ pub fn read_ai_config(app: &AppHandle) -> Result<AiConfig, String> {
         .store("settings.json")
         .map_err(|e| format!("打开 Store 失败: {}", e))?;
 
-    let api_key = store
-        .get("aiApiKey")
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
-        .unwrap_or_default();
+    let setting = |key: &str| {
+        store
+            .get(key)
+            .and_then(|value| value.as_str().map(str::to_string))
+    };
 
-    let base_url = store
-        .get("aiBaseUrl")
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
-        .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
-
-    let embedding_base_url = store
-        .get("embeddingBaseUrl")
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
-        .unwrap_or_default();
-
-    let embedding_api_key = store
-        .get("embeddingApiKey")
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
-        .unwrap_or_default();
-
-    let embedding_model = store
-        .get("embeddingModel")
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
-        .unwrap_or_else(|| "text-embedding-3-small".to_string());
-
-    let chat_model = store
-        .get("chatModel")
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
-        .unwrap_or_else(|| "gpt-4o-mini".to_string());
+    let api_key = setting("aiApiKey").unwrap_or_default();
+    let base_url = setting("aiBaseUrl").unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+    let embedding_base_url = setting("embeddingBaseUrl").unwrap_or_default();
+    let embedding_api_key = setting("embeddingApiKey").unwrap_or_default();
+    let embedding_model =
+        setting("embeddingModel").unwrap_or_else(|| "text-embedding-3-small".to_string());
+    let chat_model = setting("chatModel").unwrap_or_else(|| "gpt-4o-mini".to_string());
 
     Ok(AiConfig {
         api_key,

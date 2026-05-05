@@ -6,6 +6,29 @@ use crate::sealed_kernel::{self, SealedKernelState};
 use crate::shared::command_utils::read_ai_config;
 use crate::AppError;
 
+async fn query_notes_by_embedding(
+    query_text: &str,
+    excluded_note_id: Option<&str>,
+    limit: usize,
+    app: &AppHandle,
+    embedding_runtime: &ai::EmbeddingRuntimeState,
+    sealed_kernel: &SealedKernelState,
+) -> Result<Vec<NoteInfo>, AppError> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+
+    let config = read_ai_config(app)?;
+    let query_embedding =
+        ai::fetch_embedding_cached(query_text, &config, embedding_runtime).await?;
+    sealed_kernel::query_ai_embedding_top_note_infos(
+        &query_embedding,
+        limit as u64,
+        excluded_note_id,
+        sealed_kernel,
+    )
+}
+
 #[tauri::command]
 pub fn search_notes(
     query: String,
@@ -32,19 +55,15 @@ pub async fn semantic_search(
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    if limit == 0 {
-        return Ok(Vec::new());
-    }
-    let config = read_ai_config(&app)?;
-    let query_embedding =
-        ai::fetch_embedding_cached(&query, &config, embedding_runtime.inner()).await?;
-
-    sealed_kernel::query_ai_embedding_top_note_infos(
-        &query_embedding,
-        limit as u64,
+    query_notes_by_embedding(
+        &query,
         None,
+        limit,
+        &app,
+        embedding_runtime.inner(),
         sealed_kernel.inner(),
     )
+    .await
 }
 
 #[tauri::command]
@@ -56,19 +75,15 @@ pub async fn get_related_notes(
     embedding_runtime: State<'_, ai::EmbeddingRuntimeState>,
     sealed_kernel: State<'_, SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    if limit == 0 {
-        return Ok(Vec::new());
-    }
-    let config = read_ai_config(&app)?;
-    let context_embedding =
-        ai::fetch_embedding_cached(&context_text, &config, embedding_runtime.inner()).await?;
-
-    sealed_kernel::query_ai_embedding_top_note_infos(
-        &context_embedding,
-        limit as u64,
+    query_notes_by_embedding(
+        &context_text,
         Some(&current_note_id),
+        limit,
+        &app,
+        embedding_runtime.inner(),
         sealed_kernel.inner(),
     )
+    .await
 }
 
 #[tauri::command]
@@ -115,16 +130,15 @@ pub async fn get_related_notes_raw(
         return Ok(Vec::new());
     }
 
-    let config = read_ai_config(&app)?;
-    let context_embedding =
-        ai::fetch_embedding_cached(&context_text, &config, embedding_runtime.inner()).await?;
-
-    sealed_kernel::query_ai_embedding_top_note_infos(
-        &context_embedding,
-        limit as u64,
+    query_notes_by_embedding(
+        &context_text,
         Some(&current_note_id),
+        limit,
+        &app,
+        embedding_runtime.inner(),
         sealed_kernel.inner(),
     )
+    .await
 }
 
 /// 返回 kernel 预构建的标签树结构（替代前端 buildTagTree）。

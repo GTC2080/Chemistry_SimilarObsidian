@@ -1,7 +1,7 @@
 //! Chat 流式对话与 Ponder 节点生成
 
 use futures_util::StreamExt;
-use reqwest::Client;
+use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -60,6 +60,48 @@ struct ChatCompletionMessage {
     content: String,
 }
 
+fn require_chat_api_key(config: &AiConfig) -> Result<(), String> {
+    if config.api_key.is_empty() {
+        return Err("未配置 AI API Key，请在设置中填写".to_string());
+    }
+    Ok(())
+}
+
+fn chat_completions_url(config: &AiConfig) -> String {
+    format!("{}/chat/completions", config.base_url)
+}
+
+fn build_chat_client(timeout_secs: u64) -> Result<Client, String> {
+    Client::builder()
+        .timeout(Duration::from_secs(timeout_secs))
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))
+}
+
+async fn post_chat_json<T: Serialize>(
+    client: &Client,
+    config: &AiConfig,
+    body: &T,
+    api_name: &str,
+) -> Result<Response, String> {
+    let response = client
+        .post(chat_completions_url(config))
+        .header("Authorization", format!("Bearer {}", config.api_key))
+        .header("Content-Type", "application/json")
+        .json(body)
+        .send()
+        .await
+        .map_err(|e| format!("{api_name} API 请求失败: {e}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("{api_name} API 返回错误 (HTTP {status}): {body}"));
+    }
+
+    Ok(response)
+}
+
 pub async fn stream_chat_with_context<F>(
     question: &str,
     context: &str,
@@ -69,9 +111,7 @@ pub async fn stream_chat_with_context<F>(
 where
     F: FnMut(String) -> Result<(), String>,
 {
-    if config.api_key.is_empty() {
-        return Err("未配置 AI API Key，请在设置中填写".to_string());
-    }
+    require_chat_api_key(config)?;
 
     let system_content =
         sealed_kernel::build_ai_rag_system_content(context).map_err(|err| err.to_string())?;
@@ -94,27 +134,8 @@ where
     };
 
     let timeout_secs = sealed_kernel::ai_chat_timeout_secs().map_err(|err| err.to_string())?;
-    let client = Client::builder()
-        .timeout(Duration::from_secs(timeout_secs))
-        .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
-
-    let url = format!("{}/chat/completions", config.base_url);
-
-    let response = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| format!("Chat API 请求失败: {}", e))?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("Chat API 返回错误 (HTTP {}): {}", status, body));
-    }
+    let client = build_chat_client(timeout_secs)?;
+    let response = post_chat_json(&client, config, &request_body, "Chat").await?;
 
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
@@ -158,9 +179,7 @@ where
 }
 
 pub async fn ponder_node(topic: &str, context: &str, config: &AiConfig) -> Result<String, String> {
-    if config.api_key.is_empty() {
-        return Err("未配置 AI API Key，请在设置中填写".to_string());
-    }
+    require_chat_api_key(config)?;
 
     let system_prompt = sealed_kernel::ai_ponder_system_prompt().map_err(|err| err.to_string())?;
     let user_prompt = sealed_kernel::build_ai_ponder_user_prompt(topic, context)
@@ -184,27 +203,8 @@ pub async fn ponder_node(topic: &str, context: &str, config: &AiConfig) -> Resul
     };
 
     let timeout_secs = sealed_kernel::ai_ponder_timeout_secs().map_err(|err| err.to_string())?;
-    let client = Client::builder()
-        .timeout(Duration::from_secs(timeout_secs))
-        .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
-
-    let url = format!("{}/chat/completions", config.base_url);
-
-    let response = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| format!("Ponder API 请求失败: {}", e))?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("Ponder API 返回错误 (HTTP {}): {}", status, body));
-    }
+    let client = build_chat_client(timeout_secs)?;
+    let response = post_chat_json(&client, config, &request_body, "Ponder").await?;
 
     let result: ChatCompletionResponse = response
         .json()
