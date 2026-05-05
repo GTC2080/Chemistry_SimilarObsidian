@@ -1081,6 +1081,23 @@ int32_t sealed_kernel_bridge_open_vault_utf8(
   return static_cast<int32_t>(KERNEL_OK);
 }
 
+int32_t sealed_kernel_bridge_validate_vault_root_utf8(
+    const char* vault_path_utf8,
+    char** out_error) {
+  const std::string vault_path = Utf8ToActiveCodePage(vault_path_utf8);
+  if (vault_path.empty()) {
+    SetError(out_error, "vault_path must be a non-empty UTF-8 string.");
+    return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status status = kernel_validate_vault_root(vault_path.c_str());
+  if (status.code != KERNEL_OK) {
+    return ReturnKernelError(status, "kernel_validate_vault_root", out_error);
+  }
+
+  return static_cast<int32_t>(KERNEL_OK);
+}
+
 void sealed_kernel_bridge_close(sealed_kernel_bridge_session* session) {
   if (session == nullptr) {
     return;

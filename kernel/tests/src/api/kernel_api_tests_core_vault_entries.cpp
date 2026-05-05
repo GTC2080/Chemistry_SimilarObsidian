@@ -53,6 +53,29 @@ void test_create_folder_creates_single_directory() {
   close_and_cleanup(handle, vault);
 }
 
+void test_validate_vault_root_keeps_host_preflight_in_kernel() {
+  const auto vault = make_temp_vault();
+  const auto missing = vault.parent_path() / "missing-vault-root";
+  const auto file_path = vault / "not-a-root.txt";
+  write_file_bytes(file_path, "not a directory");
+
+  expect_ok(kernel_validate_vault_root(vault.string().c_str()));
+  require_true(
+      kernel_validate_vault_root(missing.string().c_str()).code == KERNEL_ERROR_NOT_FOUND,
+      "vault root validation should reject missing paths");
+  require_true(
+      kernel_validate_vault_root(file_path.string().c_str()).code == KERNEL_ERROR_NOT_FOUND,
+      "vault root validation should reject regular files");
+  require_true(
+      kernel_validate_vault_root("").code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault root validation should reject empty paths");
+  require_true(
+      kernel_validate_vault_root(nullptr).code == KERNEL_ERROR_INVALID_ARGUMENT,
+      "vault root validation should reject null paths");
+
+  std::filesystem::remove_all(vault);
+}
+
 void test_rename_note_updates_catalog_and_preserves_content() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -339,6 +362,7 @@ void test_read_vault_file_applies_kernel_boundary_and_reads_bytes() {
 }  // namespace
 
 void run_kernel_api_core_vault_entry_contract_tests() {
+  test_validate_vault_root_keeps_host_preflight_in_kernel();
   test_create_folder_creates_single_directory();
   test_rename_note_updates_catalog_and_preserves_content();
   test_delete_note_removes_catalog_entry();

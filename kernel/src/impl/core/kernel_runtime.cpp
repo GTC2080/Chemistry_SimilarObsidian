@@ -14,8 +14,10 @@
 #include <filesystem>
 #include <memory>
 
-extern "C" kernel_status kernel_open_vault(const char* vault_path, kernel_handle** out_handle) {
-  if (kernel::core::is_null_or_empty(vault_path) || out_handle == nullptr) {
+namespace {
+
+kernel_status validate_vault_root_path(const char* vault_path) {
+  if (kernel::core::is_null_or_empty(vault_path)) {
     return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
@@ -29,6 +31,26 @@ extern "C" kernel_status kernel_open_vault(const char* vault_path, kernel_handle
     return kernel::core::make_status(KERNEL_ERROR_NOT_FOUND);
   }
 
+  return kernel::core::make_status(KERNEL_OK);
+}
+
+}  // namespace
+
+extern "C" kernel_status kernel_validate_vault_root(const char* vault_path) {
+  return validate_vault_root_path(vault_path);
+}
+
+extern "C" kernel_status kernel_open_vault(const char* vault_path, kernel_handle** out_handle) {
+  if (kernel::core::is_null_or_empty(vault_path) || out_handle == nullptr) {
+    return kernel::core::make_status(KERNEL_ERROR_INVALID_ARGUMENT);
+  }
+
+  const kernel_status validation = validate_vault_root_path(vault_path);
+  if (validation.code != KERNEL_OK) {
+    return validation;
+  }
+
+  const std::filesystem::path root = std::filesystem::path(vault_path).lexically_normal();
   auto handle = std::make_unique<kernel_handle>();
   handle->paths.root = root;
   handle->paths.state_dir = kernel::vault::state_dir_for_vault(root);

@@ -13,6 +13,8 @@ use notify_debouncer_mini::new_debouncer;
 use serde::Serialize;
 use tauri::AppHandle;
 
+use crate::sealed_kernel;
+
 /// 文件变更事件，发送给前端
 #[derive(Debug, Clone, Serialize)]
 pub struct FsChangeEvent {
@@ -49,10 +51,9 @@ impl WatcherState {
         ignored_roots: &str,
         app: AppHandle,
     ) -> Result<(), String> {
+        sealed_kernel::validate_vault_root_path(vault_path)
+            .map_err(|err| format!("路径不存在或不是一个有效目录: {vault_path} ({err})"))?;
         let vault = PathBuf::from(vault_path);
-        if !vault.is_dir() {
-            return Err(format!("路径不存在: {}", vault_path));
-        }
 
         self.stop();
 

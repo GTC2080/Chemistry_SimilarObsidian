@@ -25,6 +25,10 @@ int32_t sealed_kernel_bridge_open_vault_utf8(
     sealed_kernel_bridge_session** out_session,
     char** out_error);
 
+int32_t sealed_kernel_bridge_validate_vault_root_utf8(
+    const char* vault_path_utf8,
+    char** out_error);
+
 void sealed_kernel_bridge_close(sealed_kernel_bridge_session* session);
 
 int32_t sealed_kernel_bridge_get_state(

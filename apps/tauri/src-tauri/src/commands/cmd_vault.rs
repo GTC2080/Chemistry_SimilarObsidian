@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 
 use futures_util::stream::{self, StreamExt};
 use tauri::{AppHandle, State};
@@ -103,12 +102,8 @@ pub fn scan_vault(
     ignored_folders: Option<String>,
     sealed_kernel: State<SealedKernelState>,
 ) -> Result<Vec<NoteInfo>, AppError> {
-    if !Path::new(&vault_path).is_dir() {
-        return Err(AppError::Custom(format!(
-            "路径不存在或不是一个有效目录: {}",
-            vault_path
-        )));
-    }
+    sealed_kernel::validate_vault_root_path(&vault_path)
+        .map_err(|_| AppError::Custom(format!("路径不存在或不是一个有效目录: {}", vault_path)))?;
     sealed_kernel::query_note_infos_filtered(
         &vault_path,
         sealed_kernel.inner(),

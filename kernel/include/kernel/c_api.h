@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 kernel_status kernel_open_vault(const char* vault_path, kernel_handle** out_handle);
+kernel_status kernel_validate_vault_root(const char* vault_path);
 kernel_status kernel_close(kernel_handle* handle);
 kernel_status kernel_get_state(kernel_handle* handle, kernel_state_snapshot* out_state);
 kernel_status kernel_get_rebuild_status(

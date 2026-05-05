@@ -100,6 +100,7 @@
 
 已收口到 kernel 的内容/文件工作流读写面：
 
+- vault root preflight -> `kernel_validate_vault_root(...)`
 - `scan_vault` / `scan_changed_entries` -> `kernel_query_notes(...)` / `kernel_query_notes_filtered(...)`
 - `build_file_tree` -> `kernel_query_file_tree_filtered(...)`
 - watcher host path relativization -> `kernel_relativize_vault_path(...)`
@@ -122,6 +123,7 @@
 - `load_pdf_annotations` / `save_pdf_annotations` -> `kernel_relativize_vault_path(...)` + `kernel_read_pdf_annotation_file(...)` / `kernel_write_pdf_annotation_file(...)` + `kernel_compute_pdf_file_lightweight_hash(...)`
 
 Rust `cmd_vault.rs` 当前只负责 Tauri command 编排、AI embedding 网络请求和后台任务调度，不再为 changed-entry 路径用 Rust 文件系统 metadata 重建 `NoteInfo`。
+`scan_vault` 与 watcher 启动的 vault root 预检由 `kernel_validate_vault_root(...)` 负责；Rust 不再用 `Path::is_dir(...)` 持有“有效 vault 根目录”的判断规则。
 `scan_vault` 的快速元数据预览上限与 `index_vault_content` 的默认 note catalog 拉取上限从 kernel 查询，不再由 Rust command 持有业务边界常量。
 `sealed_kernel_query_notes` 的直接查询默认页大小从 kernel 查询，不影响 scan/index 使用的全量 catalog 默认上限。
 `build_file_tree` 的默认 source catalog 上限从 kernel 查询，不再由 Rust command 持有 file-tree limit 常量。

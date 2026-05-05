@@ -45,6 +45,10 @@ extern "C" {
         out_session: *mut *mut SealedKernelBridgeSession,
         out_error: *mut *mut c_char,
     ) -> c_int;
+    fn sealed_kernel_bridge_validate_vault_root_utf8(
+        vault_path_utf8: *const c_char,
+        out_error: *mut *mut c_char,
+    ) -> c_int;
     fn sealed_kernel_bridge_close(session: *mut SealedKernelBridgeSession);
     fn sealed_kernel_bridge_get_state(
         session: *mut SealedKernelBridgeSession,
@@ -918,6 +922,22 @@ fn open_vault_inner(
         vault_path: state.vault_path.lock().map_err(|_| AppError::Lock)?.clone(),
         state: Some(state_snapshot),
     })
+}
+
+pub fn validate_vault_root_path(vault_path: &str) -> AppResult<()> {
+    let vault_path_c = CString::new(vault_path)
+        .map_err(|_| AppError::Custom("vault_path must not contain NUL bytes.".to_string()))?;
+    let mut error: *mut c_char = std::ptr::null_mut();
+    let code =
+        unsafe { sealed_kernel_bridge_validate_vault_root_utf8(vault_path_c.as_ptr(), &mut error) };
+    if code != 0 {
+        return Err(bridge_error(
+            "sealed_kernel_validate_vault_root",
+            code,
+            error,
+        ));
+    }
+    Ok(())
 }
 
 pub fn ensure_vault_open(vault_path: &str, state: &SealedKernelState) -> AppResult<()> {

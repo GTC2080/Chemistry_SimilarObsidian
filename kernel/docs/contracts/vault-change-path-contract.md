@@ -6,6 +6,7 @@
 
 Current surface:
 
+- `kernel_validate_vault_root(vault_path)`
 - `kernel_filter_changed_markdown_paths(changed_paths_lf, out_paths)`
 - `kernel_filter_supported_vault_paths(changed_paths_lf, out_paths)`
 - `kernel_filter_supported_vault_paths_filtered(changed_paths_lf, ignored_roots_csv, out_paths)`
@@ -21,6 +22,10 @@ Current surface:
 The input is a line-feed separated list of changed relative paths from the host
 watcher or frontend. The kernel returns canonical subsets that should drive
 incremental vault event fanout and Markdown note scan/index work.
+
+The vault-root validation surface accepts one absolute host path and returns
+only whether it is a valid vault root directory. It does not open a kernel
+session, initialize storage, or start background watchers.
 
 The host-path relativization surface accepts one absolute host path plus an
 opened vault kernel handle, then returns the canonical vault-relative path that
@@ -56,6 +61,14 @@ path and own the JSON file path under the vault support directory.
 - null output returns `KERNEL_ERROR_INVALID_ARGUMENT`
 
 ## Frozen Semantics
+
+`kernel_validate_vault_root(...)`:
+
+- rejects null and empty paths with `KERNEL_ERROR_INVALID_ARGUMENT`
+- normalizes the candidate root path before checking it
+- returns `KERNEL_OK` only for existing directories
+- returns `KERNEL_ERROR_NOT_FOUND` for missing paths and regular files
+- does not allocate output memory and does not create kernel session state
 
 All path filters:
 
@@ -150,6 +163,8 @@ All path filters:
 
 Tauri Rust may still:
 
+- pass vault roots through `kernel_validate_vault_root(...)` before scan and
+  watcher start preflight
 - receive file-change vectors from the watcher/front-end command payload
 - pass the vectors through the sealed kernel bridge
 - pass raw ignored-root CSV through the sealed kernel bridge
@@ -186,7 +201,7 @@ ignored-root normalization, path deduplication, or one-off vault relative path
 validation/normalization. It must also not reimplement vault-root
 relativization, `strip_prefix` checks, separator normalization, parent-segment
 checks, root-folder allowance rules for by-path operations, or vault-root checks
-before media binary reads.
+before scan preflight, watcher start preflight, or media binary reads.
 It must also not read PDF files directly to serve viewer bytes or to compute
 annotation lightweight content hashes.
 It must not build annotation storage file paths or use Rust filesystem calls to

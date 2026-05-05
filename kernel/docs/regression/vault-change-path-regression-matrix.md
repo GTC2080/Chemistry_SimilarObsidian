@@ -4,6 +4,9 @@
 
 Required coverage:
 
+- `kernel_validate_vault_root(...)` accepts existing directories
+- `kernel_validate_vault_root(...)` rejects missing paths and regular files
+- `kernel_validate_vault_root(...)` rejects null and empty paths
 - `kernel_filter_changed_markdown_paths(...)` trims path whitespace
 - `kernel_filter_supported_vault_paths(...)` trims path whitespace
 - backslashes are normalized to `/`
@@ -52,6 +55,8 @@ Required coverage:
 
 Tauri bridge coverage:
 
+- `scan_vault` and watcher start preflight use `kernel_validate_vault_root(...)`
+  instead of Rust `Path::is_dir(...)`
 - watcher event classification passes changed/removed relative path candidates
   through `kernel_filter_supported_vault_paths_filtered(...)` before emitting
   `vault:fs-change`
