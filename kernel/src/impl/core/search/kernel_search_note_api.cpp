@@ -32,7 +32,8 @@ extern "C" kernel_status kernel_search_notes_limited(
   std::vector<kernel::search::SearchHit> hits;
   {
     std::lock_guard lock(handle->storage_mutex);
-    const std::error_code search_ec = kernel::search::search_notes(handle->storage, query, limit, hits);
+    const std::error_code search_ec =
+        kernel::search::search_notes_compact(handle->storage, query, limit, hits);
     if (search_ec) {
       return kernel::core::make_status(kernel::core::map_error(search_ec));
     }

@@ -1,17 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import * as pdfjsLib from "pdfjs-dist";
 import type {
   PDFDocumentProxy,
 } from "pdfjs-dist";
+import { createPdfTextSearchCache } from "../pdf/pdfTextSearchCache";
 import type {
   PdfAnnotation,
   PdfMetadata,
   PageDimension,
   OutlineEntry,
   PageTextData,
-  WordInfo,
-  NormRect,
   SearchMatch,
 } from "../types/pdf";
 
@@ -173,6 +172,10 @@ export interface PdfRenderer {
 export function usePdfRenderer(): PdfRenderer {
   const handle = useContext(PdfDocContext);
   const docId = handle ? simpleHash(handle.filePath) : null;
+  const textSearchCache = useMemo(
+    () => handle ? createPdfTextSearchCache(handle.doc) : null,
+    [handle],
+  );
 
   const renderToCanvas = useCallback(
     async (
@@ -202,85 +205,20 @@ export function usePdfRenderer(): PdfRenderer {
 
   const getPageText = useCallback(
     async (pageIndex: number): Promise<PageTextData> => {
-      if (!handle) {
+      if (!textSearchCache) {
         throw new Error("usePdfRenderer: no PDF document is open");
       }
 
-      const page = await handle.doc.getPage(pageIndex + 1);
-      const textContent = await page.getTextContent();
-      const viewport = page.getViewport({ scale: 1.0 });
-
-      const words: WordInfo[] = [];
-      let charIndex = 0;
-      const fullTextParts: string[] = [];
-
-      for (const item of textContent.items) {
-        if (!("str" in item)) continue;
-        const textItem = item as { str: string; transform: number[]; width: number; height: number };
-        const text = textItem.str;
-        if (!text) continue;
-
-        // pdf.js transform: [scaleX, skewY, skewX, scaleY, translateX, translateY]
-        const tx = textItem.transform[4];
-        const ty = textItem.transform[5];
-        const w = textItem.width;
-        const h = textItem.height || Math.abs(textItem.transform[3]);
-
-        // 归一化到 0-1（相对于页面尺寸）
-        const rect: NormRect = {
-          x: tx / viewport.width,
-          y: 1 - (ty + h) / viewport.height, // PDF 坐标系 y 轴向上
-          w: w / viewport.width,
-          h: h / viewport.height,
-        };
-
-        words.push({ word: text, char_index: charIndex, rect });
-        fullTextParts.push(text);
-        charIndex += text.length + 1; // +1 for implicit space
-      }
-
-      return { text: fullTextParts.join(" "), words };
+      return textSearchCache.getPageText(pageIndex);
     },
-    [handle],
+    [textSearchCache],
   );
 
   const searchPdf = useCallback(
     async (query: string): Promise<SearchMatch[]> => {
-      if (!handle || !query.trim()) return [];
-
-      const matches: SearchMatch[] = [];
-      const lowerQuery = query.toLowerCase();
-
-      for (let i = 1; i <= handle.doc.numPages; i++) {
-        const page = await handle.doc.getPage(i);
-        const textContent = await page.getTextContent();
-        const viewport = page.getViewport({ scale: 1.0 });
-
-        for (const item of textContent.items) {
-          if (!("str" in item)) continue;
-          const textItem = item as { str: string; transform: number[]; width: number; height: number };
-          if (textItem.str.toLowerCase().includes(lowerQuery)) {
-            const tx = textItem.transform[4];
-            const ty = textItem.transform[5];
-            const w = textItem.width;
-            const h = textItem.height || Math.abs(textItem.transform[3]);
-
-            matches.push({
-              page: i - 1, // 0-based
-              rects: [{
-                x: tx / viewport.width,
-                y: 1 - (ty + h) / viewport.height,
-                w: w / viewport.width,
-                h: h / viewport.height,
-              }],
-            });
-          }
-        }
-      }
-
-      return matches;
+      return textSearchCache?.search(query) ?? [];
     },
-    [handle],
+    [textSearchCache],
   );
 
   const getOutline = useCallback(async (): Promise<OutlineEntry[]> => {

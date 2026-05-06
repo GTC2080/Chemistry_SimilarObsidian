@@ -418,33 +418,23 @@ int32_t sealed_kernel_bridge_query_search_notes_json(
     return static_cast<int32_t>(KERNEL_ERROR_INVALID_ARGUMENT);
   }
 
-  kernel_search_query request{};
-  request.query = query_utf8;
-  request.limit = static_cast<size_t>(limit);
-  request.offset = 0;
-  request.kind = KERNEL_SEARCH_KIND_NOTE;
-  request.tag_filter = nullptr;
-  request.path_prefix = nullptr;
-  request.include_deleted = 0;
-  request.sort_mode = KERNEL_SEARCH_SORT_RANK_V1;
-
-  kernel_search_page page{};
+  kernel_search_results results{};
   const kernel_status status =
-      kernel_query_search(session->handle, &request, &page);
+      kernel_search_notes_limited(session->handle, query_utf8, static_cast<size_t>(limit), &results);
   if (status.code != KERNEL_OK) {
-    return ReturnKernelError(status, "kernel_query_search", out_error);
+    return ReturnKernelError(status, "kernel_search_notes_limited", out_error);
   }
 
   std::string json = "{\"notes\":[";
-  for (size_t index = 0; index < page.count; ++index) {
+  for (size_t index = 0; index < results.count; ++index) {
     if (index != 0) {
       json += ",";
     }
-    AppendNoteHitJson(json, page.hits[index].rel_path, page.hits[index].title);
+    AppendNoteHitJson(json, results.hits[index].rel_path, results.hits[index].title);
   }
-  json += "],\"count\":" + std::to_string(page.count) + "}";
+  json += "],\"count\":" + std::to_string(results.count) + "}";
 
-  kernel_free_search_page(&page);
+  kernel_free_search_results(&results);
   *out_json = CopyString(json);
   if (*out_json == nullptr) {
     SetError(out_error, "failed to allocate query search JSON.");

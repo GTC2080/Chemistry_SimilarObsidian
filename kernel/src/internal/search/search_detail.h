@@ -66,6 +66,13 @@ std::error_code append_note_hits(
     const std::string& rank_tag_exact_token,
     std::vector<SearchHit>& out_hits);
 
+std::error_code append_note_hits_compact(
+    sqlite3* db,
+    const std::string& match_query,
+    const std::vector<std::string>& tokens,
+    std::size_t limit,
+    std::vector<SearchHit>& out_hits);
+
 std::error_code search_note_page(
     sqlite3* db,
     const SearchQuery& query,

@@ -84,6 +84,12 @@ std::error_code search_notes(
     std::size_t limit,
     std::vector<SearchHit>& out_hits);
 
+std::error_code search_notes_compact(
+    kernel::storage::Database& db,
+    std::string_view query,
+    std::size_t limit,
+    std::vector<SearchHit>& out_hits);
+
 inline std::error_code search_notes(
     kernel::storage::Database& db,
     std::string_view query,

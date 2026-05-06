@@ -7,6 +7,65 @@ import {
 } from "../components/search";
 import type { NoteInfo } from "../types";
 
+export type WikiLinkSearch = (query: string) => Promise<NoteInfo[]>;
+export type WikiLinkItems = (args: { query: string }) => Promise<NoteInfo[]>;
+
+const WIKILINK_SEARCH_DEBOUNCE_MS = 100;
+
+async function invokeWikiLinkSearch(query: string): Promise<NoteInfo[]> {
+  return invoke<NoteInfo[]>("search_notes", { query });
+}
+
+export function createDebouncedWikiLinkItems(
+  vaultPath: string,
+  search: WikiLinkSearch = invokeWikiLinkSearch,
+  debounceMs = WIKILINK_SEARCH_DEBOUNCE_MS,
+): WikiLinkItems {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let pendingResolve: ((items: NoteInfo[]) => void) | null = null;
+  let sequence = 0;
+
+  return ({ query }) => {
+    const trimmed = query.trim();
+    sequence += 1;
+    const currentSequence = sequence;
+
+    if (!vaultPath || !trimmed) {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      pendingResolve?.([]);
+      pendingResolve = null;
+      return Promise.resolve([]);
+    }
+
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    pendingResolve?.([]);
+    pendingResolve = null;
+
+    return new Promise<NoteInfo[]>((resolve) => {
+      pendingResolve = resolve;
+      timer = setTimeout(async () => {
+        timer = null;
+        if (pendingResolve === resolve) {
+          pendingResolve = null;
+        }
+        try {
+          const result = await search(trimmed);
+          resolve(currentSequence === sequence ? result : []);
+        } catch (e) {
+          console.error("搜索笔记失败:", e);
+          resolve([]);
+        }
+      }, debounceMs);
+    });
+  };
+}
+
 /**
  * WikiLink Suggestion 配置工厂函数。
  *
@@ -21,22 +80,14 @@ import type { NoteInfo } from "../types";
 export function createWikiLinkSuggestion(
   vaultPath: string
 ): Partial<SuggestionOptions<NoteInfo>> {
+  const items = createDebouncedWikiLinkItems(vaultPath);
+
   return {
     /**
      * items 查询函数：Suggestion 插件在每次按键时调用。
      * query 是 [[ 之后用户输入的文本（如 "日记" → query="日记"）。
      */
-    items: async ({ query }) => {
-      if (!vaultPath) return [];
-      try {
-        return await invoke<NoteInfo[]>("search_notes", {
-          query,
-        });
-      } catch (e) {
-        console.error("搜索笔记失败:", e);
-        return [];
-      }
-    },
+    items,
 
     /**
      * command：用户选中某项后执行。

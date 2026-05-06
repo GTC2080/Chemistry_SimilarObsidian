@@ -245,15 +245,23 @@ std::error_code build_note_graph(
   sqlite3_stmt* link_stmt = nullptr;
   ec = detail::prepare(
       db.connection,
+      "WITH limited_notes AS ("
+      "  SELECT note_id, rel_path "
+      "  FROM notes "
+      "  WHERE is_deleted = 0 "
+      "  ORDER BY rel_path ASC "
+      "  LIMIT ?1"
+      ") "
       "SELECT src.rel_path, note_links.target "
       "FROM note_links "
-      "JOIN notes AS src ON src.note_id = note_links.note_id "
-      "WHERE src.is_deleted = 0 "
+      "JOIN limited_notes AS src ON src.note_id = note_links.note_id "
       "ORDER BY src.rel_path ASC, note_links.target ASC;",
       &link_stmt);
   if (ec) {
     return ec;
   }
+
+  sqlite3_bind_int64(link_stmt, 1, static_cast<sqlite3_int64>(note_limit));
 
   ec = detail::append_statement_rows(link_stmt, [&](sqlite3_stmt* row) {
     std::string source;
@@ -288,18 +296,26 @@ std::error_code build_note_graph(
   sqlite3_stmt* tag_stmt = nullptr;
   ec = detail::prepare(
       db.connection,
+      "WITH limited_notes AS ("
+      "  SELECT note_id, rel_path "
+      "  FROM notes "
+      "  WHERE is_deleted = 0 "
+      "  ORDER BY rel_path ASC "
+      "  LIMIT ?1"
+      ") "
       "SELECT DISTINCT left_note.rel_path, right_note.rel_path "
       "FROM note_tags AS left_tag "
       "JOIN note_tags AS right_tag "
       "  ON left_tag.tag = right_tag.tag AND left_tag.note_id < right_tag.note_id "
-      "JOIN notes AS left_note ON left_note.note_id = left_tag.note_id "
-      "JOIN notes AS right_note ON right_note.note_id = right_tag.note_id "
-      "WHERE left_note.is_deleted = 0 AND right_note.is_deleted = 0 "
+      "JOIN limited_notes AS left_note ON left_note.note_id = left_tag.note_id "
+      "JOIN limited_notes AS right_note ON right_note.note_id = right_tag.note_id "
       "ORDER BY left_note.rel_path ASC, right_note.rel_path ASC;",
       &tag_stmt);
   if (ec) {
     return ec;
   }
+
+  sqlite3_bind_int64(tag_stmt, 1, static_cast<sqlite3_int64>(note_limit));
 
   ec = detail::append_statement_rows(tag_stmt, [&](sqlite3_stmt* row) {
     std::string left;

@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{ipc::Response, State};
 
 use crate::models::{MolecularPreview, SpectroscopyData};
 use crate::sealed_kernel::{self, SealedKernelState};
@@ -60,13 +60,14 @@ pub fn read_note(
 pub async fn read_binary_file(
     file_path: String,
     sealed_kernel: State<'_, SealedKernelState>,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Response, AppError> {
     let kernel_session = sealed_kernel::active_session_token(sealed_kernel.inner())?;
-    tauri::async_runtime::spawn_blocking(move || {
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
         sealed_kernel::read_vault_file_bytes_for_session(kernel_session, &file_path)
     })
     .await
-    .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))?
+    .map_err(|e| AppError::Custom(format!("线程执行错误: {}", e)))??;
+    Ok(Response::new(bytes))
 }
 
 #[tauri::command]

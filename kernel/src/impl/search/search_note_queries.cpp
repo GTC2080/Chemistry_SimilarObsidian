@@ -94,6 +94,49 @@ std::string build_note_select_sql(
   return sql;
 }
 
+std::string build_all_tokens_like_condition(
+    const std::string_view expression,
+    const std::size_t token_count) {
+  if (token_count == 0) {
+    return "0";
+  }
+
+  std::string sql = "CASE WHEN ";
+  for (std::size_t index = 0; index < token_count; ++index) {
+    if (index > 0) {
+      sql += "AND ";
+    }
+    sql += expression;
+    sql += " LIKE ? ESCAPE '\\' ";
+  }
+  sql += "THEN 1 ELSE 0 END";
+  return sql;
+}
+
+std::string build_note_compact_select_sql(const std::size_t token_count) {
+  const std::string_view body_without_leading_heading =
+      "LOWER(CASE "
+      "WHEN substr(ltrim(note_fts.body), 1, 1) = '#' "
+      "  AND instr(note_fts.body, char(10)) > 0 "
+      "THEN substr(note_fts.body, instr(note_fts.body, char(10)) + 1) "
+      "ELSE note_fts.body END)";
+  std::string sql =
+      "SELECT "
+      "notes.rel_path, "
+      "notes.title, ";
+  sql += build_all_tokens_like_condition("LOWER(note_fts.title)", token_count);
+  sql += " AS title_match, ";
+  sql += build_all_tokens_like_condition(body_without_leading_heading, token_count);
+  sql +=
+      " AS body_match "
+      "FROM note_fts "
+      "JOIN notes ON notes.note_id = note_fts.rowid "
+      "WHERE note_fts MATCH ? AND notes.is_deleted = 0 "
+      "ORDER BY notes.rel_path ASC "
+      "LIMIT ?;";
+  return sql;
+}
+
 std::error_code bind_note_query_params(
     sqlite3_stmt* stmt,
     const kernel::search::SearchQuery& query,
@@ -144,6 +187,24 @@ std::error_code bind_note_query_params(
         kernel::search::detail::build_prefix_like_pattern(query.path_prefix));
     if (ec) {
       return ec;
+    }
+  }
+  return {};
+}
+
+std::error_code bind_compact_match_flags_params(
+    sqlite3_stmt* stmt,
+    const std::vector<std::string>& tokens,
+    int& next_param_index) {
+  for (int pass = 0; pass < 2; ++pass) {
+    for (const auto& token : tokens) {
+      std::error_code ec = kernel::search::detail::bind_text_param(
+          stmt,
+          next_param_index++,
+          kernel::search::detail::build_contains_like_pattern(token));
+      if (ec) {
+        return ec;
+      }
     }
   }
   return {};
@@ -291,6 +352,70 @@ std::error_code append_note_hits(
     hit.tag_exact_rank_hit = sqlite3_column_int(stmt, 5) != 0;
     hit.title_rank_hit = sqlite3_column_int(stmt, 6) != 0;
     hit.score = query.sort_mode == KERNEL_SEARCH_SORT_RANK_V1 ? -hit.raw_fts_score : 0.0;
+
+    out_hits.push_back(std::move(hit));
+  }
+
+  sqlite3_finalize(stmt);
+  return {};
+}
+
+std::error_code append_note_hits_compact(
+    sqlite3* db,
+    const std::string& match_query,
+    const std::vector<std::string>& tokens,
+    const std::size_t limit,
+    std::vector<SearchHit>& out_hits) {
+  sqlite3_stmt* stmt = nullptr;
+  const std::string sql = build_note_compact_select_sql(tokens.size());
+  const int prepare_rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+  if (prepare_rc != SQLITE_OK) {
+    return make_sqlite_error(prepare_rc);
+  }
+
+  int param_index = 1;
+  std::error_code ec = bind_compact_match_flags_params(stmt, tokens, param_index);
+  if (ec) {
+    sqlite3_finalize(stmt);
+    return ec;
+  }
+  ec = bind_text_param(stmt, param_index++, match_query);
+  if (ec) {
+    sqlite3_finalize(stmt);
+    return ec;
+  }
+  ec = bind_int64_param(stmt, param_index++, clamp_size_for_sqlite(limit));
+  if (ec) {
+    sqlite3_finalize(stmt);
+    return ec;
+  }
+
+  while (true) {
+    const int step_rc = sqlite3_step(stmt);
+    if (step_rc == SQLITE_DONE) {
+      break;
+    }
+    if (step_rc != SQLITE_ROW) {
+      sqlite3_finalize(stmt);
+      return make_sqlite_error(step_rc);
+    }
+
+    const unsigned char* rel_path = sqlite3_column_text(stmt, 0);
+    const unsigned char* title = sqlite3_column_text(stmt, 1);
+
+    SearchHit hit;
+    if (rel_path != nullptr) {
+      hit.rel_path = reinterpret_cast<const char*>(rel_path);
+    }
+    if (title != nullptr) {
+      hit.title = reinterpret_cast<const char*>(title);
+    }
+    if (sqlite3_column_int(stmt, 2) != 0) {
+      hit.match_flags |= KERNEL_SEARCH_MATCH_TITLE;
+    }
+    if (sqlite3_column_int(stmt, 3) != 0) {
+      hit.match_flags |= KERNEL_SEARCH_MATCH_BODY;
+    }
 
     out_hits.push_back(std::move(hit));
   }

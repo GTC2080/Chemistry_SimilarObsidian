@@ -155,4 +155,39 @@ std::error_code search_notes(
   return {};
 }
 
+std::error_code search_notes_compact(
+    kernel::storage::Database& db,
+    std::string_view query,
+    std::size_t limit,
+    std::vector<SearchHit>& out_hits) {
+  out_hits.clear();
+  if (db.connection == nullptr) {
+    return std::make_error_code(std::errc::bad_file_descriptor);
+  }
+  if (limit == 0) {
+    return std::make_error_code(std::errc::invalid_argument);
+  }
+
+  const std::vector<std::string> tokens = detail::split_literal_tokens(query);
+  if (tokens.empty()) {
+    return std::make_error_code(std::errc::invalid_argument);
+  }
+  const std::string match_query = detail::build_literal_match_query(tokens);
+  if (match_query.empty()) {
+    return std::make_error_code(std::errc::invalid_argument);
+  }
+
+  const std::error_code ec = detail::append_note_hits_compact(
+      db.connection,
+      match_query,
+      tokens,
+      limit,
+      out_hits);
+  if (ec) {
+    out_hits.clear();
+    return ec;
+  }
+  return {};
+}
+
 }  // namespace kernel::search
