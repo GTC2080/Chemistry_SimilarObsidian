@@ -201,12 +201,3 @@ Nexus
 Nexus · Scientist Obsidian
   science-focused local knowledge workspace
 ```
-
-## 开发原则
-
-- `README.md` 是中文入口，`README_EN.md` 是英文入口。
-- 行为规则写入 `kernel/docs/contracts/`。
-- 回归预期写入 `kernel/docs/regression/`。
-- 长期架构决策写入 `kernel/docs/adr/`。
-- 生成物、本地 IDE 状态、构建目录不要进 Git。
-- 不要在 host 层新增 kernel 已经应该持有的规则副本。
