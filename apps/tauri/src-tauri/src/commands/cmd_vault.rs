@@ -142,6 +142,18 @@ mod tests {
             !vault.join("index.db").exists(),
             "init_vault must not create the legacy Rust index.db"
         );
+        assert!(
+            vault.join(".nexus").join("kernel").join("state.sqlite3").is_file(),
+            "init_vault must keep kernel state inside .nexus/kernel"
+        );
+        assert!(
+            !vault.join("state.sqlite3").exists(),
+            "init_vault must not create kernel state in the vault root"
+        );
+        assert!(
+            !vault.join("recovery.journal").exists(),
+            "init_vault must not create recovery journals in the vault root"
+        );
 
         sealed_kernel::close_vault_state(&state).expect("close kernel vault");
         let _ = std::fs::remove_dir_all(vault);

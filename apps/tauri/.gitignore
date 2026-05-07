@@ -8,6 +8,9 @@ dist/
 # Rust / Tauri build
 src-tauri/target/
 
+# Codex local runtime
+.codex-run/
+
 # Release binaries
 release-assets/**/*.exe
 release-assets/**/*.msi

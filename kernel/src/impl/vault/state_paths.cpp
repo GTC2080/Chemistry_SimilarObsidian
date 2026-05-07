@@ -1,26 +1,11 @@
-// Reason: This file implements deterministic local state paths for a vault without polluting the vault itself.
+// Reason: This file implements deterministic Nexus-managed state paths inside a vault.
 
 #include "vault/state_paths.h"
-
-#include "platform/platform.h"
-#include "vault/revision.h"
-
-#include <string>
 
 namespace kernel::vault {
 
 std::filesystem::path state_dir_for_vault(const std::filesystem::path& vault_root) {
-  std::filesystem::path local_app_data;
-  const std::error_code ec = kernel::platform::local_app_data_directory(local_app_data);
-  if (ec) {
-    return {};
-  }
-
-  const std::string normalized = vault_root.lexically_normal().generic_string();
-  const std::string revision = compute_content_revision(normalized);
-  const std::string digest = revision.substr(std::string("v1:sha256:").size());
-
-  return local_app_data / "ChemKernel" / "vaults" / digest;
+  return vault_root.lexically_normal() / ".nexus" / "kernel";
 }
 
 std::filesystem::path recovery_journal_path(const std::filesystem::path& state_dir) {

@@ -165,6 +165,18 @@ void test_overflow_forces_full_rescan() {
   require_true(actions[0].rel_path.empty(), "full rescan should not carry a path");
 }
 
+void test_hidden_path_events_are_ignored_before_coalescing() {
+  const std::vector<RawChangeEvent> events = {
+      {RawChangeKind::Created, ".nexus/kernel/state.sqlite3-wal"},
+      {RawChangeKind::Modified, "Folder/.cache/generated.md"},
+      {RawChangeKind::Modified, "visible.md"}};
+
+  const auto actions = kernel::watcher::coalesce_events(events);
+  require_true(actions.size() == 1, "hidden path events should not create watcher actions");
+  require_true(actions[0].kind == CoalescedActionKind::RefreshPath, "visible event should still refresh");
+  require_true(actions[0].rel_path == "visible.md", "visible event path should be preserved");
+}
+
 void test_actions_preserve_first_path_order() {
   const std::vector<RawChangeEvent> events = {
       {RawChangeKind::Modified, "b.md"},
@@ -231,6 +243,7 @@ void run_watcher_event_coalescing_tests() {
   test_unpaired_rename_old_falls_back_to_delete();
   test_unpaired_rename_new_falls_back_to_refresh_with_reason();
   test_overflow_forces_full_rescan();
+  test_hidden_path_events_are_ignored_before_coalescing();
   test_actions_preserve_first_path_order();
   test_decode_win32_added_and_modified_records();
   test_decode_win32_removed_and_rename_records();

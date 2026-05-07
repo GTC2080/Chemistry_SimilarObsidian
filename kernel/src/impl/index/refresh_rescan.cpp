@@ -21,6 +21,11 @@ std::atomic<int> g_injected_full_rescan_delays{0};
 std::atomic<int> g_injected_full_rescan_delay_ms{0};
 std::atomic<int> g_injected_full_rescan_interrupt_after_refresh_phase{0};
 
+bool is_hidden_path_segment(const std::filesystem::path& path) {
+  const std::string segment = path.filename().generic_string();
+  return !segment.empty() && segment.front() == '.';
+}
+
 }  // namespace
 
 bool stop_requested(const std::stop_token stop_token) {
@@ -100,6 +105,13 @@ std::error_code full_rescan_markdown_vault(
     }
     if (ec) {
       return ec;
+    }
+    if (is_hidden_path_segment(it->path())) {
+      std::error_code dir_ec;
+      if (it->is_directory(dir_ec) && !dir_ec) {
+        it.disable_recursion_pending();
+      }
+      continue;
     }
     if (!it->is_regular_file()) {
       continue;

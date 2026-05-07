@@ -196,6 +196,10 @@ bool has_hidden_path_segment(std::string_view rel_path) {
   return false;
 }
 
+bool is_visible_markdown_path(std::string_view rel_path) {
+  return is_markdown_path(rel_path) && !has_hidden_path_segment(rel_path);
+}
+
 bool is_ignored_by_roots(
     std::string_view rel_path,
     const std::set<std::string>& ignored_roots) {
@@ -318,7 +322,7 @@ kernel_status filter_paths_with_ignored_roots(
 extern "C" kernel_status kernel_filter_changed_markdown_paths(
     const char* changed_paths_lf,
     kernel_path_list* out_paths) {
-  return filter_paths(changed_paths_lf, out_paths, is_markdown_path);
+  return filter_paths(changed_paths_lf, out_paths, is_visible_markdown_path);
 }
 
 extern "C" kernel_status kernel_filter_supported_vault_paths(

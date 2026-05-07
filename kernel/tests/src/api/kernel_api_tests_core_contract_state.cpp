@@ -159,6 +159,35 @@ void test_open_creates_state_dir_and_storage_db() {
   std::filesystem::remove_all(state_dir);
 }
 
+void test_open_vault_keeps_generated_state_under_nexus_folder() {
+  const auto vault = make_temp_vault();
+  const auto nexus_dir = vault / ".nexus";
+  const auto nexus_kernel_dir = nexus_dir / "kernel";
+  const auto nexus_db_path = nexus_kernel_dir / "state.sqlite3";
+
+  kernel_handle* handle = nullptr;
+  expect_ok(kernel_open_vault(vault.string().c_str(), &handle));
+  require_index_ready(handle, "open_vault should settle before nexus state path assertions");
+
+  require_true(std::filesystem::is_directory(nexus_dir), "open_vault should create .nexus");
+  require_true(
+      std::filesystem::is_directory(nexus_kernel_dir),
+      "open_vault should keep kernel-generated state under .nexus/kernel");
+  require_true(
+      std::filesystem::is_regular_file(nexus_db_path),
+      "open_vault should create state sqlite db under .nexus/kernel");
+  require_true(
+      !std::filesystem::exists(vault / "state.sqlite3"),
+      "open_vault must not create state sqlite db in the vault root");
+  require_true(
+      !std::filesystem::exists(vault / "recovery.journal"),
+      "open_vault must not create recovery journal in the vault root");
+
+  expect_ok(kernel_close(handle));
+  std::filesystem::remove_all(vault);
+  std::filesystem::remove_all(state_dir_for_vault(vault));
+}
+
 void test_get_state_reflects_persisted_notes_and_recovery_queue() {
   const auto vault = make_temp_vault();
   kernel_handle* handle = nullptr;
@@ -238,6 +267,7 @@ void run_kernel_api_core_state_contract_tests() {
   test_index_state_reports_catching_up_during_delayed_initial_scan();
   test_catching_up_hides_stale_indexed_count_until_reconciled();
   test_open_creates_state_dir_and_storage_db();
+  test_open_vault_keeps_generated_state_under_nexus_folder();
   test_get_state_reflects_persisted_notes_and_recovery_queue();
   test_open_vault_reopen_preserves_schema_v1();
 }

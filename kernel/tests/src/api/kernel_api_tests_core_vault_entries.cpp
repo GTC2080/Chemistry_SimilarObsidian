@@ -140,11 +140,14 @@ void test_filter_changed_markdown_paths_normalizes_filters_and_deduplicates() {
       " Folder\\Note.md \n"
       "Folder/Note.md\n"
       "Folder/Note.txt\n"
+      ".nexus/generated.md\n"
       "\n"
       "Folder/Sub.MD\n",
       &paths));
 
-  require_true(paths.count == 2, "changed path filter should keep only unique markdown paths");
+  require_true(
+      paths.count == 2,
+      "changed path filter should keep only unique visible markdown paths");
   require_true(
       std::string(paths.paths[0]) == "Folder/Note.md",
       "changed path filter should trim and normalize backslashes");

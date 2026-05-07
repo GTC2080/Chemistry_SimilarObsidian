@@ -2,9 +2,6 @@
 
 #include "support/test_support.h"
 
-#include "vault/revision.h"
-
-#include <cstdlib>
 #include <fstream>
 #include <stdexcept>
 
@@ -29,19 +26,7 @@ void require_true(const bool condition, std::string_view message) {
 }
 
 std::filesystem::path state_dir_for_vault(const std::filesystem::path& vault) {
-  char* local_app_data = nullptr;
-  std::size_t length = 0;
-  const errno_t env_result = _dupenv_s(&local_app_data, &length, "LOCALAPPDATA");
-  require_true(env_result == 0, "LOCALAPPDATA must be readable");
-  require_true(local_app_data != nullptr, "LOCALAPPDATA must exist");
-
-  const std::string normalized = vault.lexically_normal().generic_string();
-  const std::string revision = kernel::vault::compute_content_revision(normalized);
-  const std::string digest = revision.substr(std::string("v1:sha256:").size());
-
-  const auto result = std::filesystem::path(local_app_data) / "ChemKernel" / "vaults" / digest;
-  free(const_cast<char*>(local_app_data));
-  return result;
+  return vault.lexically_normal() / ".nexus" / "kernel";
 }
 
 std::filesystem::path storage_db_for_vault(const std::filesystem::path& vault) {

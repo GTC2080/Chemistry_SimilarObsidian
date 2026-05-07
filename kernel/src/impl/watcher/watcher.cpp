@@ -80,6 +80,23 @@ PendingKind apply_event(PendingKind current, RawChangeKind incoming) {
   return current;
 }
 
+bool has_hidden_path_segment(std::string_view rel_path) {
+  std::size_t start = 0;
+  while (start <= rel_path.size()) {
+    const std::size_t next = rel_path.find('/', start);
+    const std::string_view segment =
+        next == std::string_view::npos ? rel_path.substr(start) : rel_path.substr(start, next - start);
+    if (!segment.empty() && segment.front() == '.') {
+      return true;
+    }
+    if (next == std::string_view::npos) {
+      break;
+    }
+    start = next + 1;
+  }
+  return false;
+}
+
 }  // namespace
 
 std::vector<CoalescedAction> coalesce_events(const std::vector<RawChangeEvent>& events) {
@@ -89,14 +106,25 @@ std::vector<CoalescedAction> coalesce_events(const std::vector<RawChangeEvent>& 
     }
   }
 
+  std::vector<RawChangeEvent> visible_events;
+  visible_events.reserve(events.size());
+  for (const auto& event : events) {
+    if (!has_hidden_path_segment(event.rel_path)) {
+      visible_events.push_back(event);
+    }
+  }
+  if (visible_events.empty()) {
+    return {};
+  }
+
   std::unordered_map<std::string, PendingEntry> pending;
   std::vector<std::string> order;
   std::vector<DirectEntry> direct_entries;
-  std::vector<bool> consumed(events.size(), false);
+  std::vector<bool> consumed(visible_events.size(), false);
   std::deque<PendingRenameOld> pending_rename_old;
 
-  for (std::size_t index = 0; index < events.size(); ++index) {
-    const auto& event = events[index];
+  for (std::size_t index = 0; index < visible_events.size(); ++index) {
+    const auto& event = visible_events[index];
     if (event.kind == RawChangeKind::RenamedOld) {
       pending_rename_old.push_back(PendingRenameOld{index, event.rel_path});
       continue;
@@ -117,15 +145,15 @@ std::vector<CoalescedAction> coalesce_events(const std::vector<RawChangeEvent>& 
                 ""}});
     consumed[old.order] = true;
     consumed[index] = true;
-    consume_following_refresh_noise(events, event.rel_path, index + 1, consumed);
+    consume_following_refresh_noise(visible_events, event.rel_path, index + 1, consumed);
   }
 
-  for (std::size_t index = 0; index < events.size(); ++index) {
+  for (std::size_t index = 0; index < visible_events.size(); ++index) {
     if (consumed[index]) {
       continue;
     }
 
-    const auto& event = events[index];
+    const auto& event = visible_events[index];
     if (event.kind == RawChangeKind::RenamedOld) {
       direct_entries.push_back(
           DirectEntry{
@@ -148,7 +176,7 @@ std::vector<CoalescedAction> coalesce_events(const std::vector<RawChangeEvent>& 
                   "",
                   "rename_new_without_old"}});
       consumed[index] = true;
-      consume_following_refresh_noise(events, event.rel_path, index + 1, consumed);
+      consume_following_refresh_noise(visible_events, event.rel_path, index + 1, consumed);
       continue;
     }
 
