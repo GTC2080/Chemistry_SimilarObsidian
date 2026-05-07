@@ -201,12 +201,3 @@ Nexus
 Nexus · Scientist Obsidian
   science-focused local knowledge workspace
 ```
-
-## Development Principles
-
-- `README.md` is the Chinese entrypoint. `README_EN.md` is the English entrypoint.
-- Behavior rules belong in `kernel/docs/contracts/`.
-- Regression expectations belong in `kernel/docs/regression/`.
-- Long-term architecture decisions belong in `kernel/docs/adr/`.
-- Generated outputs, local IDE state, and build trees should stay out of Git.
-- Do not add new host-side copies of rules that belong in the sealed kernel.
